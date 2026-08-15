@@ -46,6 +46,18 @@ def test_positive_body_aoa_generates_restoring_fin_moment_without_cyk():
     assert diagnostics.pitch_angular_acceleration_rad_s2 < 0.0
 
 
+def test_body_axis_pid_feedback_is_distinct_from_trajectory_normal_telemetry_at_aoa():
+    config = copy.deepcopy(CONFIG)
+    config["aerodynamics"]["natural_lift_enabled"] = False
+    propulsion = PiecewisePropulsion.from_config(config)
+    state = SimState((0.0, 3000.0, 0.0), (300.0, 0.0, 0.0), 0.2, 0.0, 0.0, 0.0, 147.87)
+    diagnostics = forces_for_state_h2(state, 0.0, config, propulsion, powered=False)
+
+    assert diagnostics.pitch_normal_acceleration_g > 0.0
+    assert abs(diagnostics.trajectory_pitch_normal_acceleration_g) < 1e-12
+    assert diagnostics.lateral_load_g > diagnostics.trajectory_lateral_load_g
+
+
 def test_h2_output_uses_lateral_load_for_actual_overload():
     config = copy.deepcopy(CONFIG)
     config["performance"]["lifetime_s"] = 0.04

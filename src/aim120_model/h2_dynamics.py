@@ -34,6 +34,9 @@ class H2DynamicsDiagnostics:
     pitch_normal_acceleration_g: float
     yaw_normal_acceleration_g: float
     lateral_load_g: float
+    trajectory_pitch_normal_acceleration_g: float
+    trajectory_yaw_normal_acceleration_g: float
+    trajectory_lateral_load_g: float
     total_specific_force_g: float
     drag_power_w: float
     lift_power_w: float
@@ -97,10 +100,15 @@ def forces_for_state_h2(
     )
     specific_force = scale(non_gravity, 1.0 / mass)
     acceleration = scale(total_force, 1.0 / mass)
-    pitch_g = dot(specific_force, aero.flow_normal_pitch) / gravity
-    yaw_g = dot(specific_force, aero.flow_normal_yaw) / gravity
+    # Acceleration-controller feedback belongs to the missile-mounted body
+    # axes, matching guidance.commanded_body_acceleration_g exactly.
+    pitch_g = dot(specific_force, axes.up) / gravity
+    yaw_g = dot(specific_force, axes.right) / gravity
+    trajectory_pitch_g = dot(specific_force, aero.flow_normal_pitch) / gravity
+    trajectory_yaw_g = dot(specific_force, aero.flow_normal_yaw) / gravity
     axial_g = dot(specific_force, aero.air_velocity_hat) / gravity
     lateral_g = math.hypot(pitch_g, yaw_g)
+    trajectory_lateral_g = math.hypot(trajectory_pitch_g, trajectory_yaw_g)
     total_g = norm(specific_force) / gravity
 
     length = max(float(config["geometry"]["length_m"]), 1e-6)
@@ -142,6 +150,9 @@ def forces_for_state_h2(
         pitch_normal_acceleration_g=pitch_g,
         yaw_normal_acceleration_g=yaw_g,
         lateral_load_g=lateral_g,
+        trajectory_pitch_normal_acceleration_g=trajectory_pitch_g,
+        trajectory_yaw_normal_acceleration_g=trajectory_yaw_g,
+        trajectory_lateral_load_g=trajectory_lateral_g,
         total_specific_force_g=total_g,
         drag_power_w=dot(aero.drag_force_n, aero.air_velocity_mps),
         lift_power_w=dot(lift_force, aero.air_velocity_mps),

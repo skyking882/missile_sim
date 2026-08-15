@@ -200,7 +200,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         "model_label": f"{profile['missile_id']}_{runtime_name}",
         "aero_model_version": "effective_cda_v1",
         "force_geometry_version": "flow_normal_v1",
-        "control_model_version": "raw_pid_fin_aoa_moment_v3",
+        "control_model_version": "raw_pid_body_g_fin_aoa_moment_v4",
         "reference": {
             "source": "Unit-explicit missile profile adapted to shared H2 candidate runtime",
             "solver_reproduction_claimed": False,
@@ -266,7 +266,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         "control": {
             "limit_angle_of_attack_enabled": bool(layer_control["limit_angle_of_attack_enabled"]),
             "maximum_body_angle_of_attack_deg": float(layer_control["maximum_body_angle_of_attack_deg"]),
-            "feedback_measurement": "physical_normal_g",
+            "feedback_measurement": "body_specific_force_g",
             "integral_limit_semantics": "term",
             "fin_aoa_moment_enabled": True,
             "pid": {

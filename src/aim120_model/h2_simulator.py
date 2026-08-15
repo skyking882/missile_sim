@@ -157,6 +157,9 @@ class H2Simulator:
             "pitch_normal_acceleration_g": float(diagnostics.pitch_normal_acceleration_g),
             "yaw_normal_acceleration_g": float(diagnostics.yaw_normal_acceleration_g),
             "lateral_load_g": float(diagnostics.lateral_load_g),
+            "trajectory_pitch_normal_acceleration_g": float(diagnostics.trajectory_pitch_normal_acceleration_g),
+            "trajectory_yaw_normal_acceleration_g": float(diagnostics.trajectory_yaw_normal_acceleration_g),
+            "trajectory_lateral_load_g": float(diagnostics.trajectory_lateral_load_g),
             "total_specific_force_g": float(diagnostics.total_specific_force_g),
             "actual_overload_g": float(diagnostics.lateral_load_g),
             "drag_power_w": float(diagnostics.drag_power_w),
@@ -304,7 +307,7 @@ class H2Simulator:
                 step,
                 enabled=controlled,
                 authority_scale=authority_scale,
-                feedback_measurement="physical_normal_g",
+                feedback_measurement=self.config["control"].get("feedback_measurement", "physical_normal_g"),
             )
             state_for_step = replace(state, **feedback)
             next_state = rk4_step_h2(
@@ -335,10 +338,19 @@ class H2Simulator:
                 self.propulsion,
                 powered,
             )
+            feedback_measurement = self.config["control"].get("feedback_measurement", "physical_normal_g")
+            if feedback_measurement == "body_specific_force_g":
+                measured_pitch_g = next_diagnostics.pitch_normal_acceleration_g
+                measured_yaw_g = next_diagnostics.yaw_normal_acceleration_g
+            else:
+                # Compatibility path for frozen H2 artifacts whose historical
+                # "physical_normal_g" telemetry used trajectory-normal axes.
+                measured_pitch_g = next_diagnostics.trajectory_pitch_normal_acceleration_g
+                measured_yaw_g = next_diagnostics.trajectory_yaw_normal_acceleration_g
             next_state = replace(
                 next_state,
-                measured_pitch_normal_g=next_diagnostics.pitch_normal_acceleration_g,
-                measured_yaw_normal_g=next_diagnostics.yaw_normal_acceleration_g,
+                measured_pitch_normal_g=measured_pitch_g,
+                measured_yaw_normal_g=measured_yaw_g,
             )
             if not state_is_finite(next_state) or not _target_is_finite(next_target):
                 event_type = "numerical_failure"

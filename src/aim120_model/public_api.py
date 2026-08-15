@@ -247,6 +247,7 @@ def _summarize(result: dict[str, Any], config: dict[str, Any], limited_by_scenar
         "maximum_altitude_m": max(float(sample["position_m"][1]) for sample in samples),
         "maximum_commanded_g": max(_command_g(sample) for sample in samples),
         "maximum_actual_g": max(float(sample.get("actual_overload_g", 0.0)) for sample in samples),
+        "maximum_trajectory_normal_g": max(float(sample.get("trajectory_lateral_load_g", 0.0)) for sample in samples),
         "minimum_distance_m": min(float(sample["distance_to_target_m"]) for sample in samples),
         "loft_enabled": bool(config["guidance"].get("lofting_enabled", False)),
         "burnout_time_s": burnout_time,

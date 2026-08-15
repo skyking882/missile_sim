@@ -73,11 +73,11 @@ def update_control_feedback(
         ),
     ):
         actuator_state = float(getattr(state, actual_name))
-        if measurement_mode == "physical_normal_g":
+        if measurement_mode in {"physical_normal_g", "body_specific_force_g"}:
             # H2 separates the physical normal-load measurement used by the
-            # controller from the actuator's own response state.  Otherwise
-            # natural lift/drag would be fed back as if it were fin output,
-            # and a zero-authority ablation would still apply control force.
+            # controller from the actuator's own response state.  The true-
+            # difference runtime stores body-axis specific force here, in the
+            # same axes as the guidance command.
             measured = float(getattr(state, f"measured_{axis}_normal_g", actuator_state))
         else:
             # Preserve the H1 actuator-state feedback path exactly.
