@@ -57,6 +57,12 @@ def _r77_high_demand_scenario() -> dict[str, float | None]:
     return scenario
 
 
+def _heading_minus20_scenario() -> dict[str, float | None]:
+    scenario = _r77_high_demand_scenario()
+    scenario["target_heading_deg"] = -20.0
+    return scenario
+
+
 def test_gui_library_statuses_do_not_overclaim_validation() -> None:
     profiles, errors = scan_library(ROOT / "missiles", ROOT)
     assert errors == []
@@ -227,12 +233,17 @@ def test_universal_control_mapping_uses_pid_floor_and_normalized_attitude_geomet
     assert errors == []
     indexed = {profile.get("missile_id"): profile for profile in profiles}
     aim120a = indexed["us_aim_120a"]["_model_config"]
+    aam4 = indexed["jp_aam4"]["_model_config"]
     aim7f = indexed["us_aim7f_sparrow"]["_model_config"]
     r27er = indexed["su_r_27er"]["_model_config"]
+    r77 = indexed["su_r_77"]["_model_config"]
 
     assert aim7f["control"]["pid"]["p"] == aim120a["control"]["pid"]["p"]
     assert aim7f["control"]["pid"]["i"] == aim120a["control"]["pid"]["i"]
     assert r27er["control"]["angular_response_scale"] > aim120a["control"]["angular_response_scale"]
+    assert aim120a["control"]["fin_command_limit"] == 1.0
+    assert aam4["control"]["fin_command_limit"] == aim120a["control"]["fin_command_limit"]
+    assert r77["control"]["fin_command_limit"] == aim120a["control"]["fin_command_limit"]
 
 
 def test_r77_high_demand_case_tracks_without_permanent_integral_error() -> None:
@@ -243,3 +254,35 @@ def test_r77_high_demand_case_tracks_without_permanent_integral_error() -> None:
 
     assert result["summary"]["termination_event"] == "proximity_fuse"
     assert result["summary"]["maximum_actual_g"] > 20.0
+
+
+def test_heading_minus20_case_preserves_observed_control_ranking() -> None:
+    profiles, errors = scan_library(ROOT / "missiles", ROOT)
+    assert errors == []
+    indexed = {profile.get("missile_id"): profile for profile in profiles}
+    results = {
+        missile_id: simulate(indexed[missile_id], _heading_minus20_scenario())
+        for missile_id in ("us_aim_120a", "cn_pl12", "su_r_77", "jp_aam4")
+    }
+
+    assert results["us_aim_120a"]["summary"]["termination_event"] == "proximity_fuse"
+    assert results["su_r_77"]["summary"]["termination_event"] == "proximity_fuse"
+    assert results["cn_pl12"]["summary"]["termination_event"] == "lifetime"
+    assert (
+        results["jp_aam4"]["summary"]["maximum_actual_g"]
+        > results["us_aim_120a"]["summary"]["maximum_actual_g"]
+    )
+
+
+def test_sensor_track_step_budget_reaches_requested_time_after_stage_splits() -> None:
+    profiles, errors = scan_library(ROOT / "missiles", ROOT)
+    assert errors == []
+    r_darter = next(profile for profile in profiles if profile.get("missile_id") == "r_darter")
+    scenario = _heading_minus20_scenario()
+    scenario["observation_mode"] = "sensor_track"
+    scenario["max_simulation_time_s"] = 7.0
+    result = simulate(r_darter, scenario)
+
+    assert result["summary"]["termination_event"] == "lifetime"
+    assert result["summary"]["termination_detail"] == "reached_scenario_time_limit"
+    assert result["summary"]["flight_time_s"] == 7.0

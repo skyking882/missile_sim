@@ -31,8 +31,8 @@ SUPPORTED_MODEL_TYPES = {
 # H2/v1 layer that has regression and reference-comparison coverage.
 UNIVERSAL_H2_LAYER: dict[str, Any] = {
     "aerodynamics": {
-        "missing_cy_k": 2.2,
-        "missing_cx_vs_aoa": 9.0,
+        # gameparams.blkx:shellBallisticsParams.props.CxAoA
+        "global_cx_vs_aoa": 9.0,
         "missing_max_cy_at_aoa": 1.0,
         "max_cy_interpretation": "coefficient_cap",
         "thrust_vector_angle_deg": 0.0,
@@ -59,29 +59,12 @@ UNIVERSAL_H2_LAYER: dict[str, Any] = {
     },
     "control": {
         "limit_angle_of_attack_enabled": False,
+        # The datamine exposes fin deflection, not a body-angle limit.  This is
+        # therefore an explicit shared H2 controller guard, not a profile fact.
+        "maximum_body_angle_of_attack_deg": 30.0,
         "actuator_time_constant_s": 0.08,
         "derivative_filter_time_constant_s": 0.03,
         "angular_response_scale": 0.04,
-        # The reduced-order H2 plant was validated with the AIM-120A control
-        # boundary.  Datamine PID numbers below this floor under-drive that
-        # normalized plant, so the frozen gains define its minimum stable
-        # feedback rather than being copied into individual missile profiles.
-        "pid_floor": {"p": 0.0086, "i": 0.0565, "d": 0.00025},
-        # Preserve the validated low/moderate-command integral path, but stop
-        # the raw integral-state clamp from imposing a permanent error when a
-        # missile is demanding most of its available lateral acceleration.
-        "high_demand_integral": {
-            "enabled": True,
-            "command_fraction": 0.40,
-            "term_limit": 1.0,
-        },
-        # finsLatAccel already carries missile-specific lateral authority.  Keep
-        # the attitude surrogate on the same normalized geometry as the frozen
-        # plant so length/arm do not weaken that authority a second time.
-        "reference_attitude_geometry": {
-            "length_m": 3.66,
-            "fin_moment_arm_m": 0.175,
-        },
         "angular_damping": 1.0,
         "maximum_angular_rate_deg_s": 60.0,
     },
@@ -150,36 +133,24 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         "i": _number(pid.get("i"), 0.0, assumptions, "control.pid.i"),
         "d": _number(pid.get("d"), 0.0, assumptions, "control.pid.d"),
     }
-    pid_floor = layer_control["pid_floor"]
-    mapped_pid = {
-        axis: max(raw_pid[axis], float(pid_floor[axis]))
-        for axis in ("p", "i", "d")
-    }
-    for axis in ("p", "i", "d"):
-        if mapped_pid[axis] != raw_pid[axis]:
-            assumptions.append(
-                f"control.pid.{axis} {raw_pid[axis]:.9g} below universal H2 plant floor -> {mapped_pid[axis]:.9g}"
-            )
-
-    reference_attitude = layer_control["reference_attitude_geometry"]
-    reference_length = float(reference_attitude["length_m"])
-    reference_arm = float(reference_attitude["fin_moment_arm_m"])
-    missile_length = max(float(geometry["length_m"]), 1e-9)
-    missile_arm = max(float(aero["fin_moment_arm_m"]), 1e-9)
-    reference_geometry_factor = reference_arm / (reference_length * reference_length)
-    missile_geometry_factor = missile_arm / (missile_length * missile_length)
-    angular_response_scale = (
-        float(layer_control["angular_response_scale"])
-        * reference_geometry_factor
-        / missile_geometry_factor
+    mapped_pid = raw_pid
+    angular_response_scale = float(layer_control["angular_response_scale"])
+    assumptions.append(
+        "control PID uses the selected profile's raw p/i/d values; no AIM-120A floor or gain substitution"
     )
     assumptions.append(
-        "control.angular_response_scale normalized to universal H2 attitude geometry "
-        f"-> {angular_response_scale:.9g}"
+        "control.angular_response_scale is shared without inverse arm/length normalization; "
+        "profile arm and length remain active in the attitude equation"
     )
 
-    cy_k = _number(aero.get("cy_k"), layer_aero["missing_cy_k"], assumptions, "aerodynamics.cy_k")
-    cx_aoa = _number(aero["cx_vs_aoa"].get("coefficient_per_rad2"), layer_aero["missing_cx_vs_aoa"], assumptions, "aerodynamics.cx_vs_aoa")
+    profile_cx_aoa = aero["cx_vs_aoa"].get("coefficient_per_rad2")
+    if profile_cx_aoa is None:
+        cx_aoa = float(layer_aero["global_cx_vs_aoa"])
+        assumptions.append(
+            "aerodynamics.cx_vs_aoa missing in missile BLK -> gameparams shellBallisticsParams.props.CxAoA 9"
+        )
+    else:
+        cx_aoa = float(profile_cx_aoa)
     max_cy = _number(aero["max_cy_at_aoa"].get("value"), layer_aero["missing_max_cy_at_aoa"], assumptions, "aerodynamics.max_cy_at_aoa")
     fins_g = _number(aero.get("fins_lateral_acceleration_g"), 0.0, assumptions, "aerodynamics.fins_lateral_acceleration_g")
     actuator_tau = _number(control.get("actuator_time_constant_s"), layer_control["actuator_time_constant_s"], assumptions, "control.actuator_time_constant_s")
@@ -211,9 +182,8 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         for stage in profile["propulsion"]["stages"]
     ]
     runtime_name = str(defaults["runtime_name"])
-    natural_lift_enabled = cy_k > 0.0 and max_cy > 0.0
-    if not natural_lift_enabled:
-        assumptions.append("natural lift disabled because profile lift coefficients are incomplete")
+    natural_lift_enabled = False
+    assumptions.append("natural lift disabled: CyK is absent from the supported missile profiles and is not imputed")
     wing_multiplier = float(geometry["wing_area_multiplier"])
     profile_lift_scale = float(aero["lift_area_scale"])
     lift_area_scale = profile_lift_scale / wing_multiplier
@@ -226,11 +196,11 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     )
     config = {
         "schema_version": 3,
-        "release_version": "profile-adapter-v1",
+        "release_version": "profile-adapter-v2-true-difference",
         "model_label": f"{profile['missile_id']}_{runtime_name}",
         "aero_model_version": "effective_cda_v1",
         "force_geometry_version": "flow_normal_v1",
-        "control_model_version": "physical_feedback_v1",
+        "control_model_version": "raw_pid_physical_feedback_v2",
         "reference": {
             "source": "Unit-explicit missile profile adapted to shared H2 candidate runtime",
             "solver_reproduction_claimed": False,
@@ -245,7 +215,6 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         },
         "aerodynamics": {
             "cx_k": float(aero["cx_k"]),
-            "cy_k": cy_k,
             "cx_vs_aoa": cx_aoa,
             "max_cy_at_aoa": max_cy,
             "max_cy_interpretation": str(layer_aero["max_cy_interpretation"]),
@@ -296,6 +265,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         },
         "control": {
             "limit_angle_of_attack_enabled": bool(layer_control["limit_angle_of_attack_enabled"]),
+            "maximum_body_angle_of_attack_deg": float(layer_control["maximum_body_angle_of_attack_deg"]),
             "feedback_measurement": "physical_normal_g",
             "pid": {
                 "switch_time_s": 3.4028234663852886e38,
@@ -304,7 +274,9 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
                 "d": mapped_pid["d"],
                 "integral_limit": _number(pid.get("integral_limit"), 1.0, assumptions, "control.pid.integral_limit"),
             },
-            "high_demand_integral": copy.deepcopy(layer_control["high_demand_integral"]),
+            # Unit command already means the profile's full finsLatAccel
+            # authority.  Scaling this again by finsAoa would double-count the
+            # profile-specific fin limit and permit acceleration above it.
             "fin_command_limit": float(control["fin_command_limit"]),
             "actuator_time_constant_s": actuator_tau,
             "derivative_filter_time_constant_s": float(layer_control["derivative_filter_time_constant_s"]),

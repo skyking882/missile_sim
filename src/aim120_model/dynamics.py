@@ -193,6 +193,42 @@ def clamp_rates(state: SimState, config: dict[str, Any]) -> SimState:
     )
 
 
+def clamp_body_angle_of_attack(state: SimState, config: dict[str, Any]) -> SimState:
+    """Project the roll-free body attitude onto an explicit total-AoA bound."""
+
+    control = config["control"]
+    if not control.get("limit_angle_of_attack_enabled", False):
+        return state
+    vx, vy, vz = state.velocity
+    horizontal_speed = math.hypot(vx, vz)
+    if horizontal_speed <= 1e-9 and abs(vy) <= 1e-9:
+        return state
+    flight_pitch = math.atan2(vy, horizontal_speed)
+    flight_yaw = math.atan2(vz, vx)
+    pitch_error = math.atan2(math.sin(state.pitch - flight_pitch), math.cos(state.pitch - flight_pitch))
+    yaw_error = math.atan2(math.sin(state.yaw - flight_yaw), math.cos(state.yaw - flight_yaw))
+    total_error = math.hypot(pitch_error, yaw_error)
+    maximum = deg_to_rad(max(float(control["maximum_body_angle_of_attack_deg"]), 0.0))
+    if total_error <= maximum or total_error <= 1e-12:
+        return state
+    ratio = maximum / total_error
+    limited_pitch_error = pitch_error * ratio
+    limited_yaw_error = yaw_error * ratio
+    pitch_rate = state.pitch_rate
+    yaw_rate = state.yaw_rate
+    if pitch_error * pitch_rate > 0.0:
+        pitch_rate = 0.0
+    if yaw_error * yaw_rate > 0.0:
+        yaw_rate = 0.0
+    return replace(
+        state,
+        pitch=flight_pitch + limited_pitch_error,
+        yaw=flight_yaw + limited_yaw_error,
+        pitch_rate=pitch_rate,
+        yaw_rate=yaw_rate,
+    )
+
+
 def state_is_finite(state: SimState) -> bool:
     return (
         is_finite_vector(state.position)

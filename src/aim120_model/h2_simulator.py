@@ -237,7 +237,13 @@ class H2Simulator:
         if not math.isfinite(dt_nominal) or dt_nominal <= 0.0:
             raise ValueError("simulation_dt_s must be a positive finite number")
         lifetime = float(self.config["performance"]["lifetime_s"])
-        max_steps = max(int(self.config["numerics"]["max_steps"]), int(math.ceil(lifetime / dt_nominal)) + 1)
+        # Every propulsion boundary can split one nominal step into an extra
+        # partial step.  Budget those splits explicitly; otherwise a two-stage
+        # missile at the 1/256 s sensor cadence can exhaust the loop a fraction
+        # of a step before lifetime and be mislabeled as numerical_failure.
+        boundary_step_budget = len(self.config["propulsion"]["stages"]) if powered else 0
+        required_steps = int(math.ceil(lifetime / dt_nominal)) + boundary_step_budget + 1
+        max_steps = max(int(self.config["numerics"]["max_steps"]), required_steps)
         if observation_mode == "sensor_track":
             guidance_config = self.config.get("guidance", {})
             sensor_model = guidance_config.get("sensor_model")
@@ -310,9 +316,10 @@ class H2Simulator:
                 next_state = replace(next_state, mass=self.propulsion.mass_at(time_s + step, powered=True))
             else:
                 next_state = replace(next_state, mass=self.propulsion.initial_mass_kg)
-            from .dynamics import clamp_rates, state_is_finite
+            from .dynamics import clamp_body_angle_of_attack, clamp_rates, state_is_finite
 
             next_state = clamp_rates(next_state, self.config)
+            next_state = clamp_body_angle_of_attack(next_state, self.config)
             next_time = time_s + step
             if hasattr(target_model, "state_at"):
                 next_target = target_model.state_at(next_time)

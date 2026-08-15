@@ -127,11 +127,12 @@ def compute_aerodynamics_h2(
         fallback=axes.right,
     )
     aero_cfg = config["aerodynamics"]
-    lift_multiplier = mach_multiplier(mach, aero_cfg["mach_lift"])
-    max_cy = float(aero_cfg["max_cy_at_aoa"])
-    cy_pitch = clamp(float(aero_cfg["cy_k"]) * lift_multiplier * pitch_alpha, -max_cy, max_cy)
-    cy_yaw = clamp(float(aero_cfg["cy_k"]) * lift_multiplier * yaw_alpha, -max_cy, max_cy)
     if aero_cfg.get("natural_lift_enabled", True):
+        lift_multiplier = mach_multiplier(mach, aero_cfg["mach_lift"])
+        max_cy = float(aero_cfg["max_cy_at_aoa"])
+        cy_k = float(aero_cfg["cy_k"])
+        cy_pitch = clamp(cy_k * lift_multiplier * pitch_alpha, -max_cy, max_cy)
+        cy_yaw = clamp(cy_k * lift_multiplier * yaw_alpha, -max_cy, max_cy)
         lift_area = area_for_h2_lift(config)
         lift_pitch = q * lift_area * cy_pitch * float(aero_cfg.get("natural_lift_fraction", 1.0))
         lift_yaw = q * lift_area * cy_yaw * float(aero_cfg.get("natural_lift_fraction", 1.0))
@@ -140,6 +141,8 @@ def compute_aerodynamics_h2(
             scale(flow_normal_yaw, lift_yaw),
         )
     else:
+        cy_pitch = 0.0
+        cy_yaw = 0.0
         natural_lift = (0.0, 0.0, 0.0)
     reference = max(area_for_h2_lift(config), 1e-12)
     return H2AeroSample(

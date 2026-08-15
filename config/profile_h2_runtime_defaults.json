@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "runtime_name": "profile_h2_universal_v2",
+  "runtime_name": "profile_h2_true_difference_v3",
   "enable_supported_profiles": true,
-  "boundary": "Experimental universal H2 Python model layer plus selected missile JSON; not an end-to-end validation or game-solver reproduction."
+  "boundary": "Experimental true-difference H2 layer: raw per-profile PID and geometry, global gameparams CxAoA=9, no imputed CyK; not an end-to-end validation or game-solver reproduction."
 }

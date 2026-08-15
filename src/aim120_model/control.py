@@ -76,7 +76,9 @@ def update_control_feedback(
             # Preserve the H1 actuator-state feedback path exactly.
             measured = actuator_state
         error = command - measured
+        stored_integral = float(getattr(state, integral_name))
         integral_limit = float(pid["integral_limit"])
+        high_demand_active = False
         high_demand = control_cfg.get("high_demand_integral", {})
         if high_demand.get("enabled", False):
             maximum_command_g = max(
@@ -85,6 +87,7 @@ def update_control_feedback(
             )
             demand_fraction = abs(command) / maximum_command_g
             if demand_fraction >= float(high_demand.get("command_fraction", 1.0)):
+                high_demand_active = True
                 # accelControlIntgLim is treated as a limit on the I-term in
                 # the high-demand branch.  Dividing by I converts that limit
                 # to the stored integral-state units used by this local PID.
@@ -94,7 +97,13 @@ def update_control_feedback(
                         integral_limit,
                         float(high_demand.get("term_limit", 1.0)) / integral_gain,
                     )
-        integral = clamp(float(getattr(state, integral_name)) + error * dt, -integral_limit, integral_limit)
+        integral_delta = error * dt
+        if high_demand_active and stored_integral * error < 0.0:
+            # Back-calculate the enlarged high-demand integral faster once the
+            # physical load has crossed the command.  This removes wind-up
+            # continuously instead of discontinuously resetting the state.
+            integral_delta *= max(float(high_demand.get("unwind_multiplier", 1.0)), 1.0)
+        integral = clamp(stored_integral + integral_delta, -integral_limit, integral_limit)
         raw_derivative = (error - float(getattr(state, previous_name))) / dt
         derivative = float(getattr(state, derivative_name)) + alpha * (raw_derivative - float(getattr(state, derivative_name)))
         output = pid["p"] * error + pid["i"] * integral + pid["d"] * derivative
