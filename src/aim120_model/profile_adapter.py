@@ -278,11 +278,12 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "feedback_measurement": "body_specific_force_g",
             "integral_limit_semantics": "term",
             "fin_aoa_moment_enabled": True,
-            # Keep production behavior frozen at B0.  Diagnostic callers may
-            # select one of the explicit baseIndSpeed candidates on a copied
-            # runtime config; the per-profile raw PID remains unchanged.
+            # The raw acceleration-controller output is a requested fin angle
+            # in radians.  Per-profile finsAoa is the physical angle clamp, not
+            # a gain that converts an invented normalized PID output.
+            "pid_output_semantics": "fin_angle_rad",
             "base_indicated_speed_kmh": base_indicated_speed,
-            "base_indicated_speed_mode": "none",
+            "base_indicated_speed_mode": "fin_authority_q" if base_indicated_speed is not None else "none",
             "pid": {
                 "switch_time_s": 3.4028234663852886e38,
                 "p": mapped_pid["p"],
@@ -290,9 +291,9 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
                 "d": mapped_pid["d"],
                 "integral_limit": _number(pid.get("integral_limit"), 1.0, assumptions, "control.pid.integral_limit"),
             },
-            # Unit command already means the profile's full finsLatAccel
-            # authority.  Scaling this again by finsAoa would double-count the
-            # profile-specific fin limit and permit acceleration above it.
+            # Compatibility field for frozen normalized-command configs.  The
+            # true-difference fin_angle_rad path clamps directly at finsAoa and
+            # derives fin_fraction from actual_angle/finsAoa.
             "fin_command_limit": float(control["fin_command_limit"]),
             "actuator_time_constant_s": actuator_tau,
             "derivative_filter_time_constant_s": float(layer_control["derivative_filter_time_constant_s"]),

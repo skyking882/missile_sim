@@ -159,6 +159,43 @@ def test_active_base_indicated_speed_candidate_rejects_missing_profile_value():
         raise AssertionError("missing baseIndSpeed must not use an invented universal fallback")
 
 
+def test_true_difference_pid_output_is_radians_clamped_only_by_profile_fin_aoa():
+    state = SimState((0.0, 3000.0, 0.0), (300.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 147.87)
+    config = copy.deepcopy(CONFIG)
+    config["control"]["pid_output_semantics"] = "fin_angle_rad"
+    config["control"]["integral_limit_semantics"] = "term"
+    config["control"]["pid"].update({"p": 0.01, "i": 0.0, "d": 0.0})
+    config["aerodynamics"]["horizontal_fin_aoa_limit_deg"] = 20.0
+    dt = config["control"]["actuator_time_constant_s"]
+
+    updates = update_control_feedback(state, (100.0, 0.0), config, dt, enabled=True)
+    maximum_angle = math.radians(20.0)
+
+    assert updates["pitch_pid_output"] == 1.0
+    assert updates["pitch_requested_fin_command"] == 1.0
+    assert abs(updates["actual_pitch_fin_angle_rad"] - 0.5 * maximum_angle) < 1e-12
+    assert abs(
+        updates["actual_pitch_acceleration_g"]
+        - 0.5 * config["aerodynamics"]["fins_lateral_acceleration_g"]
+    ) < 1e-12
+
+
+def test_true_difference_sub_limit_pid_angle_is_not_multiplied_by_fins_aoa():
+    state = SimState((0.0, 3000.0, 0.0), (300.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 147.87)
+    config = copy.deepcopy(CONFIG)
+    config["control"]["pid_output_semantics"] = "fin_angle_rad"
+    config["control"]["integral_limit_semantics"] = "term"
+    config["control"]["pid"].update({"p": 0.01, "i": 0.0, "d": 0.0})
+    config["aerodynamics"]["horizontal_fin_aoa_limit_deg"] = 20.0
+    dt = config["control"]["actuator_time_constant_s"]
+
+    updates = update_control_feedback(state, (10.0, 0.0), config, dt, enabled=True)
+
+    assert updates["pitch_pid_output"] == 0.1
+    assert abs(updates["actual_pitch_fin_angle_rad"] - 0.05) < 1e-12
+    assert abs(updates["pitch_requested_fin_command"] - 0.1 / math.radians(20.0)) < 1e-12
+
+
 def test_body_aoa_guard_projects_attitude_onto_total_angle_limit():
     config = copy.deepcopy(CONFIG)
     config["control"].update({

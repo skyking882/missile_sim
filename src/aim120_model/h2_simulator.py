@@ -212,6 +212,14 @@ class H2Simulator:
             "yaw_pid_output": float(state.yaw_pid_output),
             "pitch_requested_fin_command": float(state.pitch_requested_fin_command),
             "yaw_requested_fin_command": float(state.yaw_requested_fin_command),
+            "pitch_requested_fin_angle_rad": float(
+                state.pitch_requested_fin_command
+                * math.radians(self.config["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
+            ),
+            "yaw_requested_fin_angle_rad": float(
+                state.yaw_requested_fin_command
+                * math.radians(self.config["aerodynamics"]["vertical_fin_aoa_limit_deg"])
+            ),
             "pid_feedback_pitch_g": float(state.measured_pitch_normal_g),
             "pid_feedback_yaw_g": float(state.measured_yaw_normal_g),
             "fin_authority_scale": float(_FIN_AUTHORITY[variant]),

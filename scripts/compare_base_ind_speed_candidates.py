@@ -71,6 +71,7 @@ def _summary(result: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
         "pid_yaw_first_reversal_s": _first_sign_reversal(samples, "yaw_pid_output"),
         "fin_angle_yaw_first_reversal_s": _first_sign_reversal(samples, "actual_yaw_fin_angle_rad"),
         "base_indicated_speed_kmh": config["control"]["base_indicated_speed_kmh"],
+        "pid_output_semantics": config["control"].get("pid_output_semantics", "normalized_fin_command"),
         "raw_pid": copy.deepcopy(config["control"]["pid"]),
     }
 
@@ -124,6 +125,7 @@ def run() -> dict[str, Any]:
         "status": "diagnostic_candidates_not_solver_identification",
         "scenario": scenario,
         "candidate_definitions": {
+            "controller": "raw PID output is requested fin angle in radians and clamps only at per-axis finsAoa",
             "B0_baseline": "no baseIndSpeed scaling",
             "B1_fin_authority_times_q_ratio": "fin force and AoA restoring moment multiplied by q/q_ref",
             "B2_fin_authority_times_q_ratio_fin_command_div_q_ratio": "B1 plus requested fin command divided by q/q_ref",

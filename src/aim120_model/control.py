@@ -180,14 +180,29 @@ def update_control_feedback(
         integral_output = integral if integral_semantics == "term" else float(pid["i"]) * integral
         output = float(pid["p"]) * error + integral_output + float(pid["d"]) * derivative
         scheduled_output = output * schedule.pid_output_scale
-        requested_fin = clamp(
-            scheduled_output * schedule.requested_fin_scale,
-            -control_cfg["fin_command_limit"],
-            control_cfg["fin_command_limit"],
-        )
-        commanded_fin = requested_fin * authority
         maximum_fin_angle = math.radians(max(float(config["aerodynamics"][fin_limit_key]), 1e-9))
-        desired_fin_angle = commanded_fin * maximum_fin_angle
+        output_semantics = str(control_cfg.get("pid_output_semantics", "normalized_fin_command"))
+        if output_semantics == "fin_angle_rad":
+            # Raw accelControl P/I/D output requests a physical fin angle.
+            # finsAoa is the only actuator-angle clamp; it must not also act as
+            # a gain on an invented [-1, 1] PID output.
+            requested_fin_angle = clamp(
+                scheduled_output * schedule.requested_fin_scale,
+                -maximum_fin_angle,
+                maximum_fin_angle,
+            )
+            requested_fin = requested_fin_angle / maximum_fin_angle
+            desired_fin_angle = requested_fin_angle * authority
+        elif output_semantics == "normalized_fin_command":
+            # Frozen H1/H2 compatibility path.
+            requested_fin = clamp(
+                scheduled_output * schedule.requested_fin_scale,
+                -control_cfg["fin_command_limit"],
+                control_cfg["fin_command_limit"],
+            )
+            desired_fin_angle = requested_fin * authority * maximum_fin_angle
+        else:
+            raise ValueError(f"unknown pid_output_semantics: {output_semantics}")
         actuator_alpha = min(1.0, dt / (max(control_cfg["actuator_time_constant_s"], 1e-9) + dt))
         previous_fin_angle = float(getattr(state, fin_angle_name))
         actual_fin_angle = previous_fin_angle + actuator_alpha * (desired_fin_angle - previous_fin_angle)
