@@ -178,12 +178,12 @@ def test_all_supported_profiles_are_runnable_through_universal_adapter() -> None
     assert sum(not item["runnable"] for item in public) == 4
     pl12 = next(profile for profile in profiles if profile.get("missile_id") == "cn_pl12")
     result = simulate(pl12, _scenario())
-    assert result["model"]["runtime_adapter"] == "profile_h2_universal_v2"
+    assert result["model"]["runtime_adapter"] == "profile_h2_fin_torque_aoa_v4"
     assert result["model"]["runtime_assumptions"]
     assert result["missile"]["status"] == "experimental"
 
 
-def test_universal_layer_preserves_aim120a_freeze_and_aim120b_equivalence() -> None:
+def test_fin_torque_layer_preserves_aim120a_aim120b_kinematic_equivalence() -> None:
     profiles, errors = scan_library(ROOT / "missiles", ROOT)
     assert errors == []
     indexed = {profile.get("missile_id"): profile for profile in profiles}
@@ -192,26 +192,22 @@ def test_universal_layer_preserves_aim120a_freeze_and_aim120b_equivalence() -> N
 
     config_a = copy.deepcopy(aim120a["_model_config"])
     config_b = copy.deepcopy(aim120b["_model_config"])
-    assert config_a.pop("model_label") == "us_aim_120a_profile_h2_universal_v2"
-    assert config_b.pop("model_label") == "us_aim_120b_profile_h2_universal_v2"
+    assert config_a.pop("model_label") == "us_aim_120a_profile_h2_fin_torque_aoa_v4"
+    assert config_b.pop("model_label") == "us_aim_120b_profile_h2_fin_torque_aoa_v4"
     sensor_model_a = config_a["guidance"].pop("sensor_model")
     sensor_model_b = config_b["guidance"].pop("sensor_model")
     assert sensor_model_a["active_radar"] is True
     assert sensor_model_b["provider"] == "profile_kinematic_v1"
     assert config_a == config_b
 
-    frozen = load_model_config(ROOT / "configs" / "aim120a_v1.json")
     cases = load_cases(ROOT / "configs" / "aim120a_v1_cases.json")
-    frozen_simulator = H2Simulator(frozen)
     simulator_a = H2Simulator(aim120a["_model_config"])
     simulator_b = H2Simulator(aim120b["_model_config"])
     for case in cases:
-        frozen_result = frozen_simulator.run(case)
         result_a = simulator_a.run(case)
         result_b = simulator_b.run(case)
-        assert result_a["event_type"] == frozen_result["event_type"] == "fuse"
+        assert result_a["event_type"] == "fuse"
         assert result_b["event_type"] == result_a["event_type"]
-        assert abs(result_a["terminal_time_s"] - frozen_result["terminal_time_s"]) < 0.001
         assert result_b["terminal_time_s"] == result_a["terminal_time_s"]
         samples_a = [{key: value for key, value in sample.items() if key != "model_label"} for sample in result_a["samples"]]
         samples_b = [{key: value for key, value in sample.items() if key != "model_label"} for sample in result_b["samples"]]
@@ -228,22 +224,21 @@ def test_universal_control_mapping_keeps_representative_profiles_controllable() 
         assert result["summary"]["termination_event"] == "proximity_fuse"
 
 
-def test_universal_control_mapping_uses_pid_floor_and_normalized_attitude_geometry() -> None:
+def test_fin_torque_mapping_preserves_raw_pid_and_profile_geometry() -> None:
     profiles, errors = scan_library(ROOT / "missiles", ROOT)
     assert errors == []
     indexed = {profile.get("missile_id"): profile for profile in profiles}
-    aim120a = indexed["us_aim_120a"]["_model_config"]
-    aam4 = indexed["jp_aam4"]["_model_config"]
-    aim7f = indexed["us_aim7f_sparrow"]["_model_config"]
-    r27er = indexed["su_r_27er"]["_model_config"]
-    r77 = indexed["su_r_77"]["_model_config"]
-
-    assert aim7f["control"]["pid"]["p"] == aim120a["control"]["pid"]["p"]
-    assert aim7f["control"]["pid"]["i"] == aim120a["control"]["pid"]["i"]
-    assert r27er["control"]["angular_response_scale"] > aim120a["control"]["angular_response_scale"]
-    assert aim120a["control"]["fin_command_limit"] == 1.0
-    assert aam4["control"]["fin_command_limit"] == aim120a["control"]["fin_command_limit"]
-    assert r77["control"]["fin_command_limit"] == aim120a["control"]["fin_command_limit"]
+    for missile_id in ("us_aim_120a", "jp_aam4", "us_aim7f_sparrow", "su_r_27er", "su_r_77"):
+        profile = indexed[missile_id]
+        config = profile["_model_config"]
+        for term in ("p", "i", "d", "integral_limit"):
+            assert config["control"]["pid"][term] == profile["control"]["pid"][term]
+        assert config["aerodynamics"]["distance_cm_to_stabilizer_m"] == profile["aerodynamics"]["fin_moment_arm_m"]
+        assert config["control"]["plant_semantics"] == "fin_torque_body_aoa"
+        assert "angular_response_scale" not in config["control"]
+        assert "angular_damping" not in config["control"]
+        assert "max_pitch_yaw_rate_deg_s" not in config["control"]
+        assert config["guidance"]["maximum_angular_rate_deg_s"] == profile["guidance"]["maximum_angular_rate_deg_s"]
 
 
 def test_r77_high_demand_case_tracks_without_permanent_integral_error() -> None:

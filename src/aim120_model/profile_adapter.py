@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -50,6 +51,7 @@ UNIVERSAL_H2_LAYER: dict[str, Any] = {
     "guidance": {
         "guidance_timeout_s": 0.6,
         "guidance_timeout_semantics": "unresolved_do_not_disable_after_timeout",
+        "maximum_angular_rate_deg_s": 60.0,
         "loft_exit_time_to_go_s": 18.0,
         "target_elevation_deg": -3.5,
         "omega_max_deg_s": 0.75,
@@ -64,9 +66,6 @@ UNIVERSAL_H2_LAYER: dict[str, Any] = {
         "maximum_body_angle_of_attack_deg": 30.0,
         "actuator_time_constant_s": 0.08,
         "derivative_filter_time_constant_s": 0.03,
-        "angular_response_scale": 0.04,
-        "angular_damping": 1.0,
-        "maximum_angular_rate_deg_s": 60.0,
     },
     "atmosphere": {"wind_mps": [0.0, 0.0, 0.0], "gravity_mps2": 9.80665},
     "numerics": {
@@ -143,13 +142,29 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         base_indicated_speed = float(base_indicated_speed)
         if base_indicated_speed <= 0.0:
             raise ValueError("control.base_indicated_speed_kmh must be positive when declared")
-    angular_response_scale = float(layer_control["angular_response_scale"])
     assumptions.append(
         "control PID uses the selected profile's raw p/i/d values; no AIM-120A floor or gain substitution"
     )
     assumptions.append(
-        "control.angular_response_scale is shared without inverse arm/length normalization; "
-        "profile arm and length remain active in the attitude equation"
+        "fin-torque attitude response uses profile arm and length-derived inertia directly; "
+        "the retired shared angular_response_scale is not applied"
+    )
+    assumptions.append(
+        "body pitch/yaw rates are integrated without a shared hard clamp; seeker angular-rate limits remain "
+        "observation constraints and are not mapped into the airframe plant"
+    )
+    assumptions.append(
+        "diagnostic thin-plate normal-force closure uses CN_alpha=2*pi per radian without an imputed hard CN cap; "
+        "this is a shared candidate equation, not a missile-specific PID or datamine value"
+    )
+    assumptions.append(
+        "the same resolved finsLatAccel tail force supplies direct translation and moment while body normal force "
+        "is supplied independently by the explicit CN-alpha model; no extra tail-force scale is introduced"
+    )
+    assumptions.append(
+        "tail effective incidence includes body_rate*profile_arm/airspeed; the remaining rate damping is derived "
+        "from the same instantaneous fin stiffness to close the attitude response at critical damping, with no "
+        "per-profile damping parameter"
     )
 
     profile_cx_aoa = aero["cx_vs_aoa"].get("coefficient_per_rad2")
@@ -166,7 +181,12 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     maximum_rate = control.get("max_pitch_yaw_rate_deg_s")
     if maximum_rate is None:
         maximum_rate = guidance.get("maximum_angular_rate_deg_s")
-    maximum_rate = _number(maximum_rate, layer_control["maximum_angular_rate_deg_s"], assumptions, "control.max_pitch_yaw_rate_deg_s")
+    maximum_rate = _number(
+        maximum_rate,
+        layer_guidance["maximum_angular_rate_deg_s"],
+        assumptions,
+        "guidance.maximum_angular_rate_deg_s",
+    )
     lock_range = guidance.get("lock_range_m")
     if lock_range is None:
         lock_range = float(performance["maximum_distance_m"])
@@ -191,8 +211,8 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         for stage in profile["propulsion"]["stages"]
     ]
     runtime_name = str(defaults["runtime_name"])
-    natural_lift_enabled = False
-    assumptions.append("natural lift disabled: CyK is absent from the supported missile profiles and is not imputed")
+    natural_lift_enabled = True
+    cn_alpha_per_rad = 2.0 * math.pi
     wing_multiplier = float(geometry["wing_area_multiplier"])
     profile_lift_scale = float(aero["lift_area_scale"])
     lift_area_scale = profile_lift_scale / wing_multiplier
@@ -205,11 +225,11 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     )
     config = {
         "schema_version": 3,
-        "release_version": "profile-adapter-v2-true-difference",
+        "release_version": "profile-adapter-v9-thin-plate-cn-plus-tail-force",
         "model_label": f"{profile['missile_id']}_{runtime_name}",
         "aero_model_version": "effective_cda_v1",
-        "force_geometry_version": "flow_normal_v1",
-        "control_model_version": "raw_pid_body_g_fin_aoa_moment_base_ind_candidates_v5",
+        "force_geometry_version": "fin_torque_body_aoa_v1",
+        "control_model_version": "raw_pid_fin_angle_tail_force_moment_body_cn_derived_critical_damping_v12",
         "reference": {
             "source": "Unit-explicit missile profile adapted to shared H2 candidate runtime",
             "solver_reproduction_claimed": False,
@@ -225,6 +245,10 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         "aerodynamics": {
             "cx_k": float(aero["cx_k"]),
             "cx_vs_aoa": cx_aoa,
+            "normal_force_model": "thin_plate_2pi",
+            "cn_alpha_per_rad": cn_alpha_per_rad,
+            "normal_force_cap_enabled": False,
+            "cy_k": cn_alpha_per_rad,
             "max_cy_at_aoa": max_cy,
             "max_cy_interpretation": str(layer_aero["max_cy_interpretation"]),
             "fins_lateral_acceleration_g": fins_g,
@@ -276,6 +300,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "limit_angle_of_attack_enabled": bool(layer_control["limit_angle_of_attack_enabled"]),
             "maximum_body_angle_of_attack_deg": float(layer_control["maximum_body_angle_of_attack_deg"]),
             "feedback_measurement": "body_specific_force_g",
+            "plant_semantics": "fin_torque_body_aoa",
             "integral_limit_semantics": "term",
             "fin_aoa_moment_enabled": True,
             # The raw acceleration-controller output is a requested fin angle
@@ -297,9 +322,6 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "fin_command_limit": float(control["fin_command_limit"]),
             "actuator_time_constant_s": actuator_tau,
             "derivative_filter_time_constant_s": float(layer_control["derivative_filter_time_constant_s"]),
-            "angular_response_scale": angular_response_scale,
-            "angular_damping": float(layer_control["angular_damping"]),
-            "max_pitch_yaw_rate_deg_s": maximum_rate,
         },
         "atmosphere": copy.deepcopy(UNIVERSAL_H2_LAYER["atmosphere"]),
         "numerics": copy.deepcopy(UNIVERSAL_H2_LAYER["numerics"]),

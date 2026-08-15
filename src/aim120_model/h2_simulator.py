@@ -222,6 +222,20 @@ class H2Simulator:
             ),
             "pid_feedback_pitch_g": float(state.measured_pitch_normal_g),
             "pid_feedback_yaw_g": float(state.measured_yaw_normal_g),
+            "pitch_body_aoa_force_g": float(diagnostics.pitch_body_aoa_force_g),
+            "yaw_body_aoa_force_g": float(diagnostics.yaw_body_aoa_force_g),
+            "pitch_fin_moment_equivalent_g": float(diagnostics.pitch_fin_moment_equivalent_g),
+            "yaw_fin_moment_equivalent_g": float(diagnostics.yaw_fin_moment_equivalent_g),
+            "pitch_tail_rate_incidence_rad": float(diagnostics.pitch_tail_rate_incidence_rad),
+            "yaw_tail_rate_incidence_rad": float(diagnostics.yaw_tail_rate_incidence_rad),
+            "pitch_tail_effective_incidence_rad": float(diagnostics.pitch_tail_effective_incidence_rad),
+            "yaw_tail_effective_incidence_rad": float(diagnostics.yaw_tail_effective_incidence_rad),
+            "pitch_natural_frequency_rad_s": float(diagnostics.pitch_natural_frequency_rad_s),
+            "yaw_natural_frequency_rad_s": float(diagnostics.yaw_natural_frequency_rad_s),
+            "pitch_tail_rate_damping_per_s": float(diagnostics.pitch_tail_rate_damping_per_s),
+            "yaw_tail_rate_damping_per_s": float(diagnostics.yaw_tail_rate_damping_per_s),
+            "pitch_residual_rate_damping_per_s": float(diagnostics.pitch_residual_rate_damping_per_s),
+            "yaw_residual_rate_damping_per_s": float(diagnostics.yaw_residual_rate_damping_per_s),
             "fin_authority_scale": float(_FIN_AUTHORITY[variant]),
             "control_enabled": bool(controlled),
             "model_variant": variant,
@@ -351,9 +365,8 @@ class H2Simulator:
                 next_state = replace(next_state, mass=self.propulsion.mass_at(time_s + step, powered=True))
             else:
                 next_state = replace(next_state, mass=self.propulsion.initial_mass_kg)
-            from .dynamics import clamp_body_angle_of_attack, clamp_rates, state_is_finite
+            from .dynamics import clamp_body_angle_of_attack, state_is_finite
 
-            next_state = clamp_rates(next_state, self.config)
             next_state = clamp_body_angle_of_attack(next_state, self.config)
             next_time = time_s + step
             if hasattr(target_model, "state_at"):

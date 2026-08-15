@@ -128,11 +128,27 @@ def compute_aerodynamics_h2(
     )
     aero_cfg = config["aerodynamics"]
     if aero_cfg.get("natural_lift_enabled", True):
-        lift_multiplier = mach_multiplier(mach, aero_cfg["mach_lift"])
+        normal_force_model = str(aero_cfg.get("normal_force_model", "legacy_cy_k"))
+        if normal_force_model == "thin_plate_2pi":
+            # Diagnostic small-angle thin-airfoil closure.  Keep it separate
+            # from the unresolved Mach-lift mapping so CN_alpha is exactly the
+            # declared 2*pi value in this candidate.
+            lift_multiplier = 1.0
+            cy_k = float(aero_cfg["cn_alpha_per_rad"])
+        elif normal_force_model == "legacy_cy_k":
+            lift_multiplier = mach_multiplier(mach, aero_cfg["mach_lift"])
+            cy_k = float(aero_cfg["cy_k"])
+        else:
+            raise ValueError(f"unknown normal_force_model: {normal_force_model}")
         max_cy = float(aero_cfg["max_cy_at_aoa"])
-        cy_k = float(aero_cfg["cy_k"])
-        cy_pitch = clamp(cy_k * lift_multiplier * pitch_alpha, -max_cy, max_cy)
-        cy_yaw = clamp(cy_k * lift_multiplier * yaw_alpha, -max_cy, max_cy)
+        raw_cy_pitch = cy_k * lift_multiplier * pitch_alpha
+        raw_cy_yaw = cy_k * lift_multiplier * yaw_alpha
+        if bool(aero_cfg.get("normal_force_cap_enabled", True)):
+            cy_pitch = clamp(raw_cy_pitch, -max_cy, max_cy)
+            cy_yaw = clamp(raw_cy_yaw, -max_cy, max_cy)
+        else:
+            cy_pitch = raw_cy_pitch
+            cy_yaw = raw_cy_yaw
         lift_area = area_for_h2_lift(config)
         lift_pitch = q * lift_area * cy_pitch * float(aero_cfg.get("natural_lift_fraction", 1.0))
         lift_yaw = q * lift_area * cy_yaw * float(aero_cfg.get("natural_lift_fraction", 1.0))

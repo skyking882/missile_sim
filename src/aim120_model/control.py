@@ -124,6 +124,18 @@ def update_control_feedback(
         fin_force_scale=1.0,
     )
     measurement_mode = feedback_measurement or control_cfg.get("feedback_measurement", "actuator_state")
+    error_units = str(control_cfg.get("pid_error_units", "g"))
+    if error_units == "g":
+        error_scale = 1.0
+    elif error_units == "mps2":
+        error_scale = float(config["atmosphere"]["gravity_mps2"])
+    else:
+        raise ValueError(f"unknown pid_error_units: {error_units}")
+    explicit_error_scale = control_cfg.get("pid_error_scale")
+    if explicit_error_scale is not None:
+        error_scale = float(explicit_error_scale)
+        if not math.isfinite(error_scale) or error_scale <= 0.0:
+            raise ValueError("control.pid_error_scale must be finite and positive")
     updates: dict[str, float] = {}
     commands = (float(command_body_acceleration_g[0]), float(command_body_acceleration_g[1]))
     for axis, command, integral_name, previous_name, derivative_name, actual_name, fin_angle_name, fin_name, fin_limit_key in (
@@ -160,7 +172,7 @@ def update_control_feedback(
         else:
             # Preserve the H1 actuator-state feedback path exactly.
             measured = actuator_state
-        error = command - measured
+        error = (command - measured) * error_scale
         stored_integral = float(getattr(state, integral_name))
         integral_limit = float(pid["integral_limit"])
         integral_semantics = str(control_cfg.get("integral_limit_semantics", "state"))
@@ -207,11 +219,22 @@ def update_control_feedback(
         previous_fin_angle = float(getattr(state, fin_angle_name))
         actual_fin_angle = previous_fin_angle + actuator_alpha * (desired_fin_angle - previous_fin_angle)
         fin = clamp(actual_fin_angle / maximum_fin_angle, -1.0, 1.0)
-        actual = (
-            fin
-            * float(config["aerodynamics"]["fins_lateral_acceleration_g"])
-            * schedule.fin_force_scale
-        )
+        plant_semantics = str(control_cfg.get("plant_semantics", "direct_fin_g"))
+        if plant_semantics == "fin_torque_body_aoa":
+            # The actuator owns only fin angle.  Translational normal load is
+            # produced later by the plant after fin torque has rotated the
+            # body and established angle of attack.  Keep the legacy fields at
+            # zero so no fin-angle -> G feed-through can re-enter dynamics.
+            actual = 0.0
+        elif plant_semantics == "direct_fin_g":
+            # Frozen H1/H2 compatibility path.
+            actual = (
+                fin
+                * float(config["aerodynamics"]["fins_lateral_acceleration_g"])
+                * schedule.fin_force_scale
+            )
+        else:
+            raise ValueError(f"unknown plant_semantics: {plant_semantics}")
         updates[integral_name] = integral
         updates[previous_name] = error
         updates[derivative_name] = derivative

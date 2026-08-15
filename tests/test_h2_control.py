@@ -196,6 +196,59 @@ def test_true_difference_sub_limit_pid_angle_is_not_multiplied_by_fins_aoa():
     assert abs(updates["pitch_requested_fin_command"] - 0.1 / math.radians(20.0)) < 1e-12
 
 
+def test_pid_error_units_can_explicitly_use_mps2_without_changing_raw_gains():
+    state = SimState(
+        (0.0, 3000.0, 0.0),
+        (300.0, 0.0, 0.0),
+        0.0, 0.0, 0.0, 0.0, 147.87,
+    )
+    config = copy.deepcopy(CONFIG)
+    config["control"]["pid_output_semantics"] = "fin_angle_rad"
+    config["control"]["integral_limit_semantics"] = "term"
+    config["control"]["pid"].update({"p": 0.01, "i": 0.0, "d": 0.0})
+    config["control"]["pid_error_units"] = "mps2"
+
+    updates = update_control_feedback(state, (1.0, 0.0), config, 0.02, enabled=True)
+
+    assert abs(
+        updates["pitch_pid_output"]
+        - 0.01 * config["atmosphere"]["gravity_mps2"]
+    ) < 1e-12
+
+
+def test_pid_error_scale_supports_a_shared_diagnostic_between_g_and_mps2():
+    state = SimState(
+        (0.0, 3000.0, 0.0),
+        (300.0, 0.0, 0.0),
+        0.0, 0.0, 0.0, 0.0, 147.87,
+    )
+    config = copy.deepcopy(CONFIG)
+    config["control"]["pid_output_semantics"] = "fin_angle_rad"
+    config["control"]["integral_limit_semantics"] = "term"
+    config["control"]["pid"].update({"p": 0.01, "i": 0.0, "d": 0.0})
+    config["control"]["pid_error_units"] = "g"
+    config["control"]["pid_error_scale"] = 3.0
+
+    updates = update_control_feedback(state, (1.0, 0.0), config, 0.02, enabled=True)
+
+    assert abs(updates["pitch_pid_output"] - 0.03) < 1e-12
+
+
+def test_fin_torque_plant_actuator_does_not_generate_g_directly():
+    state = SimState((0.0, 3000.0, 0.0), (300.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 147.87)
+    config = copy.deepcopy(CONFIG)
+    config["control"]["plant_semantics"] = "fin_torque_body_aoa"
+    config["control"]["pid_output_semantics"] = "fin_angle_rad"
+    config["control"]["pid"].update({"p": 1.0, "i": 0.0, "d": 0.0})
+    dt = config["control"]["actuator_time_constant_s"]
+
+    updates = update_control_feedback(state, (100.0, 0.0), config, dt, enabled=True)
+
+    assert updates["actual_pitch_fin_angle_rad"] > 0.0
+    assert updates["actual_pitch_acceleration_g"] == 0.0
+    assert updates["actual_yaw_acceleration_g"] == 0.0
+
+
 def test_body_aoa_guard_projects_attitude_onto_total_angle_limit():
     config = copy.deepcopy(CONFIG)
     config["control"].update({
