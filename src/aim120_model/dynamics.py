@@ -29,6 +29,8 @@ class SimState:
     yaw_error_derivative: float = 0.0
     actual_pitch_acceleration_g: float = 0.0
     actual_yaw_acceleration_g: float = 0.0
+    actual_pitch_fin_angle_rad: float = 0.0
+    actual_yaw_fin_angle_rad: float = 0.0
     pitch_fin_command: float = 0.0
     yaw_fin_command: float = 0.0
     pitch_pid_output: float = 0.0
@@ -245,6 +247,8 @@ def state_is_finite(state: SimState) -> bool:
                 state.yaw_pid_integral,
                 state.actual_pitch_acceleration_g,
                 state.actual_yaw_acceleration_g,
+                state.actual_pitch_fin_angle_rad,
+                state.actual_yaw_fin_angle_rad,
                 state.pitch_fin_command,
                 state.yaw_fin_command,
                 state.pitch_pid_output,

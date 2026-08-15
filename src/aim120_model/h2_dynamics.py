@@ -108,11 +108,22 @@ def forces_for_state_h2(
     arm = float(config["aerodynamics"]["distance_cm_to_stabilizer_m"])
     angular_response_scale = float(config["control"].get("angular_response_scale", 1.0))
     damping = float(config["control"]["angular_damping"])
+    pitch_moment_equivalent_g = state.actual_pitch_acceleration_g
+    yaw_moment_equivalent_g = state.actual_yaw_acceleration_g
+    if config["control"].get("fin_aoa_moment_enabled", False):
+        fins_g = float(config["aerodynamics"]["fins_lateral_acceleration_g"])
+        pitch_fin_limit = math.radians(max(float(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"]), 1e-9))
+        yaw_fin_limit = math.radians(max(float(config["aerodynamics"]["vertical_fin_aoa_limit_deg"]), 1e-9))
+        # The fin actuator supplies the commanded lateral load, while body AoA
+        # supplies the stabilizing part of the tail moment.  This keeps CyK out
+        # of the plant and makes fin angle, finsLatAccel and arm explicit.
+        pitch_moment_equivalent_g -= fins_g * aero.pitch_alpha_rad / pitch_fin_limit
+        yaw_moment_equivalent_g -= fins_g * aero.yaw_alpha_rad / yaw_fin_limit
     pitch_angular_accel = (
-        state.actual_pitch_acceleration_g * gravity * arm / inertia_per_mass * angular_response_scale
+        pitch_moment_equivalent_g * gravity * arm / inertia_per_mass * angular_response_scale
     ) - damping * state.pitch_rate
     yaw_angular_accel = (
-        state.actual_yaw_acceleration_g * gravity * arm / inertia_per_mass * angular_response_scale
+        yaw_moment_equivalent_g * gravity * arm / inertia_per_mass * angular_response_scale
     ) - damping * state.yaw_rate
     lift_force = _add_many(aero.natural_lift_force_n, control_force)
     return H2DynamicsDiagnostics(

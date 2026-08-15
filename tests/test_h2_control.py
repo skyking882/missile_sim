@@ -44,47 +44,46 @@ def test_disabled_controller_clears_actuator_and_pid_telemetry():
     assert updates["yaw_fin_command"] == 0.0
 
 
-def test_high_demand_integral_unwinds_continuously_after_load_crosses_command():
+def test_true_difference_integral_limit_clamps_the_i_term_not_the_raw_error_sum():
     state = SimState(
         (0.0, 3000.0, 0.0),
         (300.0, 0.0, 0.0),
         0.0, 0.0, 0.0, 0.0, 147.87,
-        yaw_pid_integral=10.0,
-        measured_yaw_normal_g=25.0,
+        yaw_pid_integral=0.9,
+        measured_yaw_normal_g=0.0,
     )
-    baseline_config = copy.deepcopy(CONFIG)
-    baseline_config["control"]["high_demand_integral"] = {
-        "enabled": True,
-        "command_fraction": 0.4,
-        "term_limit": 1.0,
-        "unwind_multiplier": 1.0,
-    }
-    unwind_config = copy.deepcopy(CONFIG)
-    unwind_config["control"]["high_demand_integral"] = {
-        "enabled": True,
-        "command_fraction": 0.4,
-        "term_limit": 1.0,
-        "unwind_multiplier": 4.0,
-    }
-
-    baseline = update_control_feedback(
+    config = copy.deepcopy(CONFIG)
+    config["control"]["integral_limit_semantics"] = "term"
+    config["control"]["pid"]["p"] = 0.0
+    config["control"]["pid"]["d"] = 0.0
+    updates = update_control_feedback(
         state,
         (0.0, 20.0),
-        baseline_config,
-        0.02,
-        enabled=True,
-        feedback_measurement="physical_normal_g",
-    )
-    unwound = update_control_feedback(
-        state,
-        (0.0, 20.0),
-        unwind_config,
-        0.02,
+        config,
+        1.0,
         enabled=True,
         feedback_measurement="physical_normal_g",
     )
 
-    assert 0.0 < unwound["yaw_pid_integral"] < baseline["yaw_pid_integral"] < state.yaw_pid_integral
+    assert updates["yaw_pid_integral"] == config["control"]["pid"]["integral_limit"]
+    assert updates["yaw_pid_output"] == config["control"]["pid"]["integral_limit"]
+
+
+def test_actuator_state_is_fin_angle_and_full_angle_maps_to_fins_lat_accel():
+    state = SimState((0.0, 3000.0, 0.0), (300.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 147.87)
+    config = copy.deepcopy(CONFIG)
+    config["control"]["pid"].update({"p": 1.0, "i": 0.0, "d": 0.0})
+    config["control"]["integral_limit_semantics"] = "term"
+    dt = config["control"]["actuator_time_constant_s"]
+    updates = update_control_feedback(state, (100.0, 0.0), config, dt, enabled=True)
+    maximum_angle = math.radians(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
+
+    assert abs(updates["actual_pitch_fin_angle_rad"] - 0.5 * maximum_angle) < 1e-12
+    assert abs(updates["pitch_fin_command"] - 0.5) < 1e-12
+    assert abs(
+        updates["actual_pitch_acceleration_g"]
+        - 0.5 * config["aerodynamics"]["fins_lateral_acceleration_g"]
+    ) < 1e-12
 
 
 def test_body_aoa_guard_projects_attitude_onto_total_angle_limit():

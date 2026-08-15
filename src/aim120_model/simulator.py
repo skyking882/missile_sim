@@ -32,7 +32,8 @@ def _interpolate_state(a: SimState, b: SimState, fraction: float) -> SimState:
         "pitch", "yaw", "pitch_rate", "yaw_rate", "mass",
         "pitch_pid_integral", "yaw_pid_integral", "previous_pitch_error", "previous_yaw_error",
         "pitch_error_derivative", "yaw_error_derivative", "actual_pitch_acceleration_g",
-        "actual_yaw_acceleration_g", "pitch_fin_command", "yaw_fin_command",
+        "actual_yaw_acceleration_g", "actual_pitch_fin_angle_rad", "actual_yaw_fin_angle_rad",
+        "pitch_fin_command", "yaw_fin_command",
     )
     values = {name: getattr(a, name) + fraction * (getattr(b, name) - getattr(a, name)) for name in scalar_names}
     return SimState(
@@ -110,6 +111,8 @@ class H1Simulator:
             "within_lock_range": bool(guidance.within_lock_range),
             "pitch_fin_command": float(state.pitch_fin_command),
             "yaw_fin_command": float(state.yaw_fin_command),
+            "actual_pitch_fin_angle_rad": float(state.actual_pitch_fin_angle_rad),
+            "actual_yaw_fin_angle_rad": float(state.actual_yaw_fin_angle_rad),
             "model_variant": variant,
         }
 

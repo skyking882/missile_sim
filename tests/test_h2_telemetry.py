@@ -33,6 +33,19 @@ def test_free_fall_has_gravity_in_acceleration_but_no_non_gravity_specific_force
     assert abs(diagnostics.acceleration_mps2[1] + CONFIG["atmosphere"]["gravity_mps2"]) < 1e-12
 
 
+def test_positive_body_aoa_generates_restoring_fin_moment_without_cyk():
+    config = copy.deepcopy(CONFIG)
+    config["aerodynamics"]["natural_lift_enabled"] = False
+    config["aerodynamics"].pop("cy_k", None)
+    config["control"]["fin_aoa_moment_enabled"] = True
+    propulsion = PiecewisePropulsion.from_config(config)
+    state = SimState((0.0, 3000.0, 0.0), (300.0, 0.0, 0.0), 0.1, 0.0, 0.0, 0.0, 147.87)
+    diagnostics = forces_for_state_h2(state, 0.0, config, propulsion, powered=False)
+
+    assert diagnostics.aero.pitch_alpha_rad > 0.0
+    assert diagnostics.pitch_angular_acceleration_rad_s2 < 0.0
+
+
 def test_h2_output_uses_lateral_load_for_actual_overload():
     config = copy.deepcopy(CONFIG)
     config["performance"]["lifetime_s"] = 0.04
