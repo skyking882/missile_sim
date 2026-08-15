@@ -421,6 +421,7 @@
       "d": 0.00025,
       "integral_limit": 1.0
     },
+    "base_indicated_speed_kmh": 1800.0,
     "fin_command_limit": 1.0,
     "actuator_time_constant_s": null,
     "max_pitch_yaw_rate_deg_s": null,
@@ -445,6 +446,11 @@
         "kind": "datamine",
         "source_field": "rocket.guidance.guidanceAutopilot.accelControlIntgLim",
         "notes": "直接读取积分限幅。"
+      },
+      "base_indicated_speed_kmh": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.baseIndSpeed",
+        "notes": "直接读取自动驾驶仪基准指示空速；原始值按 km/h 候选语义保留，确切求解公式尚未确认。"
       },
       "fin_command_limit": {
         "kind": "assumed",

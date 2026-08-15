@@ -3,9 +3,77 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import Any
 
 from .math3d import clamp
+
+
+BASE_INDICATED_SPEED_MODES = {
+    "none",
+    "fin_authority_q",
+    "matched_q",
+    "pid_output_q",
+}
+
+
+@dataclass(frozen=True)
+class BaseIndicatedSpeedSchedule:
+    """Candidate speed schedule derived from dynamic pressure.
+
+    ``dynamic_pressure_ratio`` is q/q_ref, where q_ref uses sea-level density
+    and the profile's raw baseIndSpeed.  The three scale fields keep candidate
+    placement explicit instead of silently rewriting the raw PID values.
+    """
+
+    mode: str
+    base_indicated_speed_kmh: float | None
+    indicated_speed_kmh: float
+    dynamic_pressure_ratio: float
+    pid_output_scale: float
+    requested_fin_scale: float
+    fin_force_scale: float
+
+
+def base_indicated_speed_schedule(
+    dynamic_pressure_pa: float,
+    config: dict[str, Any],
+    sea_level_density_kg_m3: float = 1.225000018,
+) -> BaseIndicatedSpeedSchedule:
+    """Return B0/B1/B2/B3 schedule factors without changing raw PID gains."""
+
+    control = config["control"]
+    mode = str(control.get("base_indicated_speed_mode", "none"))
+    if mode not in BASE_INDICATED_SPEED_MODES:
+        raise ValueError(f"unknown base_indicated_speed_mode: {mode}")
+    q = max(float(dynamic_pressure_pa), 0.0)
+    density = max(float(sea_level_density_kg_m3), 1e-12)
+    indicated_speed_kmh = math.sqrt(2.0 * q / density) * 3.6
+    raw_base = control.get("base_indicated_speed_kmh")
+    base = None if raw_base is None else float(raw_base)
+    if mode != "none" and (base is None or not math.isfinite(base) or base <= 0.0):
+        raise ValueError("active baseIndSpeed candidate requires a positive per-profile base_indicated_speed_kmh")
+    if base is None or not math.isfinite(base) or base <= 0.0:
+        ratio = 1.0
+    else:
+        ratio = (indicated_speed_kmh / base) ** 2
+    if mode == "fin_authority_q":
+        pid_scale, fin_command_scale, fin_force_scale = 1.0, 1.0, ratio
+    elif mode == "matched_q":
+        pid_scale, fin_command_scale, fin_force_scale = 1.0, 1.0 / max(ratio, 1e-12), ratio
+    elif mode == "pid_output_q":
+        pid_scale, fin_command_scale, fin_force_scale = ratio, 1.0, 1.0
+    else:
+        pid_scale, fin_command_scale, fin_force_scale = 1.0, 1.0, 1.0
+    return BaseIndicatedSpeedSchedule(
+        mode=mode,
+        base_indicated_speed_kmh=base,
+        indicated_speed_kmh=indicated_speed_kmh,
+        dynamic_pressure_ratio=ratio,
+        pid_output_scale=pid_scale,
+        requested_fin_scale=fin_command_scale,
+        fin_force_scale=fin_force_scale,
+    )
 
 
 def update_control_feedback(
@@ -16,6 +84,7 @@ def update_control_feedback(
     enabled: bool,
     authority_scale: float = 1.0,
     feedback_measurement: str | None = None,
+    speed_schedule: BaseIndicatedSpeedSchedule | None = None,
 ) -> dict[str, float]:
     """Return feedback-state updates; the force and moment are applied in dynamics."""
 
@@ -45,6 +114,15 @@ def update_control_feedback(
     filter_tau = max(float(control_cfg.get("derivative_filter_time_constant_s", 0.03)), 1e-9)
     alpha = min(1.0, dt / (filter_tau + dt))
     authority = clamp(float(authority_scale), 0.0, 1.0)
+    schedule = speed_schedule or BaseIndicatedSpeedSchedule(
+        mode="none",
+        base_indicated_speed_kmh=None,
+        indicated_speed_kmh=0.0,
+        dynamic_pressure_ratio=1.0,
+        pid_output_scale=1.0,
+        requested_fin_scale=1.0,
+        fin_force_scale=1.0,
+    )
     measurement_mode = feedback_measurement or control_cfg.get("feedback_measurement", "actuator_state")
     updates: dict[str, float] = {}
     commands = (float(command_body_acceleration_g[0]), float(command_body_acceleration_g[1]))
@@ -101,7 +179,12 @@ def update_control_feedback(
         derivative = float(getattr(state, derivative_name)) + alpha * (raw_derivative - float(getattr(state, derivative_name)))
         integral_output = integral if integral_semantics == "term" else float(pid["i"]) * integral
         output = float(pid["p"]) * error + integral_output + float(pid["d"]) * derivative
-        requested_fin = clamp(output, -control_cfg["fin_command_limit"], control_cfg["fin_command_limit"])
+        scheduled_output = output * schedule.pid_output_scale
+        requested_fin = clamp(
+            scheduled_output * schedule.requested_fin_scale,
+            -control_cfg["fin_command_limit"],
+            control_cfg["fin_command_limit"],
+        )
         commanded_fin = requested_fin * authority
         maximum_fin_angle = math.radians(max(float(config["aerodynamics"][fin_limit_key]), 1e-9))
         desired_fin_angle = commanded_fin * maximum_fin_angle
@@ -109,7 +192,11 @@ def update_control_feedback(
         previous_fin_angle = float(getattr(state, fin_angle_name))
         actual_fin_angle = previous_fin_angle + actuator_alpha * (desired_fin_angle - previous_fin_angle)
         fin = clamp(actual_fin_angle / maximum_fin_angle, -1.0, 1.0)
-        actual = fin * float(config["aerodynamics"]["fins_lateral_acceleration_g"])
+        actual = (
+            fin
+            * float(config["aerodynamics"]["fins_lateral_acceleration_g"])
+            * schedule.fin_force_scale
+        )
         updates[integral_name] = integral
         updates[previous_name] = error
         updates[derivative_name] = derivative
@@ -119,3 +206,11 @@ def update_control_feedback(
         updates[f"{axis}_pid_output"] = output
         updates[f"{axis}_requested_fin_command"] = requested_fin
     return updates
+
+
+__all__ = [
+    "BASE_INDICATED_SPEED_MODES",
+    "BaseIndicatedSpeedSchedule",
+    "base_indicated_speed_schedule",
+    "update_control_feedback",
+]

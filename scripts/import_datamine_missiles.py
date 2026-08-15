@@ -720,6 +720,7 @@ def _profile(
     }
     control = {
         "pid": pid_values,
+        "base_indicated_speed_kmh": _number(autopilot.get("baseIndSpeed")),
         "fin_command_limit": 1.0,
         "actuator_time_constant_s": None,
         "max_pitch_yaw_rate_deg_s": None,
@@ -729,6 +730,7 @@ def _profile(
             "pid.i": _source("datamine", f"{autopilot_path}.accelControlIntg", "直接读取积分控制项。"),
             "pid.d": _source("datamine", f"{autopilot_path}.accelControlDiff", "直接读取微分控制项。"),
             "pid.integral_limit": _source("datamine", f"{autopilot_path}.accelControlIntgLim", "直接读取积分限幅。"),
+            "base_indicated_speed_kmh": _source("datamine", f"{autopilot_path}.baseIndSpeed", "直接读取自动驾驶仪基准指示空速；原始数值按 km/h 候选语义保留，确切求解公式尚未确认。"),
             "fin_command_limit": _source("assumed", None, "标准化舵面命令中性上限 1.0；datamine 未声明该接口量。"),
             "actuator_time_constant_s": _source("assumed", None, "datamine 未提供独立舵机时间常数。"),
             "max_pitch_yaw_rate_deg_s": _source("assumed", None, "datamine 未提供导弹俯仰/偏航速率上限。"),

@@ -134,6 +134,15 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         "d": _number(pid.get("d"), 0.0, assumptions, "control.pid.d"),
     }
     mapped_pid = raw_pid
+    base_indicated_speed = control.get("base_indicated_speed_kmh")
+    if base_indicated_speed is None:
+        assumptions.append(
+            "control.base_indicated_speed_kmh missing -> speed scheduling unavailable; baseline mode only"
+        )
+    else:
+        base_indicated_speed = float(base_indicated_speed)
+        if base_indicated_speed <= 0.0:
+            raise ValueError("control.base_indicated_speed_kmh must be positive when declared")
     angular_response_scale = float(layer_control["angular_response_scale"])
     assumptions.append(
         "control PID uses the selected profile's raw p/i/d values; no AIM-120A floor or gain substitution"
@@ -200,7 +209,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         "model_label": f"{profile['missile_id']}_{runtime_name}",
         "aero_model_version": "effective_cda_v1",
         "force_geometry_version": "flow_normal_v1",
-        "control_model_version": "raw_pid_body_g_fin_aoa_moment_v4",
+        "control_model_version": "raw_pid_body_g_fin_aoa_moment_base_ind_candidates_v5",
         "reference": {
             "source": "Unit-explicit missile profile adapted to shared H2 candidate runtime",
             "solver_reproduction_claimed": False,
@@ -269,6 +278,11 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "feedback_measurement": "body_specific_force_g",
             "integral_limit_semantics": "term",
             "fin_aoa_moment_enabled": True,
+            # Keep production behavior frozen at B0.  Diagnostic callers may
+            # select one of the explicit baseIndSpeed candidates on a copied
+            # runtime config; the per-profile raw PID remains unchanged.
+            "base_indicated_speed_kmh": base_indicated_speed,
+            "base_indicated_speed_mode": "none",
             "pid": {
                 "switch_time_s": 3.4028234663852886e38,
                 "p": mapped_pid["p"],

@@ -263,6 +263,7 @@
             "integral_limit": {"type": ["number", "null"], "minimum": 0}
           }
         },
+        "base_indicated_speed_kmh": {"type": ["number", "null"], "exclusiveMinimum": 0},
         "fin_command_limit": {"type": "number", "minimum": 0},
         "actuator_time_constant_s": {"type": ["number", "null"], "minimum": 0},
         "max_pitch_yaw_rate_deg_s": {"type": ["number", "null"], "minimum": 0},

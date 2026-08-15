@@ -7,7 +7,7 @@ from dataclasses import replace
 from typing import Any
 
 from .aerodynamics import body_axes
-from .control import update_control_feedback
+from .control import base_indicated_speed_schedule, update_control_feedback
 from .dynamics import SimState
 from .events import event_candidates
 from .guidance import guidance_command
@@ -101,6 +101,7 @@ class H2Simulator:
         variant = case["model_variant"]
         guidance = guidance_command(state, track, time_s, self.config, enabled=guided)
         diagnostics = forces_for_state_h2(state, time_s, self.config, self.propulsion, powered)
+        speed_schedule = base_indicated_speed_schedule(diagnostics.aero.dynamic_pressure_pa, self.config)
         relative = sub(target.position, state.position)
         radar_detection = getattr(provider, "radar_detection", None)
         seeker_state = getattr(provider, "seeker_state", None)
@@ -142,6 +143,14 @@ class H2Simulator:
             "thrust_n": float(diagnostics.propulsion.thrust_n),
             "drag_n": float(norm(diagnostics.drag_force_n)),
             "mach": float(diagnostics.aero.mach),
+            "dynamic_pressure_pa": float(diagnostics.aero.dynamic_pressure_pa),
+            "indicated_speed_kmh": float(speed_schedule.indicated_speed_kmh),
+            "base_indicated_speed_kmh": speed_schedule.base_indicated_speed_kmh,
+            "base_indicated_speed_mode": speed_schedule.mode,
+            "base_indicated_speed_q_ratio": float(speed_schedule.dynamic_pressure_ratio),
+            "pid_output_speed_scale": float(speed_schedule.pid_output_scale),
+            "requested_fin_speed_scale": float(speed_schedule.requested_fin_scale),
+            "fin_force_speed_scale": float(speed_schedule.fin_force_scale),
             "angle_of_attack_rad": float(diagnostics.aero.angle_of_attack_rad),
             "pitch_alpha_rad": float(diagnostics.aero.pitch_alpha_rad),
             "yaw_alpha_rad": float(diagnostics.aero.yaw_alpha_rad),
@@ -300,6 +309,17 @@ class H2Simulator:
                 break
             state = replace(state, mass=self.propulsion.mass_at(time_s, powered=powered))
             guidance = guidance_command(state, track, time_s, self.config, enabled=guided)
+            pre_control_diagnostics = forces_for_state_h2(
+                state,
+                time_s,
+                self.config,
+                self.propulsion,
+                powered,
+            )
+            speed_schedule = base_indicated_speed_schedule(
+                pre_control_diagnostics.aero.dynamic_pressure_pa,
+                self.config,
+            )
             feedback = update_control_feedback(
                 state,
                 guidance.commanded_body_acceleration_g,
@@ -308,6 +328,7 @@ class H2Simulator:
                 enabled=controlled,
                 authority_scale=authority_scale,
                 feedback_measurement=self.config["control"].get("feedback_measurement", "physical_normal_g"),
+                speed_schedule=speed_schedule,
             )
             state_for_step = replace(state, **feedback)
             next_state = rk4_step_h2(

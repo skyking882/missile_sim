@@ -12,6 +12,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from .aerodynamics import H2AeroSample, StandardAtmosphere, compute_aerodynamics_h2
+from .control import base_indicated_speed_schedule
 from .dynamics import SimState, clamp_rates, state_is_finite
 from .math3d import Vector, add, dot, is_finite_vector, norm, scale
 from .propulsion import PiecewisePropulsion, PropulsionSample
@@ -120,6 +121,8 @@ def forces_for_state_h2(
     yaw_moment_equivalent_g = state.actual_yaw_acceleration_g
     if config["control"].get("fin_aoa_moment_enabled", False):
         fins_g = float(config["aerodynamics"]["fins_lateral_acceleration_g"])
+        speed_schedule = base_indicated_speed_schedule(aero.dynamic_pressure_pa, config)
+        fins_g *= speed_schedule.fin_force_scale
         pitch_fin_limit = math.radians(max(float(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"]), 1e-9))
         yaw_fin_limit = math.radians(max(float(config["aerodynamics"]["vertical_fin_aoa_limit_deg"]), 1e-9))
         # The fin actuator supplies the commanded lateral load, while body AoA
