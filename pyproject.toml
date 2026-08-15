@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aim120a-local-model"
+version = "1.0.0"
+description = "Standalone auditable Python forward model for AIM-120A-like trajectory simulation"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+gui = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra"

@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "r-77",
+  "name": "R-77",
+  "country": "USSR / Russia",
+  "series": "RVV-AE / R-77",
+  "status": "Unsupported physics",
+  "status_reason": "只有库条目；尚无通过本项目门禁的冻结物理模型。",
+  "description": "可选占位条目，不借用 AIM-120A 参数。",
+  "physics": {
+    "engine_type": "unavailable",
+    "control_type": "unavailable"
+  }
+}

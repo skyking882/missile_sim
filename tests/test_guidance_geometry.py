@@ -1,0 +1,41 @@
+from pathlib import Path
+
+from aim120_model.config import load_model_config
+from aim120_model.dynamics import SimState
+from aim120_model.guidance import guidance_command, pn_acceleration
+from aim120_model.math3d import norm
+from aim120_model.target import TargetState
+
+
+CONFIG = load_model_config(Path(__file__).parents[1] / "configs" / "aim120a_statshark.yaml")
+
+
+def make_state():
+    return SimState((0.0, 3000.0, 0.0), (300.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 147.87)
+
+
+def test_pn_turns_toward_positive_and_negative_lateral_targets():
+    state = make_state()
+    positive = TargetState((20000.0, 3000.0, 1000.0), (0.0, 0.0, 0.0))
+    negative = TargetState((20000.0, 3000.0, -1000.0), (0.0, 0.0, 0.0))
+    positive_output = guidance_command(state, positive, 0.0, CONFIG, enabled=True)
+    negative_output = guidance_command(state, negative, 0.0, CONFIG, enabled=True)
+    assert positive_output.commanded_body_acceleration_g[1] > 0.0
+    assert negative_output.commanded_body_acceleration_g[1] < 0.0
+    assert abs(positive_output.commanded_body_acceleration_g[1] + negative_output.commanded_body_acceleration_g[1]) < 1e-9
+
+
+def test_forward_target_has_no_false_lateral_command():
+    state = make_state()
+    target = TargetState((20000.0, 3000.0, 0.0), (0.0, 0.0, 0.0))
+    output = guidance_command(state, target, 0.0, CONFIG, enabled=True)
+    assert abs(output.commanded_body_acceleration_g[1]) < 1e-12
+
+
+def test_pn_acceleration_is_transverse_and_bounded_by_guidance_layer():
+    acceleration, closing, _los = pn_acceleration((20000.0, 0.0, 1000.0), (-300.0, 0.0, 0.0), (300.0, 0.0, 0.0), 4.0)
+    assert closing > 0.0
+    assert abs(acceleration[0]) < 1e-12
+    output = guidance_command(make_state(), TargetState((20000.0, 3000.0, 1000.0), (0.0, 0.0, 0.0)), 0.0, CONFIG, True)
+    assert norm(output.commanded_acceleration_mps2) <= CONFIG["guidance"]["maximum_lateral_acceleration_g"] * CONFIG["atmosphere"]["gravity_mps2"] + 1e-9
+

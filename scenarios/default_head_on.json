@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "scenario_id": "default_head_on",
+  "display_name": "默认迎头烟雾场景",
+  "launch": {
+    "speed_mps": 300.0,
+    "altitude_m": 1000.0,
+    "pitch_deg": 0.0,
+    "heading_deg": 0.0
+  },
+  "target": {
+    "distance_m": 10000.0,
+    "speed_mps": 300.0,
+    "altitude_m": 1000.0,
+    "heading_deg": 180.0,
+    "constant_turn_g": 0.0
+  },
+  "simulation": {
+    "time_step_s": 0.02,
+    "maximum_time_s": 2.0
+  },
+  "notes": "用于 profile contract smoke；不等同于端到端验证案例。"
+}

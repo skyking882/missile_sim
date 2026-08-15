@@ -1,0 +1,447 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://missile-lab.local/schema/missile-profile-v1.json",
+  "title": "Missile Lab v1 missile profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "missile_id",
+    "display_name",
+    "country",
+    "category",
+    "model_status",
+    "model_family",
+    "geometry",
+    "propulsion",
+    "aerodynamics",
+    "performance",
+    "guidance",
+    "control",
+    "provenance",
+    "validation",
+    "runtime"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "missile_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+      "minLength": 1
+    },
+    "display_name": {"type": "string", "minLength": 1},
+    "country": {"type": "string", "minLength": 1},
+    "category": {"const": "air_to_air"},
+    "model_status": {"enum": ["experimental", "validated"]},
+    "model_family": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dynamics", "propulsion", "aerodynamics", "control", "guidance"],
+      "properties": {
+        "dynamics": {"enum": ["h2_reduced_order", "full_6dof"]},
+        "propulsion": {"enum": ["staged_solid_rocket", "ramjet"]},
+        "aerodynamics": {"enum": ["conventional_fin", "grid_fin"]},
+        "control": {"enum": ["aerodynamic_fin", "thrust_vector", "jet_vane"]},
+        "guidance": {"enum": ["pn", "pn_loft", "beam_riding", "command_guidance"]}
+      }
+    },
+    "geometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "initial_mass_kg",
+        "caliber_m",
+        "length_m",
+        "wing_area_multiplier",
+        "reference_area_mode",
+        "fin_moment_arm_m"
+      ],
+      "properties": {
+        "initial_mass_kg": {"type": "number", "exclusiveMinimum": 0},
+        "caliber_m": {"type": "number", "exclusiveMinimum": 0},
+        "length_m": {"type": "number", "exclusiveMinimum": 0},
+        "wing_area_multiplier": {"type": "number", "exclusiveMinimum": 0},
+        "reference_area_mode": {"const": "caliber_times_wing_multiplier"},
+        "fin_moment_arm_m": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "propulsion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stages", "parameter_sources"],
+      "properties": {
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "duration_s",
+              "thrust_n",
+              "mass_lost_kg",
+              "isp_s",
+              "parameter_sources"
+            ],
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "duration_s": {"type": "number", "exclusiveMinimum": 0},
+              "thrust_n": {"type": "number", "minimum": 0},
+              "mass_lost_kg": {"type": "number", "minimum": 0},
+              "isp_s": {"type": "number", "minimum": 0},
+              "fire_delay_s": {"type": ["number", "null"], "minimum": 0},
+              "parameter_sources": {"$ref": "#/$defs/source_map"}
+            }
+          }
+        },
+        "mach_thrust_correction": {
+          "type": ["object", "null"],
+          "additionalProperties": true
+        },
+        "parameter_sources": {"$ref": "#/$defs/source_map"}
+      }
+    },
+    "aerodynamics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cx_k",
+        "cy_k",
+        "cx_vs_aoa",
+        "max_cy_at_aoa",
+        "fins_lateral_acceleration_g",
+        "fin_moment_arm_m",
+        "fin_aoa_limit_rad",
+        "mach_drag_correction",
+        "mach_lift_correction",
+        "drag_scale",
+        "lift_area_scale",
+        "parameter_sources"
+      ],
+      "properties": {
+        "cx_k": {"type": "number", "minimum": 0},
+        "cy_k": {"type": ["number", "null"], "minimum": 0},
+        "cx_vs_aoa": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model", "coefficient_per_rad2"],
+          "properties": {
+            "model": {"enum": ["quadratic", "not_declared"]},
+            "coefficient_per_rad2": {"type": ["number", "null"], "minimum": 0}
+          }
+        },
+        "max_cy_at_aoa": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "aoa_rad"],
+          "properties": {
+            "value": {"type": ["number", "null"], "minimum": 0},
+            "aoa_rad": {"type": ["number", "null"], "minimum": 0}
+          }
+        },
+        "fins_lateral_acceleration_g": {"type": ["number", "null"], "minimum": 0},
+        "fin_moment_arm_m": {"type": "number", "exclusiveMinimum": 0},
+        "fin_aoa_limit_rad": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["horizontal", "vertical"],
+          "properties": {
+            "horizontal": {"type": "number", "minimum": 0},
+            "vertical": {"type": "number", "minimum": 0}
+          }
+        },
+        "mach_drag_correction": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model", "parameters"],
+          "properties": {
+            "model": {"enum": ["not_declared", "scalar", "lookup_table"]},
+            "parameters": {"type": ["object", "array", "number", "null"]}
+          }
+        },
+        "mach_lift_correction": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model", "parameters"],
+          "properties": {
+            "model": {"enum": ["not_declared", "scalar", "lookup_table"]},
+            "parameters": {"type": ["object", "array", "number", "null"]}
+          }
+        },
+        "drag_scale": {"type": "number", "exclusiveMinimum": 0},
+        "lift_area_scale": {"type": "number", "exclusiveMinimum": 0},
+        "parameter_sources": {"$ref": "#/$defs/source_map"}
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maximum_speed_mps",
+        "maximum_distance_m",
+        "lifetime_s",
+        "maximum_mach",
+        "minimum_distance_m",
+        "range_reference_m",
+        "limit_semantics",
+        "parameter_sources"
+      ],
+      "properties": {
+        "maximum_speed_mps": {"type": "number", "exclusiveMinimum": 0},
+        "maximum_distance_m": {"type": "number", "exclusiveMinimum": 0},
+        "lifetime_s": {"type": "number", "exclusiveMinimum": 0},
+        "maximum_mach": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "minimum_distance_m": {"type": ["number", "null"], "minimum": 0},
+        "range_reference_m": {"type": ["number", "null"], "minimum": 0},
+        "limit_semantics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maximum_speed_mps", "maximum_distance_m", "lifetime_s"],
+          "properties": {
+            "maximum_speed_mps": {"enum": ["hard_limit", "event_threshold", "display_reference"]},
+            "maximum_distance_m": {"enum": ["hard_limit", "event_threshold", "display_reference"]},
+            "lifetime_s": {"enum": ["hard_limit", "event_threshold", "display_reference"]}
+          }
+        },
+        "parameter_sources": {"$ref": "#/$defs/source_map"}
+      }
+    },
+    "guidance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maximum_lateral_acceleration_g",
+        "maximum_angular_rate_deg_s",
+        "pn_gain",
+        "lock_range_m",
+        "lofting_enabled",
+        "lofting_elevation_deg",
+        "loft_exit_distance_m",
+        "loft_exit_time_to_go_s",
+        "proximity_radius_m",
+        "guidance_type",
+        "seeker_type",
+        "parameter_sources"
+      ],
+      "properties": {
+        "maximum_lateral_acceleration_g": {"type": "number", "minimum": 0},
+        "maximum_angular_rate_deg_s": {"type": ["number", "null"], "minimum": 0},
+        "pn_gain": {"type": "number", "minimum": 0},
+        "lock_range_m": {"type": ["number", "null"], "minimum": 0},
+        "lofting_enabled": {"type": "boolean"},
+        "lofting_elevation_deg": {"type": "number", "minimum": -90, "maximum": 90},
+        "loft_exit_distance_m": {"type": ["number", "null"], "minimum": 0},
+        "loft_exit_time_to_go_s": {"type": ["number", "null"], "minimum": 0},
+        "proximity_radius_m": {"type": "number", "exclusiveMinimum": 0},
+        "guidance_type": {"enum": ["pn", "pn_loft", "beam_riding", "command_guidance"]},
+        "seeker_type": {"type": "string", "minLength": 1},
+        "sensor_model": {"$ref": "#/$defs/sensor_model"},
+        "parameter_sources": {"$ref": "#/$defs/source_map"}
+      }
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pid",
+        "fin_command_limit",
+        "actuator_time_constant_s",
+        "max_pitch_yaw_rate_deg_s",
+        "identified_controller",
+        "parameter_sources"
+      ],
+      "properties": {
+        "pid": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["p", "i", "d", "integral_limit"],
+          "properties": {
+            "p": {"type": ["number", "null"]},
+            "i": {"type": ["number", "null"]},
+            "d": {"type": ["number", "null"]},
+            "integral_limit": {"type": ["number", "null"], "minimum": 0}
+          }
+        },
+        "fin_command_limit": {"type": "number", "minimum": 0},
+        "actuator_time_constant_s": {"type": ["number", "null"], "minimum": 0},
+        "max_pitch_yaw_rate_deg_s": {"type": ["number", "null"], "minimum": 0},
+        "identified_controller": {
+          "type": ["object", "null"],
+          "additionalProperties": true
+        },
+        "parameter_sources": {"$ref": "#/$defs/source_map"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_name",
+        "source_version",
+        "source_commit",
+        "retrieved_date",
+        "source_files",
+        "source_sha256",
+        "notes"
+      ],
+      "properties": {
+        "source_name": {"type": "string", "minLength": 1},
+        "source_version": {"type": "string", "minLength": 1},
+        "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "retrieved_date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+        "source_files": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "source_sha256": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        },
+        "notes": {"type": "string", "minLength": 1}
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "validated_cases", "known_limitations"],
+      "properties": {
+        "status": {"enum": ["experimental", "validated"]},
+        "validated_cases": {"type": "array", "items": {"type": "string"}},
+        "known_limitations": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["implemented", "config_path", "notes"],
+      "properties": {
+        "implemented": {"type": "boolean"},
+        "config_path": {"type": ["string", "null"]},
+        "notes": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "$defs": {
+    "sensor_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "active_radar": {"type": ["boolean", "null"]},
+        "inertial_navigation": {"type": ["boolean", "null"]},
+        "use_target_velocity": {"type": ["boolean", "null"]},
+        "lock_after_launch": {"type": ["boolean", "null"]},
+        "lock_timeout_s": {"type": ["number", "null"], "minimum": 0},
+        "break_lock_max_time_s": {"type": ["number", "null"], "minimum": 0},
+        "inertial_drift_speed_mps": {"type": ["number", "null"], "minimum": 0},
+        "datalink": {"type": ["boolean", "null"]},
+        "reconnect_datalink": {"type": ["boolean", "null"]},
+        "radar_seeker": {"$ref": "#/$defs/radar_seeker"},
+        "parameter_sources": {"$ref": "#/$defs/source_map"}
+      }
+    },
+    "radar_seeker": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "band": {"type": ["number", "null"]},
+        "active": {"type": ["boolean", "null"]},
+        "angle_gate_rate_deg_s": {"type": ["number", "null"], "minimum": 0},
+        "prolongation_time_max_s": {"type": ["number", "null"], "minimum": 0},
+        "multipath_effect": {"type": ["array", "null"], "items": {"type": "number"}},
+        "side_lobes_attenuation_db": {"type": ["number", "null"]},
+        "lock_angle_max_deg": {"type": ["number", "null"], "minimum": 0},
+        "angle_max_deg": {"type": ["number", "null"], "minimum": 0},
+        "rate_max_deg_s": {"type": ["number", "null"], "minimum": 0},
+        "doppler_speed_gate": {"$ref": "#/$defs/doppler_speed_gate"},
+        "dist_gate": {"$ref": "#/$defs/dist_gate"},
+        "transmitter": {"$ref": "#/$defs/radar_transmitter"},
+        "receiver": {"$ref": "#/$defs/radar_receiver"},
+        "doppler_speed": {"$ref": "#/$defs/doppler_speed"},
+        "distance": {"$ref": "#/$defs/radar_distance"}
+      }
+    },
+    "doppler_speed_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "filter_alpha": {"type": ["number", "null"]},
+        "filter_beta": {"type": ["number", "null"]},
+        "search_range_mps": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
+    "dist_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "filter_alpha": {"type": ["number", "null"]},
+        "filter_beta": {"type": ["number", "null"]},
+        "search_range_m": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
+    "radar_antenna": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "angle_half_sens_deg": {"type": ["number", "null"], "minimum": 0},
+        "side_lobes_sensitivity_db": {"type": ["number", "null"]}
+      }
+    },
+    "radar_transmitter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "power": {"type": ["number", "null"], "minimum": 0},
+        "antenna": {"$ref": "#/$defs/radar_antenna"}
+      }
+    },
+    "radar_receiver": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rcs_m2": {"type": ["number", "null"], "minimum": 0},
+        "range_m": {"type": ["number", "null"], "minimum": 0},
+        "range_max_m": {"type": ["number", "null"], "minimum": 0},
+        "time_gain_control": {"type": ["boolean", "null"]},
+        "antenna": {"$ref": "#/$defs/radar_antenna"}
+      }
+    },
+    "doppler_speed": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "presents": {"type": ["boolean", "null"]},
+        "min_mps": {"type": ["number", "null"]},
+        "max_mps": {"type": ["number", "null"]},
+        "width_mps": {"type": ["number", "null"], "minimum": 0},
+        "ref_width_mps": {"type": ["number", "null"], "minimum": 0},
+        "signal_width_min_mps": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
+    "radar_distance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "presents": {"type": ["boolean", "null"]},
+        "min_m": {"type": ["number", "null"], "minimum": 0},
+        "max_m": {"type": ["number", "null"], "minimum": 0},
+        "width_m": {"type": ["number", "null"], "minimum": 0},
+        "signal_width_min_m": {"type": ["number", "null"], "minimum": 0},
+        "ref_width_m": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
+    "source_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "source_field", "notes"],
+      "properties": {
+        "kind": {"enum": ["datamine", "identified", "assumed", "derived"]},
+        "source_field": {"type": ["string", "null"]},
+        "notes": {"type": "string", "minLength": 1}
+      }
+    },
+    "source_map": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/source_entry"}
+    }
+  }
+}

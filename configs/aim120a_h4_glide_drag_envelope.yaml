@@ -1,0 +1,80 @@
+{
+  "schema_version": 4,
+  "model_label": "local_candidate_H4_glide_drag_envelope",
+  "source_policy": {
+    "reference_source_kind": "statshark_reference",
+    "local_source_kinds": ["local_pipeline_test", "synthetic_test"],
+    "manual_curve_reads_are_not_fit_data": true,
+    "new_statshark_calculation_performed_this_run": true
+  },
+  "target": {
+    "mach_min": 0.2,
+    "mach_max": 4.5,
+    "mach_knots": [0.2, 0.4, 0.6, 0.8, 0.95, 1.05, 1.2, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5],
+    "direct_support_margin_mach": 0.02,
+    "minimum_overlap_width_mach": 0.3
+  },
+  "model": {
+    "interpolation": "log_linear",
+    "positivity_parameterization": "log_cda_knots",
+    "outside_support_policy": "label_extrapolation_and_do_not_count_as_confirmed",
+    "zero_dynamic_pressure_drag": true,
+    "drag_power_must_be_non_positive": true,
+    "initial_fit_level": "H4-G0",
+    "allow_environment_term": false,
+    "allow_alpha_term": false,
+    "allow_powered_term": false
+  },
+  "filters": {
+    "lateral_load_thresholds_g": [1.0, 2.0, 3.0],
+    "default_lateral_load_threshold_g": 2.0,
+    "alpha_thresholds_deg": [1.0, 2.0, 3.0, 5.0],
+    "default_alpha_threshold_deg": 2.0,
+    "q_thresholds_pa": [500.0, 1000.0, 2000.0],
+    "default_q_min_pa": 1000.0,
+    "gravity_cancellation_thresholds": [1.0, 3.0, 5.0],
+    "default_gravity_cancellation_ratio_max": 3.0
+  },
+  "smoothing": {
+    "method_candidates": ["local_polynomial_order_2", "local_polynomial_order_2_robust", "monotone_shape_preserving"],
+    "window_widths_s": [0.04, 0.08, 0.16],
+    "do_not_cross_data_gaps_or_terminal_events": true,
+    "node_stability_target_fraction": 0.05,
+    "transonic_node_stability_limit_fraction": 0.10
+  },
+  "trajectory_split": {
+    "method": "leave_one_trajectory_out",
+    "point_random_split_forbidden": true,
+    "predeclared_validation_ids": [],
+    "trajectory_balance_weighting": "equal_mean_weight_per_trajectory"
+  },
+  "objective": {
+    "primary": "trajectory_speed_replay_rmse",
+    "auxiliary_inverse_weight": 0.15,
+    "smoothness_weight_candidates": [0.0, 0.01, 0.1, 1.0],
+    "h3_prior": {
+      "enabled": true,
+      "weight": 0.01,
+      "source_is_local_only": true,
+      "with_and_without_prior_comparison_required": true
+    },
+    "manual_readout_weight": 0.05,
+    "random_seed": null
+  },
+  "atmosphere": {
+    "model": "standard_atmosphere_existing_local_v1",
+    "gravity_mps2": 9.80665,
+    "wind_mps": [0.0, 0.0, 0.0],
+    "save_mach_source_and_recomputed": true
+  },
+  "cases": {
+    "required_primary": ["G1", "G2", "G3"],
+    "required_cross_check": ["G4", "G5"],
+    "minimum_reference_trajectory_count": 5
+  },
+  "synthetic_validation": {
+    "source_kind": "synthetic_test",
+    "known_knots": [0.2, 0.4, 0.8, 1.05, 1.2, 2.0, 3.0, 4.5],
+    "noise_levels_fraction": [0.0, 0.005, 0.02]
+  }
+}

@@ -1,0 +1,2356 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-08-14T22:08:26.768345+00:00",
+  "source": {
+    "name": "War Thunder public datamine",
+    "version": "2.57.1.90",
+    "commit": "3260ef312fcc1dc1da690328607abe744ca69137",
+    "repository": "https://github.com/gszabi99/War-Thunder-Datamine",
+    "relative_path": "aces.vromfs.bin_u/gamedata/weapons/rocketguns"
+  },
+  "selection": {
+    "icon_type_prefix": "missile_air_to_air* or missile_type_[a-z]_air_to_air*",
+    "fallback_selector": "rocket.bulletType=aam with a guidance object",
+    "dedupe_key": "rocket.bulletName; missing values use filename stem",
+    "canonical_variant_policy": "prefer exact bulletName filename, then non-default/non-pod/non-platform variant",
+    "tvc_policy": "exclude profiles with thrust-vectoring fields; retain them in excluded list"
+  },
+  "candidate_file_count": 230,
+  "unique_entity_count": 124,
+  "bullet_name_fallback_file_count": 5,
+  "included_profile_count": 120,
+  "excluded_profile_count": 4,
+  "unsupported_read_only_profile_count": 4,
+  "included": [
+    {
+      "missile_id": "atam_mistral",
+      "display_name": "Mistral",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/atam_mistral.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/atam_mistral.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": true
+    },
+    {
+      "missile_id": "atam_mistral_a129",
+      "display_name": "Mistral (A129)",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/atam_mistral_a129.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/atam_mistral_a129.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": true
+    },
+    {
+      "missile_id": "br_maa_1",
+      "display_name": "MAA-1 Piranha",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/br_maa_1.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/br_maa_1.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/br_maa_1_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "cn_ld10",
+      "display_name": "LD-10",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_ld10.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_ld10.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "cn_pf10",
+      "display_name": "PL-10",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pf10.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pf10.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "cn_pl11",
+      "display_name": "PL-11",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl11.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl11.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "cn_pl12",
+      "display_name": "PL-12",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl12.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl12.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl12_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "cn_pl12a",
+      "display_name": "PL-12A",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl12a.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl12a.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl12a_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "cn_pl15",
+      "display_name": "PL-15",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl15.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl15.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl15_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "cn_pl8b",
+      "display_name": "PL-8B",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl8b.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl8b.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl8b_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "cn_pl9",
+      "display_name": "PL-9",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl9.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl9.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "cn_sd10a",
+      "display_name": "SD-10A",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_sd10a.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_sd10a.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_sd10a_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "cn_ty_90",
+      "display_name": "TY-90",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_ty_90.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_ty_90.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "de_x4_ruhrstahl",
+      "display_name": "DE X4 RUHRSTAHL",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/de_x4_ruhrstahl.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/de_x4_ruhrstahl.blkx"
+      ],
+      "guidance_type": "unknown",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "command_guidance"
+      },
+      "unsupported_features": [
+        "command_guidance"
+      ],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "fr_aa20",
+      "display_name": "AA.20",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_aa20.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_aa20.blkx"
+      ],
+      "guidance_type": "unknown",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "command_guidance"
+      },
+      "unsupported_features": [
+        "command_guidance"
+      ],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "fr_matra_super_530d",
+      "display_name": "Super 530D",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_matra_super_530d.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_matra_super_530d.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_matra_super_530d_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "fr_matra_super_530f",
+      "display_name": "Super 530F",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_matra_super_530f.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_matra_super_530f.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_matra_super_530f_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_matra_super_530f_mirage_2000.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_matra_super_530f_mirage_2000_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "fr_r_511_matra",
+      "display_name": "R.511",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_511_matra.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_511_matra.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "fr_r_530_matra_ir",
+      "display_name": "FR R 530 MATRA IR",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_530_matra_ir.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_530_matra_ir.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "fr_r_530_matra_radar",
+      "display_name": "R.530 Radar",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_530_matra_radar.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_530_matra_radar.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "fr_r_550_magic",
+      "display_name": "R.550 Magic",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_550_magic.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_550_magic.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "fr_r_550_magic_2",
+      "display_name": "R.550 Magic 2",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_550_magic_2.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_550_magic_2.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_550_magic_2_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "il_aspide_1a",
+      "display_name": "Aspide 1A",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/it_aspide_1a.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/it_aspide_1a.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "il_derby",
+      "display_name": "Derby",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/il_derby.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/il_derby.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/il_derby_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "il_pyton_3",
+      "display_name": "Python 3",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/il_pyton_3.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/il_pyton_3.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/il_pyton_3_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "il_pyton_4",
+      "display_name": "Python 4",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/il_pyton_4.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/il_pyton_4.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "il_shafrir_1",
+      "display_name": "IL SHAFRIR 1",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/il_shafrir_1.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/il_shafrir_1.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "il_shafrir_2",
+      "display_name": "IL SHAFRIR 2",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/il_shafrir_2.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/il_shafrir_2.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/il_shafrir_2_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "ir_fakour_90",
+      "display_name": "Fakour-90",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/ir_fakour_90.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/ir_fakour_90.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "ir_sedjil",
+      "display_name": "Sedjil",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/ir_sedjil.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/ir_sedjil.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "jp_aam3",
+      "display_name": "AAM-3",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/jp_aam3.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/jp_aam3.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/jp_aam3_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "jp_aam4",
+      "display_name": "AAM-4",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/jp_aam4.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/jp_aam4.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/jp_aam4_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "pl_5e2",
+      "display_name": "PL-5E2",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl5e2.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl5e2.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl5e2_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "r_darter",
+      "display_name": "R-Darter",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/r_darter.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/r_darter.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/r_darter_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_9m336",
+      "display_name": "SU 9M336",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_9m336.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_9m336.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_9m342",
+      "display_name": "SU 9M342",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_9m342.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_9m342.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_9m39",
+      "display_name": "SU 9M39",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_9m39.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_9m39.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_pl2",
+      "display_name": "SU PL2",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl2.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl2.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl2_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_pl5b",
+      "display_name": "PL-5B",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl5b.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl5b.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl5b_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_pl5c",
+      "display_name": "PL-5C",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl5c.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl5c.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl5c_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_pl7",
+      "display_name": "PL-7",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl7.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl7.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_pl8",
+      "display_name": "PL-8",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl8.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl8.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_pl8_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r13m",
+      "display_name": "SU R13M",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_13m.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_13m.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r13m1",
+      "display_name": "R-13M1",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_13m1.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_13m1.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_13m1_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r3r",
+      "display_name": "SU R3R",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_3r.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_3r.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_3r_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r3s",
+      "display_name": "SU R3S",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/ro_a91.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/ro_a91.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/ro_a91_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_3s.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_3s_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_23r",
+      "display_name": "SU R 23R",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_23r.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_23r.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_23t",
+      "display_name": "SU R 23T",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_23t.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_23t.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_24r",
+      "display_name": "R-24R",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_24r.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_24r.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_24t",
+      "display_name": "SU R 24T",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_24t.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_24t.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_27er",
+      "display_name": "R-27ER",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27er.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27er.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27er_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_27er1",
+      "display_name": "R-27ER1",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27er1.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27er1.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_27et",
+      "display_name": "SU R 27ET",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27et.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27et.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_27et1",
+      "display_name": "SU R 27ET1",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27et1.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27et1.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_27r",
+      "display_name": "R-27R",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27r.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27r.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27r_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_27r1",
+      "display_name": "R-27R1",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27r1.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27r1.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27r1_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_27t",
+      "display_name": "SU R 27T",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27t.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27t.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_27t1",
+      "display_name": "SU R 27T1",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27t1.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_27t1.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_40rd",
+      "display_name": "R-40RD",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_40rd.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_40rd.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_40rd_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_40td",
+      "display_name": "SU R 40TD",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_40td.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_40td.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_40td_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_60",
+      "display_name": "R-60",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_60.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_60.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_60_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_60m",
+      "display_name": "R-60M",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_60m.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_60m.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_60m_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_60mk",
+      "display_name": "R-60MK",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_60mk.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_60mk.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_60mk_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_77",
+      "display_name": "R-77",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_77.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_77.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_77_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_77_1",
+      "display_name": "R-77-1",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_77_1.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_77_1.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_77_1_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_rvv_sd.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_rvv_sd_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_rvv_ae",
+      "display_name": "RVV-AE",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_rvv_ae.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_rvv_ae.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_rvv_ae_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "swd_rb24",
+      "display_name": "SWD RB24",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb24.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb24.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb24_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "swd_rb24j",
+      "display_name": "RB24J",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb24j.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb24j.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb24j_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "swd_rb71",
+      "display_name": "RB71",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb71.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb71.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb71_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "swd_rb74",
+      "display_name": "RB74",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb74.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb74.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb74_bol_pod.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb74_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "swd_rb74m",
+      "display_name": "RB74M",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb74m.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb74m.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb74m_bol_pod.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb74m_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "swd_rb99",
+      "display_name": "RB99",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb99.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb99.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/swd_rb99_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "sws_flz_lwf_63",
+      "display_name": "SWS FLZ LWF 63",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/sws_flz_lwf_63.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/sws_flz_lwf_63.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "sws_flz_lwf_63_75",
+      "display_name": "Flz Lwf 63/75",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/sws_flz_lwf_63_75.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/sws_flz_lwf_63_75.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "sws_flz_lwf_63_80",
+      "display_name": "SWS FLZ LWF 63 80",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/sws_flz_lwf_63_80.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/sws_flz_lwf_63_80.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "sws_flz_lwf_ll_64",
+      "display_name": "Flz Lwf LL 64",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/sws_flz_lwf_ll_64.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/sws_flz_lwf_ll_64.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": true
+    },
+    {
+      "missile_id": "uk_fireflash",
+      "display_name": "Fireflash",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_fireflash.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_fireflash.blkx"
+      ],
+      "guidance_type": "saclos",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "command_guidance"
+      },
+      "unsupported_features": [
+        "command_guidance"
+      ],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "uk_firestreak",
+      "display_name": "Firestreak",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_firestreak.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_firestreak.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_firestreak_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_firestreak_javelin.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "uk_redtop",
+      "display_name": "Red Top",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_redtop.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_redtop.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "uk_skyflash_aim_7",
+      "display_name": "Skyflash",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "uk_skyflash_aim_7_dogfight",
+      "display_name": "Skyflash Dogfight",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight_tornado.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight_tornado_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "uk_skyflash_temp",
+      "display_name": "Skyflash (temporary)",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_temp.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_temp.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_agm_122",
+      "display_name": "US AGM 122",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_agm_122.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_agm_122.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim4f_falcon",
+      "display_name": "AIM-4F Falcon",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim4f_falcon.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim4f_falcon.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim4f_falcon_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim4g_falcon",
+      "display_name": "AIM-4G Falcon",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim4g_falcon.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim4g_falcon.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim4g_falcon_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim7c_sparrow",
+      "display_name": "US AIM7C SPARROW",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7c_sparrow.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7c_sparrow.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim7d_sparrow",
+      "display_name": "US AIM7D SPARROW",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7d_sparrow.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7d_sparrow.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim7e2_dogfight_sparrow",
+      "display_name": "AIM-7E-2 Sparrow",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7e2_dogfight_sparrow.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7e2_dogfight_sparrow.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim7e_sparrow",
+      "display_name": "AIM-7E Sparrow",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7e_sparrow.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7e_sparrow.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim7f_sparrow",
+      "display_name": "AIM-7F Sparrow",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7f_sparrow.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7f_sparrow.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7f_sparrow_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7f_sparrow_f_14.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7f_sparrow_fa_18.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim7m_sparrow",
+      "display_name": "AIM-7M Sparrow",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7m_sparrow.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7m_sparrow.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7m_sparrow_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7m_sparrow_f_14.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7m_sparrow_f_15.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7m_sparrow_f_15_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7m_sparrow_f_16.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7m_sparrow_f_16_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7m_sparrow_fa_18.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim7p_sparrow",
+      "display_name": "AIM-7P Sparrow",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7p_sparrow_fa_18.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7p_sparrow_fa_18.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim7p_sparrow_fa_18_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim92_stinger",
+      "display_name": "US AIM92 STINGER",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger_atas_tiger.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger_left.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger_right.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9b_fgw_2_sidewinder",
+      "display_name": "US AIM9B FGW 2 SIDEWINDER",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9b_fgw_2_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9b_fgw_2_sidewinder.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9b_sidewinder",
+      "display_name": "US AIM9B SIDEWINDER",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9b_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9b_sidewinder.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9b_sidewinder_cwp.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9b_sidewinder_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9b_sidewinder_default_group.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9c_sidewinder",
+      "display_name": "US AIM9C SIDEWINDER",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9c_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9c_sidewinder.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9c_sidewinder_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9c_sidewinder_default_group.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9d_sidewinder",
+      "display_name": "US AIM9D SIDEWINDER",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9d_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9d_sidewinder.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9d_sidewinder_cwp.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9d_sidewinder_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9d_sidewinder_default_group.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9e_sidewinder",
+      "display_name": "AIM-9E Sidewinder",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9e_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9e_sidewinder.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9e_sidewinder_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9g_sidewinder",
+      "display_name": "AIM-9G Sidewinder",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9g_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9g_sidewinder.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9g_sidewinder_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9h_sidewinder",
+      "display_name": "AIM-9H Sidewinder",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9h_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9h_sidewinder.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9j_sidewinder",
+      "display_name": "US AIM9J SIDEWINDER",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9j_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9j_sidewinder.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9j_sidewinder_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9l_i_1_sidewinder",
+      "display_name": "AIM-9Li-1 Sidewinder",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9l_i_1_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9l_i_1_sidewinder.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9l_i_1_sidewinder_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9l_i_sidewinder",
+      "display_name": "AIM-9Li Sidewinder",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9l_i_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9l_i_sidewinder.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9l_i_sidewinder_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9l_sidewinder",
+      "display_name": "AIM-9L Sidewinder",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9l_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9l_sidewinder.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9l_sidewinder_bol_pod.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9l_sidewinder_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9l_sidewinder_default_bol_pod.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9m_sidewinder",
+      "display_name": "AIM-9M Sidewinder",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9m_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9m_sidewinder.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9m_sidewinder_bol_pod.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9m_sidewinder_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9n_sidewinder",
+      "display_name": "US AIM9N SIDEWINDER",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9n_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9n_sidewinder.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9p4_sidewinder",
+      "display_name": "AIM-9P-4 Sidewinder",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9p4_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9p4_sidewinder.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9p4_sidewinder_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim9p_sidewinder",
+      "display_name": "AIM-9P Sidewinder",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9p_sidewinder.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9p_sidewinder.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim9p_sidewinder_default.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim_120a",
+      "display_name": "AIM-120A",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120a.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120a.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120a_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim_120b",
+      "display_name": "AIM-120B",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120b.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120b.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120b_bol_pod.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120b_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120b_default_switzerland.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120b_switzerland.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim_120c_5",
+      "display_name": "AIM-120C-5",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120c_5.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120c_5.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120c_5_default.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120c_5_default_switzerland.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120c_5_switzerland.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim_120c_7",
+      "display_name": "AIM-120C-7",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120c_7.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120c_7.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120c_7_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim_120d",
+      "display_name": "AIM-120D",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120d.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120d.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120d_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim_26b",
+      "display_name": "AIM-26B Falcon",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_26b.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_26b.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": true
+    },
+    {
+      "missile_id": "us_aim_54a",
+      "display_name": "AIM-54A Phoenix",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_54a.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_54a.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_54a_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim_54b",
+      "display_name": "AIM-54B Phoenix",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_54b.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_54b.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim_54c",
+      "display_name": "AIM-54C Phoenix",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_54c.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_54c.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_54c_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_aim_54c_plus",
+      "display_name": "AIM-54C+ Phoenix",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_54c_plus.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_54c_plus.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_54c_plus_default.blkx"
+      ],
+      "guidance_type": "radar",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn_loft"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_fim_92b",
+      "display_name": "FIM-92B Stinger",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_fim-92b.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_fim-92b.blkx"
+      ],
+      "guidance_type": "optical",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "pn"
+      },
+      "unsupported_features": [],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "us_starstreak",
+      "display_name": "Starstreak",
+      "canonical_source": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_starstreak.blkx",
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_starstreak.blkx"
+      ],
+      "guidance_type": "saclos",
+      "model_family": {
+        "dynamics": "h2_reduced_order",
+        "propulsion": "staged_solid_rocket",
+        "aerodynamics": "conventional_fin",
+        "control": "aerodynamic_fin",
+        "guidance": "beam_riding"
+      },
+      "unsupported_features": [
+        "beam_riding",
+        "command_guidance"
+      ],
+      "bullet_name_fallback": true
+    }
+  ],
+  "excluded": [
+    {
+      "missile_id": "fr_mica_em",
+      "display_name": "MICA EM",
+      "reason": "tvc_excluded",
+      "unsupported_features": [
+        "thrust_vector"
+      ],
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_mica_em.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_mica_em_default.blkx"
+      ],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_73",
+      "display_name": "R-73",
+      "reason": "tvc_excluded",
+      "unsupported_features": [
+        "thrust_vector"
+      ],
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_73.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_73_default.blkx"
+      ],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "su_r_73e",
+      "display_name": "R-73E",
+      "reason": "tvc_excluded",
+      "unsupported_features": [
+        "thrust_vector"
+      ],
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_73e.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_73e_default.blkx"
+      ],
+      "bullet_name_fallback": false
+    },
+    {
+      "missile_id": "uk_sraam",
+      "display_name": "UK SRAAM",
+      "reason": "tvc_excluded",
+      "unsupported_features": [
+        "thrust_vector"
+      ],
+      "source_files": [
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_sraam.blkx",
+        "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_sraam_default.blkx"
+      ],
+      "bullet_name_fallback": false
+    }
+  ],
+  "parse_errors": [],
+  "notes": [
+    "Included profiles are experimental data profiles; they are not all validated flight models.",
+    "The canonical profile stores unit-explicit fields; original BLK files remain available in the sparse checkout for raw provenance."
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "model_label": "local_candidate_H1",
+  "reference": {
+    "source": "StatShark AIM-120A clone editor and existing page results",
+    "new_calculation_performed": false,
+    "new_calculation_requires_user_authorization": true
+  },
+  "geometry": {
+    "initial_mass_kg": 147.87,
+    "caliber_m": 0.1778,
+    "length_m": 3.66,
+    "wing_area_multiplier": 1.275,
+    "reference_area_mode": "caliber_times_wing_multiplier"
+  },
+  "aerodynamics": {
+    "cx_k": 1.425,
+    "cy_k": 2.2,
+    "cx_vs_aoa": 9.0,
+    "aoa_drag_interpretation": "sin_squared",
+    "max_cy_at_aoa": 1.0,
+    "max_cy_interpretation": "coefficient_cap",
+    "fins_lateral_acceleration_g": 42.2579,
+    "distance_cm_to_stabilizer_m": 0.17500001,
+    "horizontal_fin_aoa_limit_deg": 15.409184,
+    "vertical_fin_aoa_limit_deg": 15.409184,
+    "thrust_vector_angle_deg": 0.0,
+    "natural_lift_enabled": true,
+    "natural_lift_fraction": 0.25,
+    "mach_drag": {
+      "base": 1.0,
+      "transonic_peak": 0.28,
+      "center": 1.0,
+      "width": 0.45
+    },
+    "mach_lift": {
+      "base": 1.0,
+      "transonic_peak": 0.10,
+      "center": 1.0,
+      "width": 0.60
+    }
+  },
+  "propulsion": {
+    "stages": [
+      {
+        "name": "stage_1",
+        "duration_s": 1.7,
+        "thrust_n": 22300.0,
+        "mass_lost_kg": 16.119995,
+        "isp_s": 239.8
+      },
+      {
+        "name": "stage_2",
+        "duration_s": 5.3,
+        "thrust_n": 13485.0,
+        "mass_lost_kg": 30.419998,
+        "isp_s": 239.6
+      }
+    ],
+    "unpowered_variant": "zero_force_zero_mass_loss"
+  },
+  "performance": {
+    "maximum_speed_mps": 2000.0,
+    "maximum_distance_m": 80000.0,
+    "lifetime_s": 80.0,
+    "maximum_speed_is_hard_clamp": false
+  },
+  "guidance": {
+    "type": "radar",
+    "lock_range_m": 16000.0,
+    "maximum_lateral_acceleration_g": 35.0,
+    "maximum_angular_rate_deg_s": 60.0,
+    "pn_gain": 4.0,
+    "guidance_timeout_s": 0.6,
+    "guidance_timeout_semantics": "unresolved_do_not_disable_after_timeout",
+    "proximity_fuse_enabled": true,
+    "proximity_radius_m": 12.0,
+    "lofting_enabled": true,
+    "lofting_elevation_deg": 22.500001,
+    "target_elevation_deg": -3.5,
+    "omega_max_deg_s": 0.75,
+    "angle_to_acceleration_multiplier": 20.0,
+    "loft_exit_distance_m": 16000.0,
+    "loft_exit_time_to_go_s": 18.0,
+    "flight_time_gain_table": [[0.0, 1.0]],
+    "time_to_hit_gain_table": [[10.0, 1.0], [25.0, 0.8], [50.0, 0.5]]
+  },
+  "control": {
+    "limit_angle_of_attack_enabled": false,
+    "pid": {
+      "switch_time_s": 3.4028234663852886e38,
+      "p": 0.0086,
+      "i": 0.0565,
+      "d": 0.00025,
+      "integral_limit": 1.0
+    },
+    "fin_command_limit": 1.0,
+    "actuator_time_constant_s": 0.08,
+    "derivative_filter_time_constant_s": 0.03,
+    "angular_response_scale": 0.04,
+    "angular_damping": 1.0,
+    "max_pitch_yaw_rate_deg_s": 60.0
+  },
+  "atmosphere": {
+    "wind_mps": [0.0, 0.0, 0.0],
+    "gravity_mps2": 9.80665
+  },
+  "numerics": {
+    "dt_s": 0.02,
+    "event_epsilon": 1e-9,
+    "max_steps": 10000,
+    "integrator": "rk4_fixed_step_with_explicit_stage_boundaries"
+  }
+}

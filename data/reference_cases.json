@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "source": {
+    "name": "StatShark Missile Calculator",
+    "status": "existing_results_plus_one_authorized_page_readout",
+    "new_calculation_performed_for_this_project": true,
+    "new_calculation_scope": "One authorized AIM-120A Target Azimuth 20 degree case; custom ablation variants were not recreated.",
+    "precision_note": "Terminal values were read approximately from curves, axes, or the visible endpoint tooltip; they are not raw server samples."
+  },
+  "cases": {
+    "full_baseline": {
+      "model_name": "AIM-120A",
+      "event_type": "fuse",
+      "terminal_time_s": {"value": 29.2, "approximate": true},
+      "terminal_speed_kmh": {"value": 1550.0, "approximate": true},
+      "terminal_altitude_m": {"value": 2005.0, "approximate": true},
+      "terminal_distance_to_target_m": {"value": 10.5, "range": [9.0, 12.0], "approximate": true},
+      "observations": [
+        {"text": "完整模型约在 7 s 达到约 3570 km/h 峰值，随后滑行减速。", "approximate": true}
+      ]
+    },
+    "power_only_baseline": {
+      "model_name": "AIM120A_power_only",
+      "event_type": "lifetime",
+      "terminal_time_s": {"value": 80.0, "approximate": false},
+      "terminal_speed_kmh": {"value": 690.0, "approximate": true},
+      "terminal_altitude_m": {"value": 1728.0, "approximate": true},
+      "terminal_distance_to_target_m": {"value": 15700.0, "approximate": true},
+      "observations": [
+        {"text": "约 28.6 s 最近接近约 0.79 km，随后距离重新增大。", "approximate": true}
+      ]
+    },
+    "glide_guided_baseline": {
+      "model_name": "AIM120A_glide_guided",
+      "event_type": "lifetime",
+      "terminal_time_s": {"value": 80.0, "approximate": false},
+      "terminal_speed_kmh": {"value": 730.0, "approximate": true},
+      "terminal_altitude_m": {"value": 2031.0, "approximate": true},
+      "terminal_distance_to_target_m": {"value": 77.0, "approximate": true},
+      "observations": [
+        {"text": "最近约 68 m，80 s 时速度仍不为零。", "approximate": true}
+      ]
+    },
+    "guidance_no_control_baseline": {
+      "model_name": "AIM120A_guidance_no_control",
+      "event_type": "ground",
+      "terminal_time_s": {"value": 63.1, "approximate": true},
+      "terminal_speed_kmh": {"value": 945.0, "approximate": true},
+      "terminal_altitude_m": {"value": 0.0, "approximate": false},
+      "terminal_distance_to_target_m": {"value": 11700.0, "approximate": true},
+      "observations": [
+        {"text": "无控制组保留导引指令，但舵面权限消融为零。", "approximate": false}
+      ]
+    },
+    "off_axis_20deg_full": {
+      "model_name": "AIM-120A",
+      "event_type": null,
+      "event_label": "Impact",
+      "event_type_status": "ui_label_only_not_mapped_to_fuse_or_ground",
+      "terminal_time_s": {"value": 30.4, "approximate": true},
+      "terminal_speed_kmh": {"value": 1413.0, "approximate": true},
+      "terminal_altitude_m": {"value": 2007.0, "approximate": true},
+      "terminal_horizontal_distance_m": {"value": 17071.0, "approximate": true},
+      "distance_traveled_m": {"value": 19625.0, "approximate": true},
+      "terminal_mach": {"value": 1.18, "approximate": true},
+      "scenario": {
+        "start_speed_kmh": 1200.0,
+        "launch_altitude_m": 3000.0,
+        "target_speed_kmh": -200.0,
+        "target_altitude_m": 2000.0,
+        "initial_target_distance_m": 20000.0,
+        "target_azimuth_deg": 20.0,
+        "target_course_deg": 0.0,
+        "target_constant_g_turn": 0.0,
+        "target_vertical_course_deg": 0.0
+      },
+      "source_readout": "StatShark visible endpoint tooltip after one user-authorized Calculate action",
+      "precision_note": "Values retain the precision displayed by the page and are not raw server samples."
+    }
+  }
+}

@@ -1,0 +1,16 @@
+mach,cd_total,cd_uncertainty_approx,series_component,source_page,source_figure,digitization_method
+0.90,0.166,0.006,146.5_in_flight_envelope_center,120,13,manual_from_400_dpi_scan
+0.95,0.178,0.008,146.5_in_flight_envelope_center,120,13,manual_from_400_dpi_scan
+1.00,0.235,0.010,146.5_in_flight_envelope_center,120,13,manual_from_400_dpi_scan
+1.05,0.257,0.008,146.5_in_flight_envelope_center,120,13,manual_from_400_dpi_scan
+1.10,0.262,0.008,146.5_in_flight_envelope_center,120,13,manual_from_400_dpi_scan
+1.20,0.258,0.008,146.5_in_flight_envelope_center,120,13,manual_from_400_dpi_scan
+1.30,0.258,0.008,146.5_in_flight_envelope_center,120,13,manual_from_400_dpi_scan
+1.40,0.256,0.008,146.5_in_flight_envelope_center,120,13,manual_from_400_dpi_scan
+1.50,0.253,0.006,composite_join_large_flight_and_8x6_tunnel,120,13,manual_from_400_dpi_scan
+1.60,0.251,0.006,8x6_wind_tunnel_centerline,120,13,manual_from_400_dpi_scan
+1.80,0.244,0.006,8x6_wind_tunnel_centerline,120,13,manual_from_400_dpi_scan
+2.00,0.232,0.006,8x6_wind_tunnel_centerline,120,13,manual_from_400_dpi_scan
+2.20,0.220,0.006,8x6_wind_tunnel_centerline,120,13,manual_from_400_dpi_scan
+2.40,0.213,0.006,8x6_wind_tunnel_centerline,120,13,manual_from_400_dpi_scan
+2.50,0.210,0.008,8x6_wind_tunnel_centerline,120,13,manual_from_400_dpi_scan

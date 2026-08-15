@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "aim-120a",
+  "name": "AIM-120A",
+  "country": "United States",
+  "series": "AMRAAM",
+  "status": "Experimental",
+  "status_reason": "本地候选模型已冻结并有回归测试，但尚未完成端到端物理验证。",
+  "description": "冻结的 AIM-120A 本地 H2 候选模型；不声称复现 War Thunder 或 StatShark 求解器。",
+  "physics": {
+    "engine_type": "piecewise_constant_thrust",
+    "control_type": "pn_pid_first_order",
+    "config": "configs/aim120a_v1.json"
+  }
+}

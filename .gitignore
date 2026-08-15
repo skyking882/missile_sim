@@ -1,0 +1,9 @@
+# Keep this policy file tracked, but ignore every other hidden file or directory.
+.*
+!.gitignore
+
+# Non-hidden local build, analysis, and evidence outputs.
+*.py[cod]
+dist/
+outputs/
+data/raw/

@@ -1,0 +1,96 @@
+{
+  "schema_version": 3,
+  "model_label": "local_candidate_H3_low_g_drag",
+  "aero_model_version": "low_g_effective_cda_v1",
+  "force_geometry_version": "flow_normal_v1",
+  "control_model_version": "frozen_for_H3_low_g",
+  "reference": {
+    "source": "H2 local pipeline plus plan3 low-g inverse model",
+    "new_statshark_calculation_performed": false,
+    "reference_time_series_available": false,
+    "h2_high_mach_anchor": {
+      "mach": 3.063,
+      "cda0_m2": 0.0135105,
+      "uncertainty_m2": 0.002,
+      "source": "H2 local power_only 7 s effective-CdA anchor; not StatShark raw telemetry"
+    }
+  },
+  "geometry": {
+    "initial_mass_kg": 147.87,
+    "caliber_m": 0.1778,
+    "length_m": 3.66,
+    "wing_area_multiplier": 1.275,
+    "reference_area_mode": "caliber_times_wing_multiplier"
+  },
+  "aerodynamics": {
+    "cx_k": 1.425,
+    "cy_k": 2.2,
+    "cx_vs_aoa": 9.0,
+    "max_cy_at_aoa": 1.0,
+    "mach_drag": {
+      "base": 1.0,
+      "transonic_peak": 0.28,
+      "center": 1.0,
+      "width": 0.45
+    },
+    "mach_lift": {
+      "base": 1.0,
+      "transonic_peak": 0.10,
+      "center": 1.0,
+      "width": 0.60
+    }
+  },
+  "drag_model": {
+    "shape_mode": "sparse_positive_cda0",
+    "area_basis_mode": "caliber_times_wing_multiplier",
+    "alpha_drag_cap_rad": 0.08726646259971647,
+    "lift_area_scale": 1.0
+  },
+  "propulsion": {
+    "stages": [
+      {"name": "stage_1", "duration_s": 1.7, "thrust_n": 22300.0, "mass_lost_kg": 16.119995, "isp_s": 239.8},
+      {"name": "stage_2", "duration_s": 5.3, "thrust_n": 13485.0, "mass_lost_kg": 30.419998, "isp_s": 239.6}
+    ],
+    "unpowered_variant": "zero_force_zero_mass_loss"
+  },
+  "low_g_drag": {
+    "sample_filter": {
+      "lateral_load_threshold_g": 2.0,
+      "alpha_threshold_deg": 5.0,
+      "flight_path_threshold_deg": 5.0,
+      "q_min_pa": 1000.0,
+      "burn_stage_1_end_s": 1.7,
+      "burn_end_s": 7.0,
+      "stage_1_exclusion_window_s": 0.15,
+      "burn_end_exclusion_window_s": 0.20
+    },
+    "sensitivity": {
+      "lateral_load_thresholds_g": [1.0, 2.0, 3.0],
+      "alpha_thresholds_deg": [3.0, 5.0, 8.0],
+      "flight_path_thresholds_deg": [3.0, 5.0, 8.0]
+    },
+    "smoothing": {
+      "window_widths_s": [0.08, 0.16],
+      "primary_window_s": 0.08,
+      "polynomial_order": 2,
+      "does_not_cross_power_or_engine_stage_boundaries": true
+    },
+    "mach_parameterization": {
+      "center": 1.0,
+      "width": 0.45,
+      "wave_width": 0.45,
+      "supported_knots": [0.3, 0.6, 0.9, 1.05, 1.2, 1.8, 2.5, 3.2],
+      "first_pass_free_amplitudes": 3
+    },
+    "fit": {
+      "holdout_modulo": 5,
+      "minimum_overlap_bins": 3,
+      "complexity_improvement_fraction": 0.10,
+      "anchor_prior_ridge_weight": 4.0
+    }
+  },
+  "atmosphere": {
+    "wind_mps": [0.0, 0.0, 0.0],
+    "gravity_mps2": 9.80665
+  }
+}

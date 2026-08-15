@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "release_version": "1.0.0",
+  "cases": [
+    {
+      "name": "head_on_10deg_12km",
+      "model_variant": "full",
+      "initial_conditions": {
+        "start_speed_kmh": 1200.0,
+        "launch_altitude_m": 6500.0,
+        "launch_angle_deg": 0.0,
+        "launch_yaw_deg": 0.0,
+        "target_speed_kmh": 1200.0,
+        "target_altitude_m": 6500.0,
+        "initial_target_distance_m": 12000.0,
+        "target_azimuth_deg": 10.0,
+        "target_course_deg": 0.0,
+        "target_course_reference": "statshark_relative_to_los",
+        "target_constant_g_turn": 0.0,
+        "target_vertical_course_deg": 0.0
+      }
+    },
+    {
+      "name": "head_on_38deg_15km",
+      "model_variant": "full",
+      "initial_conditions": {
+        "start_speed_kmh": 1200.0,
+        "launch_altitude_m": 6500.0,
+        "launch_angle_deg": 0.0,
+        "launch_yaw_deg": 0.0,
+        "target_speed_kmh": 1200.0,
+        "target_altitude_m": 6500.0,
+        "initial_target_distance_m": 15000.0,
+        "target_azimuth_deg": 38.0,
+        "target_course_deg": 0.0,
+        "target_course_reference": "statshark_relative_to_los",
+        "target_constant_g_turn": 0.0,
+        "target_vertical_course_deg": 0.0
+      }
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "schema_version": 2,
+  "runtime_name": "profile_h2_universal_v2",
+  "enable_supported_profiles": true,
+  "boundary": "Experimental universal H2 Python model layer plus selected missile JSON; not an end-to-end validation or game-solver reproduction."
+}

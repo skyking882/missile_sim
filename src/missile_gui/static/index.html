@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Missile Trajectory Lab</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <p class="eyebrow">LOCAL FORWARD MODEL</p>
+          <h1>Missile Trajectory Lab</h1>
+        </div>
+      </div>
+      <div class="local-pill"><span></span> 127.0.0.1 · 本地运行</div>
+    </header>
+
+    <section class="missile-bar" aria-label="导弹选择">
+      <div class="select-block">
+        <label for="missile-select">导弹</label>
+        <select id="missile-select" aria-describedby="missile-detail"></select>
+      </div>
+      <div class="missile-identity">
+        <div class="identity-row">
+          <strong id="missile-name">正在扫描导弹库…</strong>
+          <span id="status-badge" class="status-badge">—</span>
+        </div>
+        <p id="missile-detail">从 missiles/*.json 只读加载</p>
+      </div>
+      <dl class="model-facts" id="model-facts"></dl>
+    </section>
+
+    <div id="library-alert" class="alert warning hidden" role="status"></div>
+    <div class="workspace">
+      <aside class="scenario-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">SCENARIO</p>
+            <h2>场景输入</h2>
+          </div>
+          <button id="reset-view" class="icon-button" type="button" title="恢复图表视图">↺</button>
+        </div>
+
+        <label class="preset-label" for="preset-select">场景预设</label>
+        <select id="preset-select" class="preset-select">
+          <option value="head_on">正面对头</option>
+          <option value="off_axis_10">10°离轴</option>
+          <option value="off_axis_38">38°离轴</option>
+          <option value="tail_chase">尾追</option>
+          <option value="custom">自定义场景</option>
+        </select>
+
+        <div class="convention">
+          <strong>目标航向约定</strong>
+          <span>0°：迎头，目标飞向发射点</span>
+          <span>180°：尾追，目标远离发射点</span>
+        </div>
+
+        <label class="preset-label" for="observation-mode-select">制导观测</label>
+        <select id="observation-mode-select" class="preset-select" name="observation_mode">
+          <option value="ideal_truth">理想真值</option>
+          <option value="sensor_track">传感器 / 航迹层</option>
+        </select>
+
+        <form id="scenario-form" novalidate>
+          <fieldset>
+            <legend>发射平台</legend>
+            <div class="field-grid">
+              <label><span>发射速度 <em>km/h</em></span><input name="launch_speed_kmh" type="number" min="0" max="5000" step="10" value="1200" required></label>
+              <label><span>发射高度 <em>m</em></span><input name="launch_altitude_m" type="number" min="0" max="30000" step="100" value="6500" required></label>
+              <label><span>发射俯仰角 <em>deg</em></span><input name="launch_pitch_deg" type="number" min="-90" max="90" step="0.5" value="0" required></label>
+              <label><span>发射航向角 <em>deg</em></span><input name="launch_heading_deg" type="number" min="-180" max="180" step="0.5" value="0" required></label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>目标</legend>
+            <div class="field-grid">
+              <label><span>目标速度 <em>km/h</em></span><input name="target_speed_kmh" type="number" min="0" max="5000" step="10" value="1200" required></label>
+              <label><span>目标高度 <em>m</em></span><input name="target_altitude_m" type="number" min="0" max="30000" step="100" value="6500" required></label>
+              <label><span>初始距离 <em>m</em></span><input name="initial_distance_m" type="number" min="1" max="200000" step="1" value="12000" required></label>
+              <label><span>目标方位角 <em>deg</em></span><input name="target_azimuth_deg" type="number" min="-180" max="180" step="0.5" value="0" required></label>
+              <label><span>目标航向角 <em>deg</em></span><input name="target_heading_deg" type="number" min="-360" max="360" step="0.5" value="0" required></label>
+              <label><span>垂直航向 <em>deg</em></span><input name="target_vertical_heading_deg" type="number" min="-90" max="90" step="0.5" value="0" required></label>
+              <label><span>恒定转弯 <em>G</em></span><input name="target_constant_turn_g" type="number" min="-15" max="15" step="0.1" value="0" required></label>
+              <label><span>最大模拟时间 <em>s · 可选</em></span><input name="max_simulation_time_s" type="number" min="0.1" max="300" step="0.1" placeholder="导弹寿命"></label>
+            </div>
+          </fieldset>
+        </form>
+
+        <div class="scenario-actions">
+          <button id="import-scenario" type="button" class="secondary-button">导入场景 JSON</button>
+          <button id="export-scenario" type="button" class="secondary-button">导出场景 JSON</button>
+          <input id="scenario-file" class="hidden" type="file" accept="application/json,.json">
+        </div>
+      </aside>
+
+      <main class="results-panel">
+        <section class="run-strip">
+          <div>
+            <p class="eyebrow">SINGLE MISSILE RUN</p>
+            <p id="run-caption">公共 Python H2 模型层 + 所选导弹 JSON；本次运行不会写入实验目录。</p>
+          </div>
+          <button id="run-button" class="run-button" type="button"><span class="run-icon">▶</span><span class="run-label">Calculate</span></button>
+        </section>
+        <div id="error-alert" class="alert error hidden" role="alert"></div>
+        <div id="progress" class="progress hidden" role="status"><span class="spinner"></span><div><strong>正在计算</strong><small>公共模型层正在积分所选导弹轨迹，请稍候…</small></div></div>
+
+        <section id="empty-state" class="empty-state">
+          <div class="radar-art" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
+          <h2>设置场景，然后运行一枚导弹</h2>
+          <p>结果会在这里显示。切换导弹不会改变左侧场景。</p>
+        </section>
+
+        <div id="result-content" class="hidden">
+          <section class="summary-section">
+            <div class="section-heading">
+              <div><p class="eyebrow">TERMINAL SUMMARY</p><h2>结果摘要</h2></div>
+              <div class="export-actions">
+                <button id="export-result" class="secondary-button" type="button">结果 JSON</button>
+                <button id="export-csv" class="secondary-button" type="button">轨迹 CSV</button>
+              </div>
+            </div>
+            <div id="summary-grid" class="summary-grid"></div>
+          </section>
+
+          <section class="charts-section">
+            <div class="section-heading chart-heading">
+              <div><p class="eyebrow">INTERACTIVE TELEMETRY</p><h2>轨迹与遥测</h2></div>
+              <p>滚轮缩放 · 拖动平移 · 悬浮查看数值</p>
+            </div>
+            <div class="chart-grid">
+              <article class="chart-card chart-card-3d">
+                <header>
+                  <h3>三维轨迹场景</h3>
+                  <div class="chart-3d-header"><span>X / 高度 / Z · m</span><button id="reset-3d" class="chart-reset-button" type="button">重置视角</button></div>
+                </header>
+                <div class="legend-3d" aria-label="三维场景图例">
+                  <span><i class="legend-line missile"></i>导弹</span>
+                  <span><i class="legend-line target"></i>目标</span>
+                  <span><i class="legend-shape stage"></i>发动机切段</span>
+                  <span><i class="legend-shape burnout"></i>燃尽</span>
+                  <span><i class="legend-shape termination"></i>终止事件</span>
+                  <small>左键拖动旋转 · Shift/右键拖动平移 · 滚轮缩放 · 悬浮查看</small>
+                </div>
+                <div class="chart-shell chart-shell-3d"><canvas id="chart-3d" tabindex="0" aria-label="可旋转缩放的三维导弹和目标轨迹场景"></canvas></div>
+              </article>
+              <article class="chart-card"><header><h3>水平轨迹</h3><span>m / m</span></header><div class="chart-shell"><canvas id="chart-horizontal" tabindex="0" aria-label="水平轨迹图"></canvas></div></article>
+              <article class="chart-card"><header><h3>高度—水平距离</h3><span>m / m</span></header><div class="chart-shell"><canvas id="chart-profile" tabindex="0" aria-label="高度水平距离图"></canvas></div></article>
+              <article class="chart-card"><header><h3>速度—时间</h3><span>s / km/h</span></header><div class="chart-shell"><canvas id="chart-speed" tabindex="0" aria-label="速度时间图"></canvas></div></article>
+              <article class="chart-card"><header><h3>高度—时间</h3><span>s / m</span></header><div class="chart-shell"><canvas id="chart-altitude" tabindex="0" aria-label="高度时间图"></canvas></div></article>
+              <article class="chart-card"><header><h3>距离目标—时间</h3><span>s / m</span></header><div class="chart-shell"><canvas id="chart-distance" tabindex="0" aria-label="距离目标时间图"></canvas></div></article>
+              <article class="chart-card"><header><h3>指令 G 与实际 G—时间</h3><span>s / G</span></header><div class="chart-shell"><canvas id="chart-g" tabindex="0" aria-label="指令G和实际G时间图"></canvas></div></article>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+  <div id="chart-tooltip" class="chart-tooltip hidden"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

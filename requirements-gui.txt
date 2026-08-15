@@ -1,0 +1,2 @@
+# GUI v1 intentionally uses only the Python standard library.
+# Keeping this file makes optional dependency checks explicit and offline-safe.

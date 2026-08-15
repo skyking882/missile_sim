@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "model_label": "local_candidate_H4_5_transonic_drag",
+  "phase": "phase_0_1_existing_data_review",
+  "source_policy": {
+    "reference_source_kind": "statshark_reference",
+    "external_prior_source_kind": "external_shape_prior",
+    "synthetic_source_kind": "synthetic_test",
+    "new_statshark_calculation_performed_this_run": false,
+    "do_not_overwrite_h4": true
+  },
+  "target": {
+    "mach_min": 0.9,
+    "mach_max": 1.2,
+    "join_mach": 1.2,
+    "join_tolerance_fraction": 0.05,
+    "diagnostic_knots": [0.9, 0.95, 1.0, 1.05, 1.1, 1.2]
+  },
+  "frozen_h4": {
+    "source_fit": "outputs/h4_glide_drag/cda_knots_fit.json",
+    "mach_min": 1.2,
+    "rule": "M>=1.2 H4 nodes are copied by reference and never silently refit in Plan 4.5"
+  },
+  "primary_filter": {
+    "lateral_load_threshold_g": 2.0,
+    "alpha_threshold_deg": 2.0,
+    "flight_path_threshold_deg": 5.0,
+    "q_min_pa": 1000.0,
+    "gravity_cancellation_ratio_max": 3.0,
+    "powered": false,
+    "thrust_n": 0.0,
+    "mass_constant": true
+  },
+  "sensitivity": {
+    "alpha_thresholds_deg": [2.0, 2.5, 3.0],
+    "flight_path_thresholds_deg": [3.0, 5.0, 8.0],
+    "q_thresholds_pa": [500.0, 1000.0, 2000.0],
+    "gravity_cancellation_ratio_max_values": [1.0, 3.0, 5.0],
+    "smoothing_window_points": [3, 5, 7]
+  },
+  "existing_cases": ["G3", "G6"],
+  "new_cases_pending_authorization": ["T1", "T2", "T3", "T4"]
+}

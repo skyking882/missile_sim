@@ -1,0 +1,73 @@
+model:
+  name: local_candidate_H6_fin_plant_v1
+  evidence_class: statshark_backend_timeseries
+
+scope:
+  primary_plane: yaw
+  controller_fit_enabled: false
+  loft_fit_enabled: false
+  pn_fit_enabled: false
+  independent_fin_drag_default: false
+
+frozen_body:
+  mass_kg: 147.87
+  caliber_m: 0.1778
+  length_m: 3.66
+  wing_area_mult: 1.275
+  cx_k: 1.425
+  cy_k_statshark_default: 2.2
+  cx_aoa_statshark_default: 9.0
+  h5_k_delta_forward_m2_per_rad2: 0.725514678
+  h5_k_delta_inverse_median_m2_per_rad2: 0.712740363
+  h5_k_delta_inverse_mad_m2_per_rad2: 0.088326970
+
+fin_nominal:
+  fins_lat_accel_g: 42.2579
+  fins_aoa_hor_rad: 0.268941
+  fins_aoa_ver_rad: 0.268941
+  distance_cm_to_stabilizer_m: 0.175
+  wdk_ui_default: [1.0, 1.0, 1.0]
+
+sampling:
+  requested_timestep_s: 0.02
+  derivative_windows_s: [0.10, 0.20, 0.30]
+
+website_budget:
+  planned_calculate_actions: 6
+  contingency_actions: 0
+  failures_count: true
+  requires_explicit_user_authorization: true
+
+clone_matrix:
+  axis_map:
+    H6_AX0: {finsLatAccel: 0.0, finsAoaHor: 0.268941, finsAoaVer: 0.268941}
+    H6_AX_H: {finsLatAccel: 42.2579, finsAoaHor: 0.268941, finsAoaVer: 0.0}
+    H6_AX_V: {finsLatAccel: 42.2579, finsAoaHor: 0.0, finsAoaVer: 0.268941}
+    H6_AX_HV: {finsLatAccel: 42.2579, finsAoaHor: 0.268941, finsAoaVer: 0.268941}
+  force_scale:
+    H6_F000: {finsLatAccel: 0.0}
+    H6_F050: {finsLatAccel: 21.12895}
+    H6_F100: {finsLatAccel: 42.2579}
+    H6_F150: {finsLatAccel: 63.38685}
+  moment_arm:
+    H6_L050: {distCmStab: 0.0875}
+    H6_L100: {distCmStab: 0.1750}
+    H6_L150: {distCmStab: 0.2625}
+  damping:
+    H6_W050: {WdK_yaw: 0.5}
+    H6_W100: {WdK_yaw: 1.0}
+    H6_W200: {WdK_yaw: 2.0}
+  deflection_limit:
+    H6_A050: {relevant_finsAoa_deg: 7.704592}
+    H6_A100: {relevant_finsAoa_deg: 15.409184}
+    H6_A150: {relevant_finsAoa_deg: 23.113776}
+  body_coupled:
+    H6_BODY_F000: {CyK: 2.2, CxAoA: 9.0, finsLatAccel: 0.0}
+    H6_BODY_F050: {CyK: 2.2, CxAoA: 9.0, finsLatAccel: 21.12895}
+    H6_BODY_F100: {CyK: 2.2, CxAoA: 9.0, finsLatAccel: 42.2579}
+    H6_BODY_F150: {CyK: 2.2, CxAoA: 9.0, finsLatAccel: 63.38685}
+
+fit:
+  force_direction_candidates: [flow_normal, body_normal]
+  extra_drag_candidates: [none, fin_load_squared, body_fin_quadratic]
+  primary_method: full_trajectory_replay

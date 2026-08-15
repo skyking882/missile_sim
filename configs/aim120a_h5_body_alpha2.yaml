@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "model_label": "local_candidate_H5_body_alpha2_M1p5",
+  "evidence_boundary": "zero-active-fin complete-missile body-alpha model; effective CdA only",
+  "source_policy": {
+    "statshark_reference_source_kind": "statshark_reference_visible_readout",
+    "synthetic_source_kind": "synthetic_test",
+    "prior_reference_source_kind": "prior_reference_checkpoint",
+    "new_statshark_calculation_performed_this_run": false,
+    "new_statshark_calculation_authorized": false,
+    "do_not_overwrite_h1_h4_5": true,
+    "game_files_modified": false
+  },
+  "target": {
+    "target_mach": 1.5,
+    "primary_mach_window": [1.45, 1.55],
+    "center_mach_window": [1.47, 1.53],
+    "sensitivity_mach_window": [1.40, 1.60],
+    "angle_unit": "rad",
+    "alpha_levels_target_deg": {
+      "P0": [0.0, 0.4],
+      "P1": [1.0, 1.8],
+      "P2": [2.3, 3.2]
+    },
+    "cx_aoa_levels": [0, 9, 18]
+  },
+  "zero_active_fin_conditions": {
+    "guidance_enabled": false,
+    "finsLatAccel_g": 0.0,
+    "finsAoaHor_deg": 0.0,
+    "finsAoaVer_deg": 0.0,
+    "tvAng_deg": 0.0,
+    "target_turn_g": 0.0
+  },
+  "frozen_model_conditions": {
+    "mass_kg": 147.87,
+    "propulsion_force_n": 0.0,
+    "propellant_mass_loss_kg": 0.0,
+    "wind": "unchanged/default",
+    "other_fields_must_match": [
+      "CxK", "CyK", "CyMaxAoA", "wingAreaMult", "caliber", "mass",
+      "guidance", "loft", "engine force", "engine duration", "mass lost"
+    ]
+  },
+  "frozen_H4_artifact_path": "outputs/h4_glide_drag/cda_knots_fit.json",
+  "sampling": {
+    "target_interval_s": [0.25, 0.5],
+    "display_precision": {
+      "speed": "1 km/h",
+      "mach": "0.01",
+      "alpha": "0.1 deg",
+      "g": "0.1 G",
+      "altitude": "1 m",
+      "distance": "1 m"
+    },
+    "raw_labels_must_be_preserved": true,
+    "repeated_visible_states_must_not_be_differentiated": true
+  },
+  "fit_parameterization": {
+    "base": "CdA0_1p5 + [frozen H4 shape(M) - H4 shape(1.5)]",
+    "alpha_term": "K_residual_1p5 * alpha_rad^2 + S_CxAoA_1p5 * CxAoA * alpha_rad^2",
+    "parameters": ["CdA0_1p5", "K_residual_1p5", "S_CxAoA_1p5"],
+    "primary_estimator": "whole-trajectory axial speed replay",
+    "instantaneous_inverse_cda": "diagnostic_only"
+  },
+  "holdout_policy": {
+    "primary": "leave_out_complete_P1_history",
+    "cross_checks": ["leave_one_CxAoA_level_out", "leave_one_history_out", "leave_one_trajectory_out"],
+    "point_random_split_forbidden": true
+  },
+  "acceptance_thresholds": {
+    "alpha_separation_deg": 0.8,
+    "bootstrap_relative_width": 0.25,
+    "leave_one_trajectory_K_drift": 0.20,
+    "cx_aoa_linearity_ratio": 0.15,
+    "shape_prior_sensitivity_fraction": 0.15,
+    "holdout_competitor_margin": 0.05
+  },
+  "outside_support_policy": "label_outside_H4_shape_support_and_do_not_fit",
+  "model_switches": {
+    "sin_squared_model_enabled": false,
+    "fin_drag_fit_enabled": false,
+    "alpha_fin_body_cross_term_enabled": false,
+    "alpha4_fit_enabled": false,
+    "mach_dependent_free_spline_for_K_enabled": false,
+    "guidance_dependent_drag_enabled": false,
+    "powered_drag_correction_enabled": false,
+    "lift_model_refit_enabled": false,
+    "pid_actuator_refit_enabled": false
+  }
+}

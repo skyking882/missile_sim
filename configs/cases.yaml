@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "name": "baseline_full",
+      "model_variant": "full",
+      "reference_case": "full_baseline",
+      "fit_role": "training",
+      "initial_conditions": {
+        "start_speed_kmh": 1200.0,
+        "launch_altitude_m": 3000.0,
+        "launch_angle_deg": 0.0,
+        "launch_yaw_deg": 0.0,
+        "target_speed_kmh": -200.0,
+        "target_altitude_m": 2000.0,
+        "initial_target_distance_m": 20000.0,
+        "target_azimuth_deg": 0.0,
+        "target_course_deg": 0.0,
+        "target_constant_g_turn": 0.0,
+        "target_vertical_course_deg": 0.0
+      }
+    },
+    {
+      "name": "power_only",
+      "model_variant": "power_only",
+      "reference_case": "power_only_baseline",
+      "fit_role": "training",
+      "initial_conditions": {
+        "start_speed_kmh": 1200.0,
+        "launch_altitude_m": 3000.0,
+        "launch_angle_deg": 0.0,
+        "launch_yaw_deg": 0.0,
+        "target_speed_kmh": -200.0,
+        "target_altitude_m": 2000.0,
+        "initial_target_distance_m": 20000.0,
+        "target_azimuth_deg": 0.0,
+        "target_course_deg": 0.0,
+        "target_constant_g_turn": 0.0,
+        "target_vertical_course_deg": 0.0
+      }
+    },
+    {
+      "name": "glide_guided",
+      "model_variant": "glide_guided",
+      "reference_case": "glide_guided_baseline",
+      "fit_role": "training",
+      "initial_conditions": {
+        "start_speed_kmh": 1200.0,
+        "launch_altitude_m": 3000.0,
+        "launch_angle_deg": 0.0,
+        "launch_yaw_deg": 0.0,
+        "target_speed_kmh": -200.0,
+        "target_altitude_m": 2000.0,
+        "initial_target_distance_m": 20000.0,
+        "target_azimuth_deg": 0.0,
+        "target_course_deg": 0.0,
+        "target_constant_g_turn": 0.0,
+        "target_vertical_course_deg": 0.0
+      }
+    },
+    {
+      "name": "guidance_no_control",
+      "model_variant": "guidance_no_control",
+      "reference_case": "guidance_no_control_baseline",
+      "fit_role": "training",
+      "initial_conditions": {
+        "start_speed_kmh": 1200.0,
+        "launch_altitude_m": 3000.0,
+        "launch_angle_deg": 0.0,
+        "launch_yaw_deg": 0.0,
+        "target_speed_kmh": -200.0,
+        "target_altitude_m": 2000.0,
+        "initial_target_distance_m": 20000.0,
+        "target_azimuth_deg": 0.0,
+        "target_course_deg": 0.0,
+        "target_constant_g_turn": 0.0,
+        "target_vertical_course_deg": 0.0
+      }
+    },
+    {
+      "name": "off_axis_20deg_local_only",
+      "model_variant": "full",
+      "reference_case": "off_axis_20deg_full",
+      "fit_role": "validation_with_new_authorized_reference",
+      "reference_status": "read_from_authorized_statshark_calculation",
+      "initial_conditions": {
+        "start_speed_kmh": 1200.0,
+        "launch_altitude_m": 3000.0,
+        "launch_angle_deg": 0.0,
+        "launch_yaw_deg": 0.0,
+        "target_speed_kmh": -200.0,
+        "target_altitude_m": 2000.0,
+        "initial_target_distance_m": 20000.0,
+        "target_azimuth_deg": 20.0,
+        "target_course_deg": 0.0,
+        "target_constant_g_turn": 0.0,
+        "target_vertical_course_deg": 0.0
+      }
+    }
+  ]
+}

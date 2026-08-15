@@ -1,0 +1,620 @@
+{
+  "schema_version": 2,
+  "status": "r3n_http_200_schema_pass_excitation_gate_failed_paused",
+  "executor": "LunaMax_only",
+  "reviewer_policy": "artifact_review_only_no_browser_or_calculate_unless_user_explicitly_requests_takeover",
+  "authorization_policy": "single_explicit_r3n_calculate_consumed_then_pause",
+  "turnstile_policy": {
+    "used_turnstile_token_sha256": [
+      "20b2172ed61416f55b53c3eba697796885f881b97ff9c22d20733d600ff12eae",
+      "a10efe5f086b61363c082f2301f8d0bf227fd1fd8e5e9b743013e9c112d8d3cd",
+      "2eee456bda89381c7bf59ccedc6b92161b964b84802b53ba2e1780a6749f6dad",
+      "0b1571145bee04ebfc635aad70addf311c5d077737ac41b8e472ea1133a55dae",
+      "24a36e761a2d3873038ffff5f4ba57f081b2e05cee60bde2f66a7d3935a6574d"
+    ],
+    "hash_only": true,
+    "count_http_200_406_and_empty_submissions_as_consumed": true,
+    "fetch_pattern": "*://*/api/missiles/CalcMissileRange",
+    "request_stage_only": true,
+    "duplicate_or_missing_action": "Fetch.failRequest_and_record_preflight_token_abort",
+    "fresh_action": "Fetch.continueRequest_without_request_mutation",
+    "global_audit_path": "data/raw/statshark_h7_controller_id/network_evidence/H7_TURNSTILE_TOKEN_AUDIT_20260814.json"
+  },
+  "plan": "C:\\software\\Steam\\steamapps\\common\\War Thunder\\plan7.md",
+  "controller_boundary": {
+    "input": "aCmdYaw_g",
+    "observed_effective_output": "sign(aCmdYaw)*currentG_g",
+    "observed_envelope": "gLoad_g",
+    "schedule_label": "currentGain",
+    "plant_policy": "freeze_h6r_moment_only_candidate"
+  },
+  "nominal_pid": {
+    "time": 3.4028234663852886e+38,
+    "p": 0.0086,
+    "i": 0.0565,
+    "intgLim": 1,
+    "d": 0.00025
+  },
+  "nominal_timeToGains": [
+    {
+      "time": 0,
+      "gain": 1
+    }
+  ],
+  "nominal_timeToHitToGains": [
+    {
+      "timeToHit": 10,
+      "gain": 1
+    },
+    {
+      "timeToHit": 25,
+      "gain": 0.8
+    },
+    {
+      "timeToHit": 50,
+      "gain": 0.5
+    }
+  ],
+  "common_scenario": {
+    "LaunchAngle": 0,
+    "LaunchYaw": 0,
+    "TargetVerticalCourse": 0,
+    "Timestep": 0.02
+  },
+  "common_airframe": {
+    "mass": 147.87,
+    "caliber": 0.1778,
+    "length": 3.66,
+    "wingAreaMult": 1.275,
+    "cxK": 1.425,
+    "cyK": 2.2,
+    "cxAoA": 0,
+    "cyMaxAoA": 1,
+    "finsAoaHor": 0.268941,
+    "finsAoaVer": 0.268941,
+    "distCmStab": 0.17500001,
+    "wdK": [
+      1,
+      1,
+      1
+    ],
+    "timeLife": 15,
+    "timeout": 0.6,
+    "maxG": 35,
+    "propNavMult": 4,
+    "rateMax": 60,
+    "lockRange": 100000,
+    "limitAoA": false,
+    "loftEnabled": false
+  },
+  "authority_levels": {
+    "F001": 0.422579,
+    "F003": 1.267737,
+    "F010": 4.22579,
+    "F100": 42.2579
+  },
+  "calculate_actions": [
+    {
+      "case_id": "H7_R1_PID_DIFFERENTIAL_retry01",
+      "phase_index": 1,
+      "planned_ledger_index": 2,
+      "retry_of": "H7_R1_PID_DIFFERENTIAL",
+      "prior_attempt": {
+        "ledger_index": 1,
+        "http_status": 406,
+        "response_bytes": 0,
+        "valid_for_analysis": false,
+        "root_cause": "unconfirmed_likely_stale_or_invalid_turnstile_token"
+      },
+      "scenario": {
+        "StartSpeed": 1775,
+        "LaunchAltitude": 3000,
+        "ClosureRate": 0,
+        "InitialTargetDistance": 10000,
+        "TargetAltitude": 3000,
+        "TargetAzimuth": 25,
+        "TargetCourse": 0,
+        "TargetConstantGTurn": 0
+      },
+      "models": [
+        {
+          "name": "H7_PID_NOM_F010",
+          "finsLatAccel": 4.22579,
+          "pid_changes": {}
+        },
+        {
+          "name": "H7_PID_P050_F010",
+          "finsLatAccel": 4.22579,
+          "pid_changes": {
+            "p": 0.0043
+          }
+        },
+        {
+          "name": "H7_PID_P200_F010",
+          "finsLatAccel": 4.22579,
+          "pid_changes": {
+            "p": 0.0172
+          }
+        },
+        {
+          "name": "H7_PID_I050_F010",
+          "finsLatAccel": 4.22579,
+          "pid_changes": {
+            "i": 0.02825
+          }
+        },
+        {
+          "name": "H7_PID_I200_F010",
+          "finsLatAccel": 4.22579,
+          "pid_changes": {
+            "i": 0.113
+          }
+        },
+        {
+          "name": "H7_PID_D025_F010",
+          "finsLatAccel": 4.22579,
+          "pid_changes": {
+            "d": 0.0000625
+          }
+        },
+        {
+          "name": "H7_PID_D400_F010",
+          "finsLatAccel": 4.22579,
+          "pid_changes": {
+            "d": 0.001
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "H7_R2_LIMIT_SCHEDULE",
+      "phase_index": 2,
+      "planned_ledger_index": 3,
+      "scenario": {
+        "StartSpeed": 1775,
+        "LaunchAltitude": 3000,
+        "ClosureRate": 0,
+        "InitialTargetDistance": 10000,
+        "TargetAltitude": 3000,
+        "TargetAzimuth": 45,
+        "TargetCourse": 0,
+        "TargetConstantGTurn": 0
+      },
+      "models": [
+        {
+          "name": "H7_LIM_NOM_F003",
+          "finsLatAccel": 1.267737,
+          "pid_changes": {}
+        },
+        {
+          "name": "H7_LIM_050_F003",
+          "finsLatAccel": 1.267737,
+          "pid_changes": {
+            "intgLim": 0.5
+          }
+        },
+        {
+          "name": "H7_LIM_200_F003",
+          "finsLatAccel": 1.267737,
+          "pid_changes": {
+            "intgLim": 2
+          }
+        },
+        {
+          "name": "H7_TTG_050_F003",
+          "finsLatAccel": 1.267737,
+          "timeToGains": [
+            {
+              "time": 0,
+              "gain": 0.5
+            }
+          ]
+        },
+        {
+          "name": "H7_TTH_FLAT050_F003",
+          "finsLatAccel": 1.267737,
+          "timeToHitToGains": [
+            {
+              "timeToHit": 10,
+              "gain": 0.5
+            },
+            {
+              "timeToHit": 25,
+              "gain": 0.5
+            },
+            {
+              "timeToHit": 50,
+              "gain": 0.5
+            }
+          ]
+        },
+        {
+          "name": "H7_TTH_FLAT100_F003",
+          "finsLatAccel": 1.267737,
+          "timeToHitToGains": [
+            {
+              "timeToHit": 10,
+              "gain": 1
+            },
+            {
+              "timeToHit": 25,
+              "gain": 1
+            },
+            {
+              "timeToHit": 50,
+              "gain": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "H7_R3_DYNAMIC_REVERSAL",
+      "phase_index": 3,
+      "planned_ledger_index": 5,
+      "scenario": {
+        "StartSpeed": 1700,
+        "LaunchAltitude": 6500,
+        "ClosureRate": 900,
+        "InitialTargetDistance": 15000,
+        "TargetAltitude": 6500,
+        "TargetAzimuth": -15,
+        "TargetCourse": 90,
+        "TargetConstantGTurn": 3
+      },
+      "execution_contract": {
+        "reuse_existing_clones": false,
+        "existing_clone_basis": "H6R base clones; three R3 dynamic clones created through native UI and verified by save/close/reopen/readback",
+        "Timestep": 0.02,
+        "native_page_calculate": true,
+        "fetch_token_guard": true,
+        "request_body_interception": false,
+        "direct_fetch_or_replay": false,
+        "required_result_count": 3,
+        "required_missile_id_mapping": true,
+        "required_nonempty_valid_json": true
+      },
+      "models": [
+        {
+          "name": "H7_DYN_NOM_F003",
+          "custom_id": "custom_1786709400601_0pxdhg275",
+          "finsLatAccel": 1.267737
+        },
+        {
+          "name": "H7_DYN_NOM_F010",
+          "custom_id": "custom_1786709428672_nmafxg4gy",
+          "finsLatAccel": 4.22579
+        },
+        {
+          "name": "H7_DYN_NOM_F100",
+          "custom_id": "custom_1786709432127_gdawx0bst",
+          "finsLatAccel": 42.2579
+        }
+      ],
+      "adaptive_retry": {
+        "allowed_only_if": "all_schema_gates_pass_and_only_sign_reversal_gate_fails",
+        "case_id": "H7_R3B_DYNAMIC_REVERSAL_RETRY",
+        "single_change": {
+          "TargetConstantGTurn": -3
+        }
+      },
+      "result": {
+        "http_status": 200,
+        "response_nonempty": true,
+        "valid_json": true,
+        "result_count": 3,
+        "missile_ids_one_to_one": true,
+        "required_arrays_pass": true,
+        "currentGain_length_each": 750,
+        "currentGain_length_matches_times": true,
+        "currentGain_length_4001_required": false,
+        "request_id": "14292.154",
+        "postData_sha256": "769a7b8d16a47472f334f1ecab3dd9b0b4d8ef4fee17c6c42494cd9c1ba48b30",
+        "request_artifact_sha256": "f670d34d36595eb2b0cf7226299ded665e4e46ffdf65b65ba7cd9ff3ef90f54b",
+        "response_artifact_sha256": "ebab69620eb4d884623889baf73852878c10a73d4abab5bb808f510554f4402b",
+        "capture_artifact_sha256": "459cfa051db276426798d64ddb718133b14ca6a38e181c6a964162c3939bb6c7",
+        "token_sha256": "0b1571145bee04ebfc635aad70addf311c5d077737ac41b8e472ea1133a55dae",
+        "token_unique": true,
+        "payload_contrast_pass": true,
+        "schema_pass": true,
+        "excitation_gate_pass": false,
+        "active_aCmdYaw_samples_total": 2157,
+        "sign_reversal_count": 3,
+        "maximum_abs_derivative_g_s": 0.9030750000000168,
+        "F003_strict_near_envelope_count": 0,
+        "F003_mid_or_near_window_s": 4.660107,
+        "F100_unsaturated_count": 719,
+        "response_critical_window_completed": true,
+        "r3b_eligible": false,
+        "r4_cleared": false,
+        "analysis_path": "C:\\software\\Steam\\steamapps\\common\\War Thunder\\aim120_model_id\\outputs\\h7_controller_id\\H7_R3_DYNAMIC_REVERSAL_ANALYSIS.json",
+        "report_path": "C:\\software\\Steam\\steamapps\\common\\War Thunder\\aim120_model_id\\outputs\\h7_controller_id\\H7_R3_DYNAMIC_REVERSAL_REPORT.md"
+      }
+    },
+    {
+      "case_id": "H7_R3N_NEAR_ENVELOPE_RETRY",
+      "phase_index": 3.1,
+      "planned_ledger_index": 6,
+      "authorization_status": "executed_once_authorized_then_stopped",
+      "maximum_calculate_actions_if_later_authorized": 1,
+      "purpose": "repair only the missing strict near-envelope coverage without changing geometry or controller fields",
+      "evidence_basis": {
+        "R3_F003_max_abs_u_obs_over_u_max": 0.8164739216414761,
+        "R3_F003_max_abs_currentG_g": 1.035074,
+        "strict_threshold": 0.95,
+        "derived_max_authority_g_if_trajectory_unchanged": 1.0895515789473684
+      },
+      "scenario": {
+        "StartSpeed": 1700,
+        "LaunchAltitude": 6500,
+        "LaunchAngle": 0,
+        "LaunchYaw": 0,
+        "ClosureRate": 900,
+        "InitialTargetDistance": 15000,
+        "TargetAltitude": 6500,
+        "TargetAzimuth": -15,
+        "TargetCourse": 90,
+        "TargetConstantGTurn": 3,
+        "TargetVerticalCourse": 0,
+        "Timestep": 0.02
+      },
+      "models": [
+        {
+          "name": "H7_R3N_NOM_F0020",
+          "custom_id": "custom_1786717158050_ayuonv1to",
+          "finsLatAccel": 0.845158
+        },
+        {
+          "name": "H7_R3N_NOM_F0025",
+          "custom_id": "custom_1786717188891_g6wu9yfr9",
+          "finsLatAccel": 1.0564475
+        },
+        {
+          "name": "H7_R3N_NOM_F100",
+          "custom_id": "custom_1786717189852_ktmd9vbh7",
+          "finsLatAccel": 42.2579
+        }
+      ],
+      "execution_contract": {
+        "only_cross_arm_model_field": "finsLatAccel",
+        "nominal_pid_and_schedule_frozen": true,
+        "scene_equal_to_R3": true,
+        "native_page_calculate": true,
+        "fresh_turnstile_token_required": true,
+        "payload_readback_capture_schema_ledger_required": true,
+        "current_authorized_calculate_actions": 0,
+        "authorization_consumed": true,
+        "actual_server_calculate_count": 1
+      },
+      "acceptance_gate": {
+        "at_least_one_low_authority_strict_near_envelope_duration_s": 1,
+        "F100_unsaturated_duration_s": 1,
+        "sign_reversal_required": true,
+        "response_critical_window_completed": true
+      },
+      "stop_rule": "one future Calculate maximum if explicitly authorized; pass proceeds to offline fit freeze, fail stops without another authority sweep",
+      "result": {
+        "http_status": 200,
+        "response_nonempty": true,
+        "valid_json": true,
+        "result_count": 3,
+        "missile_ids_one_to_one": true,
+        "required_arrays_pass": true,
+        "currentGain_lengths": [
+          750,
+          750,
+          750
+        ],
+        "currentGain_length_matches_times": true,
+        "request_id": "14292.399",
+        "postData_sha256": "d10803d6115ee90155393cbef35dde38f44586c9f9c01da684e6662809506519",
+        "request_artifact_sha256": "b28c2d5bfeff448056aed5621c6aa5e510a43ad0f43a7d773c7c5deb1b954a7b",
+        "response_artifact_sha256": "184cbcdc7cf7ba62dcec3b9bf2abd92f2878fdd92f02dd48bbeae8b15eb55f33",
+        "capture_artifact_sha256": "0298b0e8ffcee2e4ca72aa60f4c776cbee3cd4c7c38630477b548dbe5fe531fb",
+        "token_sha256": "24a36e761a2d3873038ffff5f4ba57f081b2e05cee60bde2f66a7d3935a6574d",
+        "token_unique": true,
+        "payload_contrast_pass": true,
+        "schema_pass": true,
+        "excitation_gate_pass": false,
+        "r3n_gate": {
+          "http_200": true,
+          "nonempty_valid_json": true,
+          "three_missile_ids_one_to_one": true,
+          "payload_contrast_pass": true,
+          "schema_pass": true,
+          "low_authority_near_envelope_threshold": 0.95,
+          "low_authority_near_envelope_required_duration_s": 1,
+          "low_authority_near_envelope_arms": [],
+          "low_authority_near_envelope_pass": false,
+          "f100_unsaturated_required_duration_s": 1,
+          "f100_unsaturated_max_duration_s": 14.36015305,
+          "f100_unsaturated_pass": true,
+          "sign_reversal_count": 3,
+          "sign_reversal_pass": true,
+          "critical_window_pass": true,
+          "pass": false
+        },
+        "capture_path": "network_evidence/H7_R3N_NEAR_ENVELOPE_RETRY.capture.json",
+        "schema_path": "network_evidence/H7_R3N_NEAR_ENVELOPE_RETRY.schema.json",
+        "readback_path": "model_snapshots/H7_R3N_NEAR_ENVELOPE_RETRY_READBACK_20260814.json",
+        "payload_contrast_path": "payload_contrast_r3n.json",
+        "analysis_path": "C:\\software\\Steam\\steamapps\\common\\War Thunder\\aim120_model_id\\outputs\\h7_controller_id\\H7_R3N_NEAR_ENVELOPE_RETRY_ANALYSIS.json",
+        "report_path": "C:\\software\\Steam\\steamapps\\common\\War Thunder\\aim120_model_id\\outputs\\h7_controller_id\\H7_R3N_NEAR_ENVELOPE_RETRY_REPORT.md",
+        "valid_for_analysis": true,
+        "valid_for_controller_fit": false
+      }
+    },
+    {
+      "case_id": "H7_R4_FROZEN_HOLDOUT",
+      "phase_index": 4,
+      "planned_ledger_index_after_r3n": 7,
+      "requires_frozen_controller_sha256": true,
+      "scenario": {
+        "StartSpeed": 1840,
+        "LaunchAltitude": 8000,
+        "ClosureRate": 700,
+        "InitialTargetDistance": 18000,
+        "TargetAltitude": 8000,
+        "TargetAzimuth": 20,
+        "TargetCourse": -90,
+        "TargetConstantGTurn": -3
+      },
+      "models": [
+        {
+          "name": "H7_HO_NOM_F001",
+          "finsLatAccel": 0.422579
+        },
+        {
+          "name": "H7_HO_NOM_F003",
+          "finsLatAccel": 1.267737
+        },
+        {
+          "name": "H7_HO_NOM_F010",
+          "finsLatAccel": 4.22579
+        },
+        {
+          "name": "H7_HO_NOM_F100",
+          "finsLatAccel": 42.2579
+        }
+      ],
+      "status": "blocked_r3n_excitation_gate_failed",
+      "authorization_status": "not_executed"
+    },
+    {
+      "case_id": "H7_R2_LIMIT_SCHEDULE_retry01",
+      "phase_index": 2,
+      "planned_ledger_index": 4,
+      "retry_of": "H7_R2_LIMIT_SCHEDULE",
+      "reason": "confirmed reuse of the exact R1 retry01 Turnstile token after a 26.02 minute idle interval; original R2 payload remains valid for protocol contrast",
+      "prior_attempt": {
+        "ledger_index": 3,
+        "http_status": 406,
+        "response_bytes": 0,
+        "valid_for_analysis": false,
+        "token_reuse_confirmed": true,
+        "matched_prior_case_id": "H7_R1_PID_DIFFERENTIAL_retry01"
+      },
+      "execution_contract": {
+        "reuse_existing_clones": true,
+        "reuse_existing_custom_ids": true,
+        "Timestep": 0.02,
+        "native_page_calculate": true,
+        "fetch_token_guard": true,
+        "request_body_interception": false,
+        "direct_fetch_or_replay": false,
+        "required_result_count": 6,
+        "required_missile_id_mapping": true,
+        "required_nonempty_valid_json": true
+      },
+      "scenario": {
+        "StartSpeed": 1775,
+        "LaunchAltitude": 3000,
+        "ClosureRate": 0,
+        "InitialTargetDistance": 10000,
+        "TargetAltitude": 3000,
+        "TargetAzimuth": 45,
+        "TargetCourse": 0,
+        "TargetConstantGTurn": 0
+      },
+      "models": [
+        {
+          "name": "H7_LIM_NOM_F003",
+          "custom_id": "custom_1786670993248_qeuvkz5wf",
+          "finsLatAccel": 1.267737,
+          "pid_changes": {}
+        },
+        {
+          "name": "H7_LIM_050_F003",
+          "custom_id": "custom_1786671273993_33fdgyo4z",
+          "finsLatAccel": 1.267737,
+          "pid_changes": {
+            "intgLim": 0.5
+          }
+        },
+        {
+          "name": "H7_LIM_200_F003",
+          "custom_id": "custom_1786671539153_o0zv7l5g8",
+          "finsLatAccel": 1.267737,
+          "pid_changes": {
+            "intgLim": 2
+          }
+        },
+        {
+          "name": "H7_TTG_050_F003",
+          "custom_id": "custom_1786671543263_jmmxr3qgl",
+          "finsLatAccel": 1.267737,
+          "timeToGains": [
+            {
+              "time": 0,
+              "gain": 0.5
+            }
+          ]
+        },
+        {
+          "name": "H7_TTH_FLAT050_F003",
+          "custom_id": "custom_1786671547382_heejbfngk",
+          "finsLatAccel": 1.267737,
+          "timeToHitToGains": [
+            {
+              "timeToHit": 10,
+              "gain": 0.5
+            },
+            {
+              "timeToHit": 25,
+              "gain": 0.5
+            },
+            {
+              "timeToHit": 50,
+              "gain": 0.5
+            }
+          ]
+        },
+        {
+          "name": "H7_TTH_FLAT100_F003",
+          "custom_id": "custom_1786671551514_ntenatbey",
+          "finsLatAccel": 1.267737,
+          "timeToHitToGains": [
+            {
+              "timeToHit": 10,
+              "gain": 1
+            },
+            {
+              "timeToHit": 25,
+              "gain": 1
+            },
+            {
+              "timeToHit": 50,
+              "gain": 1
+            }
+          ]
+        }
+      ],
+      "result": {
+        "http_status": 200,
+        "response_nonempty": true,
+        "valid_json": true,
+        "result_count": 6,
+        "missile_ids_one_to_one": true,
+        "required_arrays_pass": true,
+        "currentGain_length_each": 4001,
+        "request_artifact_sha256": "1a1b99ac57b496655bbd7a13712e61cd29a5ca8a59e000d6056312217db5f296",
+        "response_artifact_sha256": "2056f1d1b06188ca16dfecde97d47bb7226b94f1bc063e3dd694ad05653a5e87",
+        "capture_path": "network_evidence/H7_R2_LIMIT_SCHEDULE_retry01.capture.json",
+        "schema_path": "network_evidence/H7_R2_LIMIT_SCHEDULE_retry01.schema.json",
+        "valid_for_analysis": true
+      }
+    }
+  ],
+  "calculate_budget": {
+    "p0_existing_data": 0,
+    "already_counted_invalid_actions": 2,
+    "already_counted_server_actions": 6,
+    "current_authorized_server_actions": 0,
+    "designed_future_actions_not_authorized": {
+      "H7_R3N_NEAR_ENVELOPE_RETRY": 1,
+      "H7_R4_FROZEN_HOLDOUT": 1
+    },
+    "authorization_statement": "single R3N authorization consumed; strict R3N gate failed",
+    "execution_constraint": "pause after R3N gate failure; no controller fit/freeze, plant refit, authority sweep, R3B, or R4"
+  }
+}
