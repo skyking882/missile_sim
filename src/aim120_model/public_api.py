@@ -86,6 +86,15 @@ def validate_scenario(scenario: dict[str, Any]) -> dict[str, Any]:
         raise SimulationInputError("制导观测必须是 ideal_truth 或 sensor_track。")
     normalized["observation_mode"] = str(observation_mode)
 
+    # Loft remains a profile capability, but activation is an explicit public
+    # scenario choice.  Keep the switch opt-in for backwards-compatible
+    # callers and make its type strict so a browser/API client cannot
+    # accidentally enable it with a truthy string or number.
+    loft_enabled = scenario.get("loft_enabled", False)
+    if not isinstance(loft_enabled, bool):
+        raise SimulationInputError("loft_enabled 必须是布尔值。")
+    normalized["loft_enabled"] = loft_enabled
+
     course_reference = scenario.get(
         "target_course_reference",
         "statshark_relative_to_los",
@@ -174,6 +183,7 @@ def _case_from_scenario(scenario: dict[str, Any]) -> dict[str, Any]:
         "name": "gui_scenario",
         "model_variant": "full",
         "observation_mode": scenario["observation_mode"],
+        "loft_enabled": scenario["loft_enabled"],
         "simulation_dt_s": scenario["simulation_dt_s"],
         "datalink_enabled": scenario["datalink_enabled"],
         "datalink_disconnect_time_s": scenario["datalink_disconnect_time_s"],
@@ -211,7 +221,13 @@ def _event_name(event_type: str) -> str:
     }.get(event_type, event_type)
 
 
-def _summarize(result: dict[str, Any], config: dict[str, Any], limited_by_scenario: bool) -> dict[str, Any]:
+def _summarize(
+    result: dict[str, Any],
+    config: dict[str, Any],
+    limited_by_scenario: bool,
+    scenario_loft_enabled: bool,
+    profile_lofting_enabled: bool,
+) -> dict[str, Any]:
     samples = result["samples"]
     terminal = samples[-1]
     speeds = [norm(tuple(sample["velocity_mps"])) for sample in samples]
@@ -264,6 +280,8 @@ def _summarize(result: dict[str, Any], config: dict[str, Any], limited_by_scenar
         "maximum_trajectory_normal_g": max(float(sample.get("trajectory_lateral_load_g", 0.0)) for sample in samples),
         "minimum_distance_m": min(float(sample["distance_to_target_m"]) for sample in samples),
         "loft_enabled": bool(config["guidance"].get("lofting_enabled", False)),
+        "scenario_loft_enabled": bool(scenario_loft_enabled),
+        "profile_lofting_enabled": bool(profile_lofting_enabled),
         "burnout_time_s": burnout_time,
         "observation_mode": result.get("observation_mode", "ideal_truth"),
         "observation_provider": result.get("observation_provider", "ideal_truth"),
@@ -308,6 +326,13 @@ def simulate(missile_profile: dict[str, Any], scenario: dict[str, Any]) -> dict[
     base_config = _validate_profile(missile_profile)
     normalized = validate_scenario(scenario)
     config = copy.deepcopy(base_config)
+    profile_lofting_enabled = bool(config["guidance"].get("lofting_enabled", False))
+    # The public scenario switch is the only activation control for GUI/API
+    # runs.  A profile that does not expose loft capability remains disabled;
+    # when enabled, the existing guidance gate/equation is left untouched.
+    config["guidance"]["lofting_enabled"] = bool(
+        normalized["loft_enabled"] and profile_lofting_enabled
+    )
     physical_lifetime = float(config["performance"]["lifetime_s"])
     requested_limit = normalized["max_simulation_time_s"]
     limited_by_scenario = requested_limit is not None and float(requested_limit) < physical_lifetime
@@ -324,7 +349,13 @@ def simulate(missile_profile: dict[str, Any], scenario: dict[str, Any]) -> dict[
             "status": missile_profile.get("model_status", missile_profile.get("status")),
         },
         "scenario": normalized,
-        "summary": _summarize(result, config, limited_by_scenario),
+        "summary": _summarize(
+            result,
+            config,
+            limited_by_scenario,
+            normalized["loft_enabled"],
+            profile_lofting_enabled,
+        ),
         "markers": _stage_markers(config) + [{
             "time_s": float(result["terminal_time_s"]),
             "label": "终止事件",
@@ -362,6 +393,8 @@ def simulate(missile_profile: dict[str, Any], scenario: dict[str, Any]) -> dict[
             "runtime_adapter": missile_profile.get("_runtime_adapter", "frozen_config"),
             "runtime_boundary": missile_profile.get("_runtime_boundary", missile_profile.get("_model_config", {}).get("reference", {}).get("source")),
             "runtime_assumptions": list(missile_profile.get("_runtime_assumptions", [])),
+            "scenario_loft_enabled": bool(normalized["loft_enabled"]),
+            "profile_lofting_enabled": profile_lofting_enabled,
         },
     }
 

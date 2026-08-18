@@ -72,6 +72,10 @@ legend { color: #dbe5e5; font-size: 12px; font-weight: 620; padding: 0 0 11px; w
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .field-grid label span { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); font-size: 11px; margin-bottom: 6px; }
 .field-grid label em { font: normal 9px ui-monospace, monospace; color: #607b83; text-transform: uppercase; }
+.toggle-row { display: flex; align-items: center; gap: 9px; color: #cbd8da; font-size: 12px; cursor: pointer; }
+.toggle-row input { width: auto; margin: 0; accent-color: var(--accent); }
+.toggle-row em { color: #718990; font: normal 10px ui-monospace, monospace; margin-left: 5px; }
+.field-help { color: var(--muted); font-size: 10px; line-height: 1.45; margin-top: 8px; }
 .scenario-actions, .export-actions { display: flex; gap: 8px; }
 .secondary-button { color: #b9c9cc; background: transparent; border: 1px solid #294149; border-radius: 6px; padding: 8px 10px; font-size: 11px; }
 .secondary-button:hover { color: var(--text); border-color: #45626c; background: rgba(255,255,255,.02); }

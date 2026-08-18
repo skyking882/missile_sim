@@ -48,6 +48,7 @@ def _off_axis_38_scenario() -> dict[str, float | None]:
 def _r77_high_demand_scenario() -> dict[str, float | None]:
     scenario = _scenario()
     scenario.update({
+        "loft_enabled": True,
         "target_speed_kmh": 900.0,
         "initial_distance_m": 8000.0,
         "target_azimuth_deg": 45.0,
@@ -59,6 +60,7 @@ def _r77_high_demand_scenario() -> dict[str, float | None]:
 
 def _heading_minus20_scenario() -> dict[str, float | None]:
     scenario = _r77_high_demand_scenario()
+    scenario["loft_enabled"] = True
     scenario["target_heading_deg"] = -20.0
     return scenario
 
@@ -120,6 +122,39 @@ def test_scenario_validation_reports_missing_and_range_errors() -> None:
         raise AssertionError("out-of-range field should fail")
 
 
+def test_public_loft_switch_defaults_off_and_blocks_profile_loft() -> None:
+    profiles, _ = scan_library(ROOT / "missiles", ROOT)
+    aim120a = next(profile for profile in profiles if profile["id"] == "aim-120a")
+    scenario = _scenario()
+    scenario.pop("loft_enabled", None)
+
+    normalized = validate_scenario(scenario)
+    assert normalized["loft_enabled"] is False
+    result = simulate(aim120a, scenario)
+
+    assert result["summary"]["scenario_loft_enabled"] is False
+    assert result["summary"]["profile_lofting_enabled"] is True
+    assert result["summary"]["loft_enabled"] is False
+    assert all(sample["loft_active"] is False for sample in result["samples"])
+
+
+def test_public_loft_switch_explicit_on_runs_existing_gate() -> None:
+    profiles, _ = scan_library(ROOT / "missiles", ROOT)
+    aim120a = next(profile for profile in profiles if profile["id"] == "aim-120a")
+    scenario = _scenario()
+    scenario.update({
+        "loft_enabled": True,
+        "initial_distance_m": 60000.0,
+        "max_simulation_time_s": 1.0,
+    })
+
+    result = simulate(aim120a, scenario)
+
+    assert result["summary"]["scenario_loft_enabled"] is True
+    assert result["summary"]["loft_enabled"] is True
+    assert any(sample["loft_active"] for sample in result["samples"])
+
+
 def test_unified_simulate_returns_summary_markers_and_target_trajectory_without_writes() -> None:
     profiles, _ = scan_library(ROOT / "missiles", ROOT)
     aim120a = next(profile for profile in profiles if profile["id"] == "aim-120a")
@@ -155,6 +190,8 @@ def test_gui_contains_interactive_colored_3d_scene() -> None:
     javascript = (ROOT / "src" / "missile_gui" / "static" / "app.js").read_text(encoding="utf-8")
     assert 'id="chart-3d"' in html
     assert 'id="observation-mode-select"' in html
+    assert 'id="loft-enabled-toggle"' in html
+    assert "默认关闭" in html
     assert "sensor_track" in html
     assert 'id="reset-3d"' in html
     assert "发动机切段" in html
@@ -168,6 +205,7 @@ def test_gui_contains_interactive_colored_3d_scene() -> None:
     assert "COLORS_3D.burnout" in javascript
     assert "COLORS_3D.termination" in javascript
     assert "last_radar_reject_reason" in javascript
+    assert "场景 Loft 开关" in javascript
 
 
 def test_all_supported_profiles_are_runnable_through_universal_adapter() -> None:

@@ -75,6 +75,14 @@
 
         <form id="scenario-form" novalidate>
           <fieldset>
+            <legend>制导选项</legend>
+            <label class="toggle-row" for="loft-enabled-toggle">
+              <input id="loft-enabled-toggle" name="loft_enabled" type="checkbox">
+              <span>启用 Loft 计算 <em>默认关闭</em></span>
+            </label>
+            <p class="field-help">开启后仅允许所选导弹现有的 Loft 门槛运行，不改写现有高抛公式。</p>
+          </fieldset>
+          <fieldset>
             <legend>发射平台</legend>
             <div class="field-grid">
               <label><span>发射速度 <em>km/h</em></span><input name="launch_speed_kmh" type="number" min="0" max="5000" step="10" value="1200" required></label>

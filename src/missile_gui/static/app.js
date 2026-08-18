@@ -8,11 +8,11 @@ const COLORS = { missile: "#f16a45", target: "#5ed2d6", actual: "#eac469", grid:
 const COLORS_3D = { ground: "rgba(95,132,141,.16)", axisX: "#f16a45", axisY: "#61c995", axisZ: "#5ed2d6", stage: "#eac469", burnout: "#d58cff", termination: "#ff8576", connector: "rgba(255,133,118,.45)" };
 
 const PRESETS = {
-  head_on: { observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 12000, target_azimuth_deg: 0, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
-  off_axis_10: { observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 12000, target_azimuth_deg: 10, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
-  off_axis_38: { observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 15000, target_azimuth_deg: 38, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
-  sensorwhale_pl12_off_axis_38: { observation_mode: "ideal_truth", target_course_reference: "sensorwhale_launch_axis", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 15000, target_azimuth_deg: 38, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
-  tail_chase: { observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 900, target_altitude_m: 6500, initial_distance_m: 8000, target_azimuth_deg: 0, target_heading_deg: 180, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null }
+  head_on: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 12000, target_azimuth_deg: 0, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
+  off_axis_10: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 12000, target_azimuth_deg: 10, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
+  off_axis_38: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 15000, target_azimuth_deg: 38, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
+  sensorwhale_pl12_off_axis_38: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "sensorwhale_launch_axis", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 15000, target_azimuth_deg: 38, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
+  tail_chase: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 900, target_altitude_m: 6500, initial_distance_m: 8000, target_azimuth_deg: 0, target_heading_deg: 180, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null }
 };
 
 function showAlert(element, message) { element.textContent = message; element.classList.remove("hidden"); }
@@ -69,7 +69,7 @@ function selectMissile(id) {
   if (p.lifetime_s != null) facts.push(["寿命", `${p.lifetime_s} s`]);
   if (p.maximum_range_m != null) facts.push(["射程门限", `${number(p.maximum_range_m / 1000, 0)} km`]);
   if (p.engine_stages != null) facts.push(["发动机", `${p.engine_stages} 段`]);
-  if (p.loft_enabled != null) facts.push(["Loft", p.loft_enabled ? "ON" : "OFF"]);
+  if (p.loft_enabled != null) facts.push(["Profile Loft 能力", p.loft_enabled ? "支持" : "不支持"]);
   facts.push(["模型", profile.runnable ? "可运行" : "不可运行"]);
   $("#model-facts").innerHTML = facts.map(([key, value]) => `<div><dt>${key}</dt><dd>${value}</dd></div>`).join("");
   $("#run-button").disabled = !profile.runnable;
@@ -80,8 +80,11 @@ function selectMissile(id) {
 function applyScenario(values) {
   for (const [key, value] of Object.entries(values)) {
     const input = $(`[name="${key}"]`);
-    if (input) input.value = value == null ? "" : value;
+    if (!input) continue;
+    if (key === "loft_enabled" && input.type === "checkbox") input.checked = Boolean(value);
+    else input.value = value == null ? "" : value;
   }
+  if (!("loft_enabled" in values)) $("#loft-enabled-toggle").checked = false;
   if (values.target_course_reference) $("#target-course-reference-select").value = values.target_course_reference;
 }
 
@@ -94,9 +97,13 @@ function collectScenario() {
   }
   const data = new FormData(form);
   const scenario = {};
-  for (const [key, value] of data.entries()) scenario[key] = ["observation_mode", "target_course_reference"].includes(key) ? value : (value === "" ? null : Number(value));
+  for (const [key, value] of data.entries()) {
+    if (key === "loft_enabled") continue;
+    scenario[key] = ["observation_mode", "target_course_reference"].includes(key) ? value : (value === "" ? null : Number(value));
+  }
   scenario.observation_mode = $("#observation-mode-select").value;
   scenario.target_course_reference = $("#target-course-reference-select").value;
+  scenario.loft_enabled = $("#loft-enabled-toggle").checked;
   return scenario;
 }
 
@@ -129,6 +136,7 @@ function renderResult(result) {
   $("#empty-state").classList.add("hidden");
   $("#result-content").classList.remove("hidden");
   const s = result.summary;
+  const scenarioLoftEnabled = s.scenario_loft_enabled ?? s.loft_enabled;
   const items = [
     ["终止事件", EVENT_NAMES[s.termination_event] || s.termination_event, "", true],
     ["飞行时间", number(s.flight_time_s, 2), "s"],
@@ -140,7 +148,8 @@ function renderResult(result) {
     ["最大高度", number(s.maximum_altitude_m, 0), "m"],
     ["最大指令 G", number(s.maximum_commanded_g, 2), "G"],
     ["最大实际 G", number(s.maximum_actual_g, 2), "G"],
-    ["Loft", s.loft_enabled ? "启用" : "禁用", ""],
+    ["场景 Loft 开关", scenarioLoftEnabled ? "开启" : "关闭", ""],
+    ["Loft 实际状态", s.loft_enabled ? "按现有门槛计算" : "未运行", ""],
     ["发动机燃尽", number(s.burnout_time_s, 2), "s"],
     ["观测模式", s.observation_mode || result.model?.observation_mode || "ideal_truth", ""],
     ["观测 Provider", s.observation_provider || result.model?.observation_provider || "—", ""],
