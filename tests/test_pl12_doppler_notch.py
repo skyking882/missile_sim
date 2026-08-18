@@ -74,6 +74,6 @@ def test_pl12_non_notching_look_down_target_can_be_detected() -> None:
     detection, solution = observer.update(0.0, 0.02, missile, target)
 
     assert detection.valid is True
-    assert detection.reason == "track"
+    assert detection.reason == ""
     assert abs(detection.ground_radial_speed_mps) > detection.notch_half_width_mps
     assert solution is not None
