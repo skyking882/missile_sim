@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from .math3d import norm, sub
+from .math3d import dot, lerp, norm, sub
 from .units import mps_to_kmh
 
 
@@ -18,6 +18,51 @@ def terminal_summary(result: dict[str, Any]) -> dict[str, Any]:
         "terminal_speed_kmh": mps_to_kmh(norm(velocity)),
         "terminal_altitude_m": terminal["position_m"][1],
         "terminal_distance_to_target_m": terminal["distance_to_target_m"],
+    }
+
+
+def continuous_closest_approach(samples: list[dict[str, Any]]) -> dict[str, float | None]:
+    """Closest point on piecewise-linear relative-position segments.
+
+    Closing speed is positive when range is decreasing.
+    """
+
+    if not samples:
+        return {
+            "continuous_minimum_distance_m": None,
+            "time_at_minimum_distance_s": None,
+            "closing_speed_at_minimum_distance_mps": None,
+        }
+    best: tuple[float, float, float] | None = None
+    for first, second in zip(samples, samples[1:]):
+        r0 = sub(tuple(first["target_position_m"]), tuple(first["position_m"]))
+        r1 = sub(tuple(second["target_position_m"]), tuple(second["position_m"]))
+        delta = sub(r1, r0)
+        denominator = dot(delta, delta)
+        fraction = 0.0 if denominator <= 1e-18 else max(0.0, min(1.0, -dot(r0, delta) / denominator))
+        relative = lerp(r0, r1, fraction)
+        distance = norm(relative)
+        time_s = float(first["time_s"]) + fraction * (
+            float(second["time_s"]) - float(first["time_s"])
+        )
+        missile_velocity = lerp(tuple(first["velocity_mps"]), tuple(second["velocity_mps"]), fraction)
+        target_velocity = lerp(tuple(first["target_velocity_mps"]), tuple(second["target_velocity_mps"]), fraction)
+        relative_velocity = sub(target_velocity, missile_velocity)
+        closing = 0.0 if distance <= 1e-12 else -dot(relative, relative_velocity) / distance
+        candidate = (distance, time_s, closing)
+        if best is None or candidate[0] < best[0]:
+            best = candidate
+    if best is None:
+        sample = samples[0]
+        return {
+            "continuous_minimum_distance_m": float(sample["distance_to_target_m"]),
+            "time_at_minimum_distance_s": float(sample["time_s"]),
+            "closing_speed_at_minimum_distance_mps": float(sample.get("closing_speed_mps", 0.0)),
+        }
+    return {
+        "continuous_minimum_distance_m": best[0],
+        "time_at_minimum_distance_s": best[1],
+        "closing_speed_at_minimum_distance_mps": best[2],
     }
 
 

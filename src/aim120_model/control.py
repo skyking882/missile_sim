@@ -76,6 +76,80 @@ def base_indicated_speed_schedule(
     )
 
 
+def _candidate_rate_inner_fin_angle(
+    state: Any,
+    axis: str,
+    rate_command_rad_s: float,
+    maximum_fin_angle_rad: float,
+    config: dict[str, Any],
+    schedule: BaseIndicatedSpeedSchedule,
+    plant_diagnostics: Any | None,
+) -> tuple[float, float]:
+    """Map body-rate error to fin angle using local tail control effectiveness."""
+
+    body_rate = float(getattr(state, f"{axis}_rate"))
+    rate_error = rate_command_rad_s - body_rate
+    rate_loop = config["control"]["candidate_rate_inner_loop"]
+    time_constant_s = float(rate_loop["time_constant_s"])
+    desired_angular_acceleration = rate_error / time_constant_s
+    current_angular_acceleration = (
+        float(getattr(plant_diagnostics, f"{axis}_angular_acceleration_rad_s2"))
+        if plant_diagnostics is not None
+        else 0.0
+    )
+    gravity = float(config["atmosphere"]["gravity_mps2"])
+    length = float(config["geometry"]["length_m"])
+    inertia_per_mass = length * length / 12.0
+    plant_semantics = str(config["control"].get("plant_semantics", ""))
+    if plant_semantics == "generalized_aero_moment":
+        candidate = config["aerodynamics"]["generalized_aero_moment_candidate"]
+        diameter = float(config["geometry"]["caliber_m"])
+        reference_area = math.pi * diameter * diameter / 4.0
+        reference_length = diameter
+        dynamic_pressure = (
+            float(plant_diagnostics.aero.normal_force_dynamic_pressure_pa)
+            if plant_diagnostics is not None
+            else 0.0
+        )
+        cm_delta = float(candidate["cm_delta_per_rad"])
+        # M_delta = q*S*d*Cm_delta*delta; I = m*L^2/12.
+        angular_acceleration_per_fin_rad = (
+            dynamic_pressure
+            * reference_area
+            * reference_length
+            * cm_delta
+            / max(float(getattr(state, "mass")) * inertia_per_mass, 1e-12)
+        )
+    else:
+        tail_arm = abs(float(config["aerodynamics"]["tail_station_x_m"]))
+        scheduled_fins_g = (
+            float(config["aerodynamics"]["fins_lateral_acceleration_g"])
+            * schedule.fin_force_scale
+        )
+        authority_reference_rad = float(
+            config["aerodynamics"]["empirical_fin_authority"][
+                f"{axis}_incidence_reference_rad"
+            ]
+        )
+        angular_acceleration_per_fin_rad = (
+            scheduled_fins_g
+            * gravity
+            * tail_arm
+            / (inertia_per_mass * authority_reference_rad)
+        )
+    if angular_acceleration_per_fin_rad <= 1e-12:
+        return 0.0, rate_error
+    current_fin_angle = float(getattr(state, f"actual_{axis}_fin_angle_rad"))
+    requested_fin_angle = clamp(
+        current_fin_angle
+        + (desired_angular_acceleration - current_angular_acceleration)
+        / angular_acceleration_per_fin_rad,
+        -maximum_fin_angle_rad,
+        maximum_fin_angle_rad,
+    )
+    return requested_fin_angle, rate_error
+
+
 def update_control_feedback(
     state: Any,
     command_body_acceleration_g: tuple[float, float],
@@ -85,6 +159,7 @@ def update_control_feedback(
     authority_scale: float = 1.0,
     feedback_measurement: str | None = None,
     speed_schedule: BaseIndicatedSpeedSchedule | None = None,
+    plant_diagnostics: Any | None = None,
 ) -> dict[str, float]:
     """Return feedback-state updates; the force and moment are applied in dynamics."""
 
@@ -106,6 +181,10 @@ def update_control_feedback(
             "yaw_pid_output": 0.0,
             "pitch_requested_fin_command": 0.0,
             "yaw_requested_fin_command": 0.0,
+            "commanded_pitch_rate_rad_s": 0.0,
+            "commanded_yaw_rate_rad_s": 0.0,
+            "pitch_rate_error_rad_s": 0.0,
+            "yaw_rate_error_rad_s": 0.0,
         }
 
     control_cfg = config["control"]
@@ -137,6 +216,10 @@ def update_control_feedback(
         if not math.isfinite(error_scale) or error_scale <= 0.0:
             raise ValueError("control.pid_error_scale must be finite and positive")
     updates: dict[str, float] = {}
+    rate_inner_plant = str(control_cfg.get("plant_semantics", "")) in {
+        "body_cm_tail_force_moment",
+        "generalized_aero_moment",
+    }
     commands = (float(command_body_acceleration_g[0]), float(command_body_acceleration_g[1]))
     for axis, command, integral_name, previous_name, derivative_name, actual_name, fin_angle_name, fin_name, fin_limit_key in (
         (
@@ -163,7 +246,11 @@ def update_control_feedback(
         ),
     ):
         actuator_state = float(getattr(state, actual_name))
-        if measurement_mode in {"physical_normal_g", "body_specific_force_g"}:
+        if measurement_mode in {
+            "physical_normal_g",
+            "body_specific_force_g",
+            "cg_wind_normal_specific_force_g",
+        }:
             # H2 separates the physical normal-load measurement used by the
             # controller from the actuator's own response state.  The true-
             # difference runtime stores body-axis specific force here, in the
@@ -192,9 +279,38 @@ def update_control_feedback(
         integral_output = integral if integral_semantics == "term" else float(pid["i"]) * integral
         output = float(pid["p"]) * error + integral_output + float(pid["d"]) * derivative
         scheduled_output = output * schedule.pid_output_scale
-        maximum_fin_angle = math.radians(max(float(config["aerodynamics"][fin_limit_key]), 1e-9))
+        plant_semantics = str(control_cfg.get("plant_semantics", "direct_fin_g"))
+        if rate_inner_plant:
+            travel_axis = "pitch" if axis == "pitch" else "yaw"
+            maximum_fin_angle = max(
+                float(control_cfg["fin_actuator_travel"][f"{travel_axis}_limit_rad"]),
+                1e-9,
+            )
+        else:
+            maximum_fin_angle = math.radians(
+                max(float(config["aerodynamics"][fin_limit_key]), 1e-9)
+            )
         output_semantics = str(control_cfg.get("pid_output_semantics", "normalized_fin_command"))
-        if output_semantics == "fin_angle_rad":
+        if rate_inner_plant:
+            if output_semantics != "body_rate_command_rad_s":
+                raise ValueError(
+                    "rate-inner candidate requires body_rate_command_rad_s PID output semantics"
+                )
+            rate_command = scheduled_output
+            requested_fin_angle, rate_error = _candidate_rate_inner_fin_angle(
+                state,
+                axis,
+                rate_command,
+                maximum_fin_angle,
+                config,
+                schedule,
+                plant_diagnostics,
+            )
+            requested_fin = requested_fin_angle / maximum_fin_angle
+            desired_fin_angle = requested_fin_angle * authority
+            updates[f"commanded_{axis}_rate_rad_s"] = rate_command
+            updates[f"{axis}_rate_error_rad_s"] = rate_error
+        elif output_semantics == "fin_angle_rad":
             # Raw accelControl P/I/D output requests a physical fin angle.
             # finsAoa is the only actuator-angle clamp; it must not also act as
             # a gain on an invented [-1, 1] PID output.
@@ -205,6 +321,8 @@ def update_control_feedback(
             )
             requested_fin = requested_fin_angle / maximum_fin_angle
             desired_fin_angle = requested_fin_angle * authority
+            updates[f"commanded_{axis}_rate_rad_s"] = 0.0
+            updates[f"{axis}_rate_error_rad_s"] = 0.0
         elif output_semantics == "normalized_fin_command":
             # Frozen H1/H2 compatibility path.
             requested_fin = clamp(
@@ -213,18 +331,22 @@ def update_control_feedback(
                 control_cfg["fin_command_limit"],
             )
             desired_fin_angle = requested_fin * authority * maximum_fin_angle
+            updates[f"commanded_{axis}_rate_rad_s"] = 0.0
+            updates[f"{axis}_rate_error_rad_s"] = 0.0
         else:
             raise ValueError(f"unknown pid_output_semantics: {output_semantics}")
         actuator_alpha = min(1.0, dt / (max(control_cfg["actuator_time_constant_s"], 1e-9) + dt))
         previous_fin_angle = float(getattr(state, fin_angle_name))
         actual_fin_angle = previous_fin_angle + actuator_alpha * (desired_fin_angle - previous_fin_angle)
         fin = clamp(actual_fin_angle / maximum_fin_angle, -1.0, 1.0)
-        plant_semantics = str(control_cfg.get("plant_semantics", "direct_fin_g"))
-        if plant_semantics == "fin_torque_body_aoa":
-            # The actuator owns only fin angle.  Translational normal load is
-            # produced later by the plant after fin torque has rotated the
-            # body and established angle of attack.  Keep the legacy fields at
-            # zero so no fin-angle -> G feed-through can re-enter dynamics.
+        if plant_semantics in {
+            "fin_torque_body_aoa",
+            "body_cm_tail_force_moment",
+            "generalized_aero_moment",
+        }:
+            # The actuator owns only fin angle; the selected plant resolves
+            # physical force/moment outputs.  Keep the old direct-G actuator
+            # fields at zero so that force is not duplicated.
             actual = 0.0
         elif plant_semantics == "direct_fin_g":
             # Frozen H1/H2 compatibility path.

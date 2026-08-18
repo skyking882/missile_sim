@@ -6,7 +6,7 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
-from .aerodynamics import body_axes
+from .aerodynamics import body_axes_for_state, cg_wind_normal_basis
 from .math3d import Vector, clamp_norm, cross, dot, norm, normalize, scale, sub
 from .target import TargetState
 from .tracking import TrackMode, TrackSolution
@@ -23,7 +23,13 @@ class GuidanceOutput:
     loft_acceleration_mps2: Vector
     commanded_acceleration_mps2: Vector
     commanded_body_acceleration_g: tuple[float, float]
+    controller_specific_force_command_g: tuple[float, float]
+    wind_normal_specific_force_command_g: tuple[float, float]
+    gravity_compensation_wind_normal_g: tuple[float, float]
+    wind_normal_pitch_axis: Vector
+    wind_normal_yaw_axis: Vector
     effective_gain: float
+    time_to_go_s: float
     loft_active: bool
     within_lock_range: bool
 
@@ -109,7 +115,13 @@ def guidance_command(
             loft_acceleration_mps2=(0.0, 0.0, 0.0),
             commanded_acceleration_mps2=(0.0, 0.0, 0.0),
             commanded_body_acceleration_g=(0.0, 0.0),
+            controller_specific_force_command_g=(0.0, 0.0),
+            wind_normal_specific_force_command_g=(0.0, 0.0),
+            gravity_compensation_wind_normal_g=(0.0, 0.0),
+            wind_normal_pitch_axis=(0.0, 1.0, 0.0),
+            wind_normal_yaw_axis=(0.0, 0.0, 1.0),
             effective_gain=0.0,
+            time_to_go_s=0.0,
             loft_active=False,
             within_lock_range=False,
         )
@@ -136,7 +148,7 @@ def guidance_command(
             loft_g = guidance_cfg["angle_to_acceleration_multiplier"] * pitch_error
             loft = (0.0, g_to_mps2(loft_g, config["atmosphere"]["gravity_mps2"]), 0.0)
     commanded = add_vectors(pn, loft)
-    v_hat = normalize(state.velocity, fallback=body_axes(state.pitch, state.yaw).forward)
+    v_hat = normalize(state.velocity, fallback=body_axes_for_state(state).forward)
     commanded = sub(commanded, scale(v_hat, dot(commanded, v_hat)))
     max_accel = g_to_mps2(
         guidance_cfg["maximum_lateral_acceleration_g"],
@@ -148,9 +160,34 @@ def guidance_command(
         pn = (0.0, 0.0, 0.0)
         loft = (0.0, 0.0, 0.0)
         loft_active = False
-    axes = body_axes(state.pitch, state.yaw)
+    axes = body_axes_for_state(state)
     body_pitch_g = mps2_to_g(dot(commanded, axes.up), config["atmosphere"]["gravity_mps2"])
     body_yaw_g = mps2_to_g(dot(commanded, axes.right), config["atmosphere"]["gravity_mps2"])
+    wind_basis = cg_wind_normal_basis(state, config)
+    gravity_vector = (0.0, -float(config["atmosphere"]["gravity_mps2"]), 0.0)
+    required_specific_force = sub(commanded, gravity_vector)
+    required_specific_force = sub(
+        required_specific_force,
+        scale(wind_basis.forward, dot(required_specific_force, wind_basis.forward)),
+    )
+    gravity_compensation = scale(gravity_vector, -1.0)
+    gravity_compensation = sub(
+        gravity_compensation,
+        scale(wind_basis.forward, dot(gravity_compensation, wind_basis.forward)),
+    )
+    wind_command = (
+        mps2_to_g(dot(required_specific_force, wind_basis.up), config["atmosphere"]["gravity_mps2"]),
+        mps2_to_g(dot(required_specific_force, wind_basis.right), config["atmosphere"]["gravity_mps2"]),
+    )
+    gravity_command = (
+        mps2_to_g(dot(gravity_compensation, wind_basis.up), config["atmosphere"]["gravity_mps2"]),
+        mps2_to_g(dot(gravity_compensation, wind_basis.right), config["atmosphere"]["gravity_mps2"]),
+    )
+    candidate = config["control"].get("plant_semantics") in {
+        "body_cm_tail_force_moment",
+        "generalized_aero_moment",
+    }
+    controller_command = wind_command if candidate else (body_pitch_g, body_yaw_g)
     return GuidanceOutput(
         enabled=enabled,
         range_m=range_m,
@@ -160,7 +197,13 @@ def guidance_command(
         loft_acceleration_mps2=loft,
         commanded_acceleration_mps2=commanded,
         commanded_body_acceleration_g=(body_pitch_g, body_yaw_g),
+        controller_specific_force_command_g=controller_command,
+        wind_normal_specific_force_command_g=wind_command,
+        gravity_compensation_wind_normal_g=gravity_command,
+        wind_normal_pitch_axis=wind_basis.up,
+        wind_normal_yaw_axis=wind_basis.right,
         effective_gain=effective_gain,
+        time_to_go_s=time_to_go,
         loft_active=loft_active,
         within_lock_range=range_m <= guidance_cfg["lock_range_m"],
     )

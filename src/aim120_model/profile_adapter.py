@@ -26,6 +26,16 @@ SUPPORTED_MODEL_TYPES = {
 }
 
 
+LEGACY_CRITICAL_DAMPED_PLANT = "critical_damped_v12"
+BODY_CM_TAIL_FORCE_PLANT = "body_cm_tail_force_moment_v1"
+GENERALIZED_AERO_MOMENT_PLANT = "generalized_aero_moment_v1"
+SUPPORTED_PLANT_MODELS = {
+    LEGACY_CRITICAL_DAMPED_PLANT,
+    BODY_CM_TAIL_FORCE_PLANT,
+    GENERALIZED_AERO_MOMENT_PLANT,
+}
+
+
 # Shared H2 solver/mapping layer.  These are runtime-model semantics rather
 # than missile-datamine facts.  Missile-specific values are overlaid from the
 # selected unit-explicit profile below.  The values originate from the frozen
@@ -101,6 +111,40 @@ def _number(value: Any, fallback: float, assumptions: list[str], label: str) -> 
     return float(value)
 
 
+def _positive_finite(value: Any, label: str) -> float:
+    number = float(value)
+    if not math.isfinite(number) or number <= 0.0:
+        raise ValueError(f"{label} must be positive and finite")
+    return number
+
+
+def _nonnegative_finite(value: Any, label: str) -> float:
+    number = float(value)
+    if not math.isfinite(number) or number < 0.0:
+        raise ValueError(f"{label} must be non-negative and finite")
+    return number
+
+
+def _finite(value: Any, label: str) -> float:
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"{label} must be finite")
+    return number
+
+
+def _bounded_coefficient(value: Any, label: str) -> float:
+    """Validate an explicitly supplied, signed candidate coefficient.
+
+    The bound is a numerical safety boundary for this unsupported reduced
+    model, not a claim about a physical missile coefficient.
+    """
+
+    number = _finite(value, label)
+    if abs(number) > 1000.0:
+        raise ValueError(f"{label} must be within +/-1000 for the candidate model")
+    return number
+
+
 def _mach_settings(node: dict[str, Any], fallback: dict[str, Any], assumptions: list[str], label: str) -> dict[str, float]:
     if node.get("model") == "scalar" and isinstance(node.get("parameters"), (int, float)):
         return {"base": float(node["parameters"]), "transonic_peak": 0.0, "center": 1.0, "width": float(fallback["width"])}
@@ -126,6 +170,12 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     guidance = profile["guidance"]
     control = profile["control"]
     pid = control["pid"]
+    plant_model = str(defaults.get("plant_model", LEGACY_CRITICAL_DAMPED_PLANT))
+    if plant_model not in SUPPORTED_PLANT_MODELS:
+        raise ValueError(
+            f"unsupported profile H2 plant_model {plant_model!r}; "
+            f"expected one of {sorted(SUPPORTED_PLANT_MODELS)}"
+        )
 
     raw_pid = {
         "p": _number(pid.get("p"), 0.0, assumptions, "control.pid.p"),
@@ -146,26 +196,66 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         "control PID uses the selected profile's raw p/i/d values; no AIM-120A floor or gain substitution"
     )
     assumptions.append(
-        "fin-torque attitude response uses profile arm and length-derived inertia directly; "
-        "the retired shared angular_response_scale is not applied"
+        "attitude response uses length-derived transverse inertia; the retired shared "
+        "angular_response_scale is not applied"
     )
     assumptions.append(
         "body pitch/yaw rates are integrated without a shared hard clamp; seeker angular-rate limits remain "
         "observation constraints and are not mapped into the airframe plant"
     )
-    assumptions.append(
-        "diagnostic thin-plate normal-force closure uses CN_alpha=2*pi per radian without an imputed hard CN cap; "
-        "this is a shared candidate equation, not a missile-specific PID or datamine value"
-    )
-    assumptions.append(
-        "the same resolved finsLatAccel tail force supplies direct translation and moment while body normal force "
-        "is supplied independently by the explicit CN-alpha model; no extra tail-force scale is introduced"
-    )
-    assumptions.append(
-        "tail effective incidence includes body_rate*profile_arm/airspeed; the remaining rate damping is derived "
-        "from the same instantaneous fin stiffness to close the attitude response at critical damping, with no "
-        "per-profile damping parameter"
-    )
+    if plant_model == LEGACY_CRITICAL_DAMPED_PLANT:
+        assumptions.append(
+            "diagnostic thin-plate normal-force closure uses CN_alpha=2*pi per radian without an imputed hard CN cap; "
+            "this is a shared candidate equation, not a missile-specific PID or datamine value"
+        )
+        assumptions.append(
+            "the same resolved finsLatAccel tail force supplies direct translation and moment while body normal force "
+            "is supplied independently by the explicit CN-alpha model; no extra tail-force scale is introduced"
+        )
+        assumptions.append(
+            "tail effective incidence includes body_rate*profile_arm/airspeed; the remaining rate damping is derived "
+            "from the same instantaneous fin stiffness to close the attitude response at critical damping, with no "
+            "per-profile damping parameter"
+        )
+    elif plant_model == BODY_CM_TAIL_FORCE_PLANT:
+        assumptions.append(
+            "candidate body model: circular Sref, CN_alpha_body=2 rad^-1, lref=caliber, "
+            "and lambda=(body CP ahead of CG arm)/diameter=3"
+        )
+        assumptions.append(
+            "candidate body force is evaluated once at r_CP=[lambda*D,0,0] using V_CP=V_CG+omega cross r_CP; "
+            "M_body=r_CP cross F_body, so derived CNq/Cm_alpha/Cm_q are diagnostics rather than independent terms"
+        )
+        assumptions.append(
+            "candidate empirical fin authority: finsLatAccel is not a fixed-area tail-force coefficient; "
+            "distFromCmToStab is an unverified empirical arm provisionally interpreted as metres, "
+            "x_t=-abs(distance), M_tail=N_tail*x_t"
+        )
+        assumptions.append(
+            "candidate rotation: I_perp=m*length^2/12, M=M_body+M_tail, synthetic residual=0"
+        )
+        assumptions.append(
+            "candidate fixed-lift station x_W is a signed CG-relative metre value; "
+            "it is an unsupported geometry hypothesis and is not mapped from wingAreaMult"
+        )
+        assumptions.append(
+            "candidate controller: raw accelControl PID closes the outer body-normal-acceleration loop and its "
+            "output is interpreted as a body-rate command in rad/s; a shared body-rate inner-loop time constant "
+            "uses local tail moment effectiveness to request fin angle"
+        )
+    else:
+        assumptions.append(
+            "generalized candidate uses explicit dimensionless CN/Cm derivatives; "
+            "these are unsupported local coefficients and are not copied from a game file"
+        )
+        assumptions.append(
+            "CN and Cm share CG alpha, fin delta, body-rate and alpha-rate inputs, "
+            "but force and moment have independent derivative parameters"
+        )
+        assumptions.append(
+            "generalized candidate has no force station, x_W/k_W, distFromCmToStab, "
+            "or finsLatAccel force-to-moment conversion"
+        )
 
     profile_cx_aoa = aero["cx_vs_aoa"].get("coefficient_per_rad2")
     if profile_cx_aoa is None:
@@ -210,9 +300,158 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         }
         for stage in profile["propulsion"]["stages"]
     ]
-    runtime_name = str(defaults["runtime_name"])
+    legacy_runtime_name = str(defaults["runtime_name"])
     natural_lift_enabled = True
-    cn_alpha_per_rad = 2.0 * math.pi
+    body_force_candidate: dict[str, Any] | None = None
+    generalized_force_moment_candidate: dict[str, Any] | None = None
+    if plant_model == LEGACY_CRITICAL_DAMPED_PLANT:
+        runtime_name = legacy_runtime_name
+        cn_alpha_per_rad = 2.0 * math.pi
+        normal_force_model = "thin_plate_2pi"
+        release_version = "profile-adapter-v9-thin-plate-cn-plus-tail-force"
+        force_geometry_version = "fin_torque_body_aoa_v1"
+        control_model_version = "raw_pid_fin_angle_tail_force_moment_body_cn_derived_critical_damping_v12"
+        plant_semantics = "fin_torque_body_aoa"
+    elif plant_model == BODY_CM_TAIL_FORCE_PLANT:
+        candidate = defaults.get("body_cm_candidate")
+        if not isinstance(candidate, dict):
+            raise ValueError("body_cm_candidate settings are required for body_cm_tail_force_moment_v1")
+        cn_alpha_per_rad = _positive_finite(
+            candidate.get("cn_alpha_body_per_rad", 2.0),
+            "body_cm_candidate.cn_alpha_body_per_rad",
+        )
+        cp_cg_arm_over_diameter = _positive_finite(
+            candidate.get("cp_cg_arm_over_diameter", 3.0),
+            "body_cm_candidate.cp_cg_arm_over_diameter",
+        )
+        tail_distance_m = _positive_finite(
+            aero["fin_moment_arm_m"], "aerodynamics.fin_moment_arm_m"
+        )
+        cm_alpha_per_rad = cn_alpha_per_rad * cp_cg_arm_over_diameter
+        cn_q = -2.0 * cn_alpha_per_rad * cp_cg_arm_over_diameter
+        cm_q = -2.0 * cn_alpha_per_rad * cp_cg_arm_over_diameter ** 2
+        rate_loop_time_constant_s = _positive_finite(
+            candidate.get("body_rate_inner_loop_time_constant_s", 0.1),
+            "body_cm_candidate.body_rate_inner_loop_time_constant_s",
+        )
+        tail_alpha_multiplier = _positive_finite(
+            candidate.get("tail_alpha_force_multiplier", 1.0),
+            "body_cm_candidate.tail_alpha_force_multiplier",
+        )
+        tail_delta_multiplier = _positive_finite(
+            candidate.get("tail_delta_force_multiplier", 1.0),
+            "body_cm_candidate.tail_delta_force_multiplier",
+        )
+        fixed_lifting_surface_multiplier = _nonnegative_finite(
+            candidate.get("fixed_lifting_surface_multiplier", 0.0),
+            "body_cm_candidate.fixed_lifting_surface_multiplier",
+        )
+        fixed_lifting_surface_station_x_m = _finite(
+            candidate.get("fixed_lifting_surface_station_x_m", 0.0),
+            "body_cm_candidate.fixed_lifting_surface_station_x_m",
+        )
+        runtime_name = "profile_h2_body_cm_split_tail_fixed_lift_v3_candidate"
+        normal_force_model = "body_circular_cn2"
+        release_version = "profile-adapter-v12-body-cm-split-tail-fixed-lift-candidate"
+        force_geometry_version = "body_cp_split_tail_near_cg_fixed_lift_v4_candidate"
+        control_model_version = "raw_pid_accel_outer_rate_inner_three_source_fin_v17_candidate"
+        plant_semantics = "body_cm_tail_force_moment"
+        body_force_candidate = {
+            "reference_area_mode": "caliber_circular_area",
+            "cn_alpha_body_per_rad": cn_alpha_per_rad,
+            "cp_cg_arm_over_diameter": cp_cg_arm_over_diameter,
+            "force_evaluation": "single_force_at_cp_local_velocity",
+            "moment_evaluation": "r_cp_cross_f_body",
+            "derived_cn_q": cn_q,
+            "derived_cm_alpha_per_rad": cm_alpha_per_rad,
+            "derived_cm_q": cm_q,
+            "inertia_closure": "I_perp=m*length^2/12_provisional",
+        }
+    else:
+        candidate = defaults.get("generalized_aero_moment_candidate")
+        if not isinstance(candidate, dict):
+            raise ValueError(
+                "generalized_aero_moment_candidate settings are required for "
+                "generalized_aero_moment_v1"
+            )
+        generalized_cn_alpha = _bounded_coefficient(
+            candidate.get("cn_alpha_per_rad", 2.0),
+            "generalized_aero_moment_candidate.cn_alpha_per_rad",
+        )
+        generalized_cn_delta = _bounded_coefficient(
+            candidate.get("cn_delta_per_rad", -40.0),
+            "generalized_aero_moment_candidate.cn_delta_per_rad",
+        )
+        generalized_cm_alpha = _bounded_coefficient(
+            candidate.get("cm_alpha_per_rad", -6.0),
+            "generalized_aero_moment_candidate.cm_alpha_per_rad",
+        )
+        generalized_cm_delta = _bounded_coefficient(
+            candidate.get("cm_delta_per_rad", 18.0),
+            "generalized_aero_moment_candidate.cm_delta_per_rad",
+        )
+        generalized_cm_q = _bounded_coefficient(
+            candidate.get("cm_q", -36.0),
+            "generalized_aero_moment_candidate.cm_q",
+        )
+        requested_generalized_cm_alpha_dot = _bounded_coefficient(
+            candidate.get("cm_alpha_dot", 0.0),
+            "generalized_aero_moment_candidate.cm_alpha_dot",
+        )
+        generalized_cm_alpha_dot = 0.0
+        if abs(requested_generalized_cm_alpha_dot) > 0.0:
+            assumptions.append(
+                "generalized_aero_moment_candidate.cm_alpha_dot is retained as a requested input only; "
+                "runtime freezes Cm_alpha_dot=0 because no independent alpha_dot state is available, "
+                "so current rate excitation identifies Cm_q only"
+            )
+        rate_loop_time_constant_s = _positive_finite(
+            candidate.get("body_rate_inner_loop_time_constant_s", 0.1),
+            "generalized_aero_moment_candidate.body_rate_inner_loop_time_constant_s",
+        )
+        runtime_name = "profile_h2_generalized_aero_moment_v1_candidate"
+        normal_force_model = "generalized_coefficients"
+        natural_lift_enabled = False
+        cn_alpha_per_rad = generalized_cn_alpha
+        release_version = "profile-adapter-v13-generalized-aero-moment-candidate"
+        force_geometry_version = "generalized_cn_cm_shared_state_v1_candidate"
+        control_model_version = "raw_pid_accel_outer_rate_inner_generalized_v1_candidate"
+        plant_semantics = "generalized_aero_moment"
+        generalized_force_moment_candidate = {
+            "reference_area_mode": "caliber_circular_area",
+            "reference_length_mode": "caliber_m",
+            "cn_alpha_per_rad": generalized_cn_alpha,
+            "cn_delta_per_rad": generalized_cn_delta,
+            "cm_alpha_per_rad": generalized_cm_alpha,
+            "cm_delta_per_rad": generalized_cm_delta,
+            "cm_q": generalized_cm_q,
+            "cm_alpha_dot": generalized_cm_alpha_dot,
+            "cm_alpha_dot_requested": requested_generalized_cm_alpha_dot,
+            "cm_alpha_dot_runtime_status": (
+                "frozen_zero_unsupported_no_independent_alpha_dot_state"
+            ),
+            "cn_q_per_rad": 0.0,
+            "cn_alpha_dot_per_rad": 0.0,
+            "delta_definition": "actual_fin_angle_rad",
+            "alpha_definition": "CG_wind_normal_alpha_rad",
+            "alpha_dot_definition": (
+                "unavailable_in_current_state; runtime Cm_alpha_dot is frozen at zero"
+            ),
+            "q_hat_definition": "body_rate*reference_length/(2*speed)",
+            "equations": {
+                "CN": "CN_alpha*alpha + CN_delta*delta",
+                "Cm": "Cm_alpha*alpha + Cm_delta*delta + Cm_q*q_hat",
+                "normal_force": "q_dyn*S*CN",
+                "pitch_moment": "q_dyn*S*d*Cm",
+            },
+            "parameter_boundary": (
+                "CN_alpha, CN_delta, Cm_alpha, Cm_delta, and Cm_q are signed unsupported candidate values "
+                "bounded to +/-1000; Cm_alpha_dot is explicitly frozen at runtime zero because alpha_dot "
+                "is not independently represented. None is inferred from x_W/k_W, distFromCmToStab, "
+                "finsLatAccel, raw PID, or drag"
+            ),
+            "inertia_closure": "I_perp=m*length^2/12_provisional",
+        }
     wing_multiplier = float(geometry["wing_area_multiplier"])
     profile_lift_scale = float(aero["lift_area_scale"])
     lift_area_scale = profile_lift_scale / wing_multiplier
@@ -225,15 +464,25 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     )
     config = {
         "schema_version": 3,
-        "release_version": "profile-adapter-v9-thin-plate-cn-plus-tail-force",
+        "release_version": release_version,
         "model_label": f"{profile['missile_id']}_{runtime_name}",
+        "runtime_adapter": runtime_name,
         "aero_model_version": "effective_cda_v1",
-        "force_geometry_version": "fin_torque_body_aoa_v1",
-        "control_model_version": "raw_pid_fin_angle_tail_force_moment_body_cn_derived_critical_damping_v12",
+        "force_geometry_version": force_geometry_version,
+        "control_model_version": control_model_version,
         "reference": {
             "source": "Unit-explicit missile profile adapted to shared H2 candidate runtime",
             "solver_reproduction_claimed": False,
-            "runtime_boundary": defaults["boundary"],
+            "runtime_boundary": (
+                defaults["boundary"]
+                if plant_model == LEGACY_CRITICAL_DAMPED_PLANT
+                else (
+                    "Unsupported local reduced-order generalized CN/Cm candidate; "
+                    "not War Thunder native physics or a validated solver reproduction."
+                    if plant_model == GENERALIZED_AERO_MOMENT_PLANT
+                    else "Unsupported local reduced-order body-Cm/tail-force candidate; not War Thunder native physics or a validated solver reproduction."
+                )
+            ),
         },
         "geometry": {
             "initial_mass_kg": float(geometry["initial_mass_kg"]),
@@ -245,7 +494,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         "aerodynamics": {
             "cx_k": float(aero["cx_k"]),
             "cx_vs_aoa": cx_aoa,
-            "normal_force_model": "thin_plate_2pi",
+            "normal_force_model": normal_force_model,
             "cn_alpha_per_rad": cn_alpha_per_rad,
             "normal_force_cap_enabled": False,
             "cy_k": cn_alpha_per_rad,
@@ -299,16 +548,34 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         "control": {
             "limit_angle_of_attack_enabled": bool(layer_control["limit_angle_of_attack_enabled"]),
             "maximum_body_angle_of_attack_deg": float(layer_control["maximum_body_angle_of_attack_deg"]),
-            "feedback_measurement": "body_specific_force_g",
-            "plant_semantics": "fin_torque_body_aoa",
+            "feedback_measurement": (
+                "body_specific_force_g"
+                if plant_model == LEGACY_CRITICAL_DAMPED_PLANT
+                else "cg_wind_normal_specific_force_g"
+            ),
+            "controller_command_basis": (
+                "legacy_body_up_right_acceleration"
+                if plant_model == LEGACY_CRITICAL_DAMPED_PLANT
+                else "cg_velocity_wind_normal_required_specific_force"
+            ),
+            "plant_semantics": plant_semantics,
             "integral_limit_semantics": "term",
             "fin_aoa_moment_enabled": True,
-            # The raw acceleration-controller output is a requested fin angle
-            # in radians.  Per-profile finsAoa is the physical angle clamp, not
-            # a gain that converts an invented normalized PID output.
-            "pid_output_semantics": "fin_angle_rad",
+            # Legacy preserves the historical raw-PID -> fin-angle mapping.
+            # The body-Cm candidate instead uses the unchanged raw PID as an
+            # acceleration outer loop whose output commands body rate.
+            "pid_output_semantics": (
+                "fin_angle_rad"
+                if plant_model == LEGACY_CRITICAL_DAMPED_PLANT
+                else "body_rate_command_rad_s"
+            ),
+            "pid_error_scale": 1.0,
             "base_indicated_speed_kmh": base_indicated_speed,
-            "base_indicated_speed_mode": "fin_authority_q" if base_indicated_speed is not None else "none",
+            "base_indicated_speed_mode": (
+                "none"
+                if plant_model == GENERALIZED_AERO_MOMENT_PLANT
+                else ("fin_authority_q" if base_indicated_speed is not None else "none")
+            ),
             "pid": {
                 "switch_time_s": 3.4028234663852886e38,
                 "p": mapped_pid["p"],
@@ -316,9 +583,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
                 "d": mapped_pid["d"],
                 "integral_limit": _number(pid.get("integral_limit"), 1.0, assumptions, "control.pid.integral_limit"),
             },
-            # Compatibility field for frozen normalized-command configs.  The
-            # true-difference fin_angle_rad path clamps directly at finsAoa and
-            # derives fin_fraction from actual_angle/finsAoa.
+            # Compatibility field for frozen normalized-command configs.
             "fin_command_limit": float(control["fin_command_limit"]),
             "actuator_time_constant_s": actuator_tau,
             "derivative_filter_time_constant_s": float(layer_control["derivative_filter_time_constant_s"]),
@@ -326,6 +591,102 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         "atmosphere": copy.deepcopy(UNIVERSAL_H2_LAYER["atmosphere"]),
         "numerics": copy.deepcopy(UNIVERSAL_H2_LAYER["numerics"]),
     }
+    if body_force_candidate is not None:
+        pitch_travel_rad = float(aero["fin_aoa_limit_rad"]["horizontal"])
+        yaw_travel_rad = float(aero["fin_aoa_limit_rad"]["vertical"])
+        config["aerodynamics"]["body_cp_force_candidate"] = body_force_candidate
+        config["attitude_candidate"] = {
+            "primary_orientation": "unit_quaternion_body_to_inertial_wxyz",
+            "body_basis": "forward_up_right",
+            "body_angular_velocity_components": "[0,-yaw_rate,+pitch_rate]",
+            "roll_dynamics": "not_included",
+            "pitch_yaw": "derived_telemetry_only",
+        }
+        config["aerodynamics"]["tail_station_x_m"] = -tail_distance_m
+        config["aerodynamics"]["tail_station_semantics"] = {
+            "source_field": "distFromCmToStab",
+            "interpretation": "unverified_empirical_arm_provisionally_metres_aft",
+        }
+        config["control"]["fin_actuator_travel"] = {
+            "pitch_limit_rad": pitch_travel_rad,
+            "yaw_limit_rad": yaw_travel_rad,
+            "source_field": "finsAoaHor/finsAoaVer",
+        }
+        config["aerodynamics"]["empirical_fin_authority"] = {
+            "acceleration_authority_g": fins_g,
+            "pitch_incidence_reference_rad": pitch_travel_rad,
+            "yaw_incidence_reference_rad": yaw_travel_rad,
+            "radial_allocation": "unit_disk_empirical_authority_allocation_not_stall_model",
+            "source_field": "finsLatAccel",
+        }
+        sea_level_density = 1.225000018
+        if base_indicated_speed is None:
+            raise ValueError(
+                "split-tail candidate requires a positive profile base_indicated_speed_kmh"
+            )
+        base_speed_mps = float(base_indicated_speed) / 3.6
+        q_base = 0.5 * sea_level_density * base_speed_mps ** 2
+        config["aerodynamics"]["split_tail_candidate"] = {
+            "model": "algebraic_split_empirical_tail_v1_candidate",
+            "tail_alpha_force_multiplier": tail_alpha_multiplier,
+            "tail_delta_force_multiplier": tail_delta_multiplier,
+            "q_base_pa": q_base,
+            "tail_force_cap_mode": "radial_current_mass_q_over_qbase",
+            "tail_gain_mass_mode": "current_mass",
+            "tail_alpha_moment_arm_m": -tail_distance_m,
+            "tail_delta_moment_arm_m": -tail_distance_m,
+            "fin_mechanical_limit_pitch_rad": pitch_travel_rad,
+            "fin_mechanical_limit_yaw_rad": yaw_travel_rad,
+            "fin_authority_angle_reference_pitch_rad": pitch_travel_rad,
+            "fin_authority_angle_reference_yaw_rad": yaw_travel_rad,
+            "boundary": "unsupported fixed-tail/fixed-airframe restoring derivative multiplier; not a real missile coefficient",
+        }
+        body_area_slope_m2_per_rad = (
+            math.pi * float(geometry["caliber_m"]) ** 2 / 4.0 * cn_alpha_per_rad
+        )
+        config["aerodynamics"]["fixed_lifting_surface_candidate"] = {
+            "model": "linear_station_wind_normal_force_v2_candidate",
+            "fixed_lifting_surface_multiplier": fixed_lifting_surface_multiplier,
+            "body_normal_force_area_slope_m2_per_rad": body_area_slope_m2_per_rad,
+            "fixed_lifting_surface_area_slope_m2_per_rad": (
+                fixed_lifting_surface_multiplier * body_area_slope_m2_per_rad
+            ),
+            "station_x_m": fixed_lifting_surface_station_x_m,
+            "moment_model": "r_cg_cross_f_equals_zero",
+            "boundary": "unsupported near-CG lifting-surface multiplier and signed x_W station; not derived from wingAreaMult or a real missile coefficient",
+        }
+        config["control"]["candidate_rate_inner_loop"] = {
+            "time_constant_s": rate_loop_time_constant_s,
+            "outer_pid_output_semantics": "body_rate_command_rad_s",
+            "inner_loop_semantics": "first_order_rate_target_with_local_angular_acceleration_and_tail_effectiveness_inversion",
+            "source": "shared_unsupported_candidate_assumption",
+        }
+    if generalized_force_moment_candidate is not None:
+        pitch_travel_rad = float(aero["fin_aoa_limit_rad"]["horizontal"])
+        yaw_travel_rad = float(aero["fin_aoa_limit_rad"]["vertical"])
+        config["aerodynamics"]["generalized_aero_moment_candidate"] = (
+            generalized_force_moment_candidate
+        )
+        config["attitude_candidate"] = {
+            "primary_orientation": "unit_quaternion_body_to_inertial_wxyz",
+            "body_basis": "forward_up_right",
+            "body_angular_velocity_components": "[0,-yaw_rate,+pitch_rate]",
+            "roll_dynamics": "not_included",
+            "pitch_yaw": "derived_telemetry_only",
+        }
+        config["control"]["fin_actuator_travel"] = {
+            "pitch_limit_rad": pitch_travel_rad,
+            "yaw_limit_rad": yaw_travel_rad,
+            "source_field": "finsAoaHor/finsAoaVer",
+        }
+        config["control"]["candidate_rate_inner_loop"] = {
+            "time_constant_s": rate_loop_time_constant_s,
+            "outer_pid_output_semantics": "body_rate_command_rad_s",
+            "inner_loop_semantics": (
+                "first_order_rate_target_with_independent_Cm_delta_effectiveness"
+            ),
+            "source": "shared_unsupported_candidate_assumption",
+        }
     sensor_model = guidance.get("sensor_model")
     if isinstance(sensor_model, dict):
         # Keep the raw mapped candidate beside the shared guidance values.
@@ -366,4 +727,14 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     return config, assumptions
 
 
-__all__ = ["SUPPORTED_MODEL_TYPES", "UNIVERSAL_H2_LAYER", "build_h2_candidate_config", "load_runtime_defaults", "unsupported_model_types"]
+__all__ = [
+    "BODY_CM_TAIL_FORCE_PLANT",
+    "GENERALIZED_AERO_MOMENT_PLANT",
+    "LEGACY_CRITICAL_DAMPED_PLANT",
+    "SUPPORTED_MODEL_TYPES",
+    "SUPPORTED_PLANT_MODELS",
+    "UNIVERSAL_H2_LAYER",
+    "build_h2_candidate_config",
+    "load_runtime_defaults",
+    "unsupported_model_types",
+]

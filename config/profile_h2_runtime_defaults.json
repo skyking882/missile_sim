@@ -2,5 +2,24 @@
   "schema_version": 2,
   "runtime_name": "profile_h2_fin_torque_aoa_v4",
   "enable_supported_profiles": true,
+  "plant_model": "critical_damped_v12",
+  "body_cm_candidate": {
+    "cn_alpha_body_per_rad": 2.0,
+    "cp_cg_arm_over_diameter": 3.0,
+    "body_rate_inner_loop_time_constant_s": 0.1,
+    "tail_alpha_force_multiplier": 1.0,
+    "tail_delta_force_multiplier": 1.0,
+    "fixed_lifting_surface_multiplier": 0.0,
+    "fixed_lifting_surface_station_x_m": 0.0
+  },
+  "generalized_aero_moment_candidate": {
+    "cn_alpha_per_rad": 2.0,
+    "cn_delta_per_rad": -40.0,
+    "cm_alpha_per_rad": -6.0,
+    "cm_delta_per_rad": 18.0,
+    "cm_q": -36.0,
+    "cm_alpha_dot": 0.0,
+    "body_rate_inner_loop_time_constant_s": 0.1
+  },
   "boundary": "Experimental true-difference H2 layer: raw per-profile PID and geometry, global gameparams CxAoA=9, no imputed CyK; not an end-to-end validation or game-solver reproduction."
 }

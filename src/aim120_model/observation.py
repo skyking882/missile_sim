@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from .aerodynamics import body_axes
+from .aerodynamics import body_axes_for_state
 from .math3d import Vector, add, as_vector, clamp, cross, dot, norm, normalize, scale, sub
 from .radar_seeker import RadarDetection, RadarSeekerObserver, SeekerState
 from .target import TargetState
@@ -271,7 +271,7 @@ class KinematicTrackProvider:
         # Keep the geometric boresight calculation explicit for diagnostics,
         # while avoiding a guessed angle gate when the profile did not declare one.
         los_hat = normalize(relative)
-        forward = body_axes(missile_state.pitch, missile_state.yaw).forward
+        forward = body_axes_for_state(missile_state).forward
         _off_boresight_rad = math.acos(clamp(dot(forward, los_hat), -1.0, 1.0))
         self.observation_reject_reason = ""
         if self.first_lock_loss_time_s is not None and self.first_reacquire_time_s is None:

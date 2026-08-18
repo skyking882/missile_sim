@@ -6,7 +6,12 @@ import math
 from dataclasses import replace
 from typing import Any
 
-from .aerodynamics import body_axes
+from .aerodynamics import (
+    body_axes,
+    normalize_quaternion,
+    pitch_yaw_from_quaternion,
+    quaternion_from_pitch_yaw,
+)
 from .control import base_indicated_speed_schedule, update_control_feedback
 from .dynamics import SimState
 from .events import event_candidates
@@ -44,14 +49,29 @@ def _interpolate_state(a: SimState, b: SimState, fraction: float) -> SimState:
         "pitch_fin_command", "yaw_fin_command",
         "pitch_pid_output", "yaw_pid_output", "pitch_requested_fin_command",
         "yaw_requested_fin_command", "measured_pitch_normal_g", "measured_yaw_normal_g",
+        "commanded_pitch_rate_rad_s", "commanded_yaw_rate_rad_s",
+        "pitch_rate_error_rad_s", "yaw_rate_error_rad_s",
     )
     values = {
         name: getattr(a, name) + fraction * (getattr(b, name) - getattr(a, name))
         for name in scalar_names
     }
+    quaternion = None
+    if a.orientation_quaternion is not None and b.orientation_quaternion is not None:
+        b_quaternion = b.orientation_quaternion
+        if sum(x * y for x, y in zip(a.orientation_quaternion, b_quaternion)) < 0.0:
+            b_quaternion = tuple(-value for value in b_quaternion)
+        quaternion = normalize_quaternion(
+            tuple(
+                x + fraction * (y - x)
+                for x, y in zip(a.orientation_quaternion, b_quaternion)
+            )
+        )
+        values["pitch"], values["yaw"] = pitch_yaw_from_quaternion(quaternion)
     return SimState(
         position=lerp(a.position, b.position, fraction),
         velocity=lerp(a.velocity, b.velocity, fraction),
+        orientation_quaternion=quaternion,
         **values,
     )
 
@@ -75,6 +95,14 @@ class H2Simulator:
         yaw = deg_to_rad(initial["launch_yaw_deg"])
         axes = body_axes(pitch, yaw)
         velocity = tuple(value * kmh_to_mps(initial["start_speed_kmh"]) for value in axes.forward)
+        candidate_orientation = (
+            quaternion_from_pitch_yaw(pitch, yaw)
+            if self.config["control"].get("plant_semantics") in {
+                "body_cm_tail_force_moment",
+                "generalized_aero_moment",
+            }
+            else None
+        )
         return SimState(
             position=(0.0, float(initial["launch_altitude_m"]), 0.0),
             velocity=velocity,
@@ -83,6 +111,7 @@ class H2Simulator:
             pitch_rate=0.0,
             yaw_rate=0.0,
             mass=self.config["geometry"]["initial_mass_kg"],
+            orientation_quaternion=candidate_orientation,
         )
 
     def _sample(
@@ -133,6 +162,13 @@ class H2Simulator:
             radar_look_down = bool(radar_detection.look_down)
             radar_notch_half_width_mps = float(radar_detection.notch_half_width_mps)
         track_error = norm(sub(track.position, target.position))
+        generalized_candidate = self.config["aerodynamics"].get(
+            "generalized_aero_moment_candidate"
+        )
+        generalized_candidate_active = (
+            self.config["control"].get("plant_semantics") == "generalized_aero_moment"
+            and isinstance(generalized_candidate, dict)
+        )
         return {
             "time_s": float(time_s),
             "position_m": _vector_list(state.position),
@@ -144,6 +180,9 @@ class H2Simulator:
             "drag_n": float(norm(diagnostics.drag_force_n)),
             "mach": float(diagnostics.aero.mach),
             "dynamic_pressure_pa": float(diagnostics.aero.dynamic_pressure_pa),
+            "body_normal_dynamic_pressure_pa": float(
+                diagnostics.aero.normal_force_dynamic_pressure_pa
+            ),
             "indicated_speed_kmh": float(speed_schedule.indicated_speed_kmh),
             "base_indicated_speed_kmh": speed_schedule.base_indicated_speed_kmh,
             "base_indicated_speed_mode": speed_schedule.mode,
@@ -162,9 +201,27 @@ class H2Simulator:
                 float(guidance.commanded_body_acceleration_g[0]),
                 float(guidance.commanded_body_acceleration_g[1]),
             ],
+            "commanded_acceleration_g_basis": "compatibility_body_up_right_kinematic_acceleration",
+            "controller_command_basis": self.config["control"].get("controller_command_basis"),
+            "controller_measurement_basis": self.config["control"].get("feedback_measurement"),
+            "controller_specific_force_command_g": list(
+                guidance.controller_specific_force_command_g
+            ),
+            "wind_normal_specific_force_command_g": list(
+                guidance.wind_normal_specific_force_command_g
+            ),
+            "gravity_compensation_wind_normal_g": list(
+                guidance.gravity_compensation_wind_normal_g
+            ),
+            "wind_normal_pitch_axis": _vector_list(guidance.wind_normal_pitch_axis),
+            "wind_normal_yaw_axis": _vector_list(guidance.wind_normal_yaw_axis),
             "axial_specific_force_g": float(diagnostics.axial_specific_force_g),
             "pitch_normal_acceleration_g": float(diagnostics.pitch_normal_acceleration_g),
             "yaw_normal_acceleration_g": float(diagnostics.yaw_normal_acceleration_g),
+            "body_axis_pitch_specific_force_g": float(diagnostics.pitch_normal_acceleration_g),
+            "body_axis_yaw_specific_force_g": float(diagnostics.yaw_normal_acceleration_g),
+            "wind_normal_pitch_specific_force_g": float(diagnostics.wind_normal_pitch_acceleration_g),
+            "wind_normal_yaw_specific_force_g": float(diagnostics.wind_normal_yaw_acceleration_g),
             "lateral_load_g": float(diagnostics.lateral_load_g),
             "trajectory_pitch_normal_acceleration_g": float(diagnostics.trajectory_pitch_normal_acceleration_g),
             "trajectory_yaw_normal_acceleration_g": float(diagnostics.trajectory_yaw_normal_acceleration_g),
@@ -173,12 +230,19 @@ class H2Simulator:
             "actual_overload_g": float(diagnostics.lateral_load_g),
             "drag_power_w": float(diagnostics.drag_power_w),
             "lift_power_w": float(diagnostics.lift_power_w),
+            "body_tail_force_power_at_cg_w": float(diagnostics.body_tail_force_power_at_cg_w),
             "pitch_rad": float(state.pitch),
             "yaw_rad": float(state.yaw),
             "pitch_rate_rad_s": float(state.pitch_rate),
             "yaw_rate_rad_s": float(state.yaw_rate),
+            "orientation_quaternion_wxyz": (
+                None
+                if state.orientation_quaternion is None
+                else [float(value) for value in state.orientation_quaternion]
+            ),
             "distance_to_target_m": float(norm(relative)),
             "current_gain": float(guidance.effective_gain),
+            "time_to_go_s": float(guidance.time_to_go_s),
             "closing_speed_mps": float(guidance.closing_speed_mps),
             "los_rate_vector_rad_s": _vector_list(guidance.los_rate_vector_rad_s),
             "loft_active": bool(guidance.loft_active),
@@ -210,6 +274,8 @@ class H2Simulator:
             "actual_yaw_fin_angle_rad": float(state.actual_yaw_fin_angle_rad),
             "pitch_pid_output": float(state.pitch_pid_output),
             "yaw_pid_output": float(state.yaw_pid_output),
+            "pitch_pid_integral": float(state.pitch_pid_integral),
+            "yaw_pid_integral": float(state.yaw_pid_integral),
             "pitch_requested_fin_command": float(state.pitch_requested_fin_command),
             "yaw_requested_fin_command": float(state.yaw_requested_fin_command),
             "pitch_requested_fin_angle_rad": float(
@@ -222,6 +288,119 @@ class H2Simulator:
             ),
             "pid_feedback_pitch_g": float(state.measured_pitch_normal_g),
             "pid_feedback_yaw_g": float(state.measured_yaw_normal_g),
+            "commanded_pitch_rate_rad_s": float(state.commanded_pitch_rate_rad_s),
+            "commanded_yaw_rate_rad_s": float(state.commanded_yaw_rate_rad_s),
+            "pitch_rate_error_rad_s": float(state.pitch_rate_error_rad_s),
+            "yaw_rate_error_rad_s": float(state.yaw_rate_error_rad_s),
+            "body_reference_area_m2": float(diagnostics.body_reference_area_m2),
+            "body_reference_length_m": float(diagnostics.body_reference_length_m),
+            "body_cp_cg_arm_over_diameter": float(diagnostics.body_cp_cg_arm_over_diameter),
+            "body_cn_alpha_per_rad": float(diagnostics.body_cn_alpha_per_rad),
+            "body_cn_q": float(diagnostics.body_cn_q),
+            "body_cm_alpha_per_rad": float(diagnostics.body_cm_alpha_per_rad),
+            "body_cm_q": float(diagnostics.body_cm_q),
+            "generalized_cm_alpha_dot_per_rad": float(
+                diagnostics.generalized_cm_alpha_dot_per_rad
+            ),
+            "generalized_pitch_alpha_dot_hat": float(
+                diagnostics.generalized_pitch_alpha_dot_hat
+            ),
+            "generalized_yaw_alpha_dot_hat": float(
+                diagnostics.generalized_yaw_alpha_dot_hat
+            ),
+            "generalized_cm_alpha_dot_runtime_enabled": bool(
+                diagnostics.generalized_cm_alpha_dot_runtime_enabled
+            ),
+            "generalized_cm_alpha_dot_runtime_status": (
+                str(generalized_candidate.get("cm_alpha_dot_runtime_status"))
+                if generalized_candidate_active
+                else "not_applicable"
+            ),
+            "generalized_identified_rate_term": (
+                "Cm_q only" if generalized_candidate_active else "not_applicable"
+            ),
+            "generalized_aero_moment_candidate": generalized_candidate,
+            "pitch_body_normal_force_n": float(diagnostics.pitch_body_normal_force_n),
+            "yaw_body_normal_force_n": float(diagnostics.yaw_body_normal_force_n),
+            "pitch_body_static_moment_nm": float(diagnostics.pitch_body_static_moment_nm),
+            "yaw_body_static_moment_nm": float(diagnostics.yaw_body_static_moment_nm),
+            "pitch_body_rate_moment_nm": float(diagnostics.pitch_body_rate_moment_nm),
+            "yaw_body_rate_moment_nm": float(diagnostics.yaw_body_rate_moment_nm),
+            "pitch_body_total_moment_nm": float(diagnostics.pitch_body_total_moment_nm),
+            "yaw_body_total_moment_nm": float(diagnostics.yaw_body_total_moment_nm),
+            "fixed_lifting_surface_multiplier": float(diagnostics.fixed_lifting_surface_multiplier),
+            "body_normal_force_area_slope_m2_per_rad": float(diagnostics.body_normal_force_area_slope_m2_per_rad),
+            "fixed_lifting_surface_area_slope_m2_per_rad": float(diagnostics.fixed_lifting_surface_area_slope_m2_per_rad),
+            "fixed_lifting_surface_station_x_m": float(diagnostics.fixed_lifting_surface_station_x_m),
+            "pitch_fixed_lifting_surface_alpha_rad": float(diagnostics.pitch_fixed_lifting_surface_alpha_rad),
+            "yaw_fixed_lifting_surface_alpha_rad": float(diagnostics.yaw_fixed_lifting_surface_alpha_rad),
+            "pitch_fixed_lifting_surface_force_n": float(diagnostics.pitch_fixed_lifting_surface_force_n),
+            "yaw_fixed_lifting_surface_force_n": float(diagnostics.yaw_fixed_lifting_surface_force_n),
+            "pitch_fixed_lifting_surface_moment_nm": float(diagnostics.pitch_fixed_lifting_surface_moment_nm),
+            "yaw_fixed_lifting_surface_moment_nm": float(diagnostics.yaw_fixed_lifting_surface_moment_nm),
+            "pitch_total_body_wing_tail_normal_force_n": float(diagnostics.pitch_total_body_wing_tail_normal_force_n),
+            "yaw_total_body_wing_tail_normal_force_n": float(diagnostics.yaw_total_body_wing_tail_normal_force_n),
+            "tail_station_x_m": float(diagnostics.tail_station_x_m),
+            "tail_force_semantics": (
+                "generalized_CN_delta_force"
+                if self.config["control"].get("plant_semantics") == "generalized_aero_moment"
+                else (
+                    "empirical_fin_acceleration_authority"
+                    if self.config["control"].get("plant_semantics") == "body_cm_tail_force_moment"
+                    else "legacy_equivalent_fin_force"
+                )
+            ),
+            "tail_arm_semantics": self.config["aerodynamics"].get(
+                "tail_station_semantics"
+            ),
+            "empirical_fin_acceleration_authority_g": (
+                self.config["aerodynamics"].get("empirical_fin_authority", {}).get(
+                    "acceleration_authority_g"
+                )
+            ),
+            "pitch_tail_force_n": float(diagnostics.pitch_tail_force_n),
+            "yaw_tail_force_n": float(diagnostics.yaw_tail_force_n),
+            "pitch_tail_moment_nm": float(diagnostics.pitch_tail_moment_nm),
+            "yaw_tail_moment_nm": float(diagnostics.yaw_tail_moment_nm),
+            "pitch_tail_authority_fraction": float(diagnostics.pitch_tail_authority_fraction),
+            "yaw_tail_authority_fraction": float(diagnostics.yaw_tail_authority_fraction),
+            "tail_alpha_force_multiplier": float(diagnostics.tail_alpha_force_multiplier),
+            "tail_delta_force_multiplier": float(diagnostics.tail_delta_force_multiplier),
+            "pitch_tail_alpha_force_slope_n_per_rad": float(diagnostics.pitch_tail_alpha_force_slope_n_per_rad),
+            "yaw_tail_alpha_force_slope_n_per_rad": float(diagnostics.yaw_tail_alpha_force_slope_n_per_rad),
+            "pitch_tail_delta_force_slope_n_per_rad": float(diagnostics.pitch_tail_delta_force_slope_n_per_rad),
+            "yaw_tail_delta_force_slope_n_per_rad": float(diagnostics.yaw_tail_delta_force_slope_n_per_rad),
+            "pitch_tail_alpha_force_n": float(diagnostics.pitch_tail_alpha_force_n),
+            "yaw_tail_alpha_force_n": float(diagnostics.yaw_tail_alpha_force_n),
+            "pitch_tail_delta_force_n": float(diagnostics.pitch_tail_delta_force_n),
+            "yaw_tail_delta_force_n": float(diagnostics.yaw_tail_delta_force_n),
+            "pitch_tail_net_force_pre_cap_n": float(diagnostics.pitch_tail_net_force_pre_cap_n),
+            "yaw_tail_net_force_pre_cap_n": float(diagnostics.yaw_tail_net_force_pre_cap_n),
+            "tail_force_cap_n": float(diagnostics.tail_force_cap_n),
+            "tail_force_cap_scale": float(diagnostics.tail_force_cap_scale),
+            "tail_force_cap_active": bool(diagnostics.tail_force_cap_active),
+            "pitch_tail_alpha_moment_nm": float(diagnostics.pitch_tail_alpha_moment_nm),
+            "yaw_tail_alpha_moment_nm": float(diagnostics.yaw_tail_alpha_moment_nm),
+            "pitch_tail_delta_moment_nm": float(diagnostics.pitch_tail_delta_moment_nm),
+            "yaw_tail_delta_moment_nm": float(diagnostics.yaw_tail_delta_moment_nm),
+            "tail_force_cap_mode": self.config["aerodynamics"].get("split_tail_candidate", {}).get("tail_force_cap_mode"),
+            "tail_gain_mass_mode": self.config["aerodynamics"].get("split_tail_candidate", {}).get("tail_gain_mass_mode"),
+            "tail_alpha_moment_arm_m": self.config["aerodynamics"].get("split_tail_candidate", {}).get("tail_alpha_moment_arm_m"),
+            "tail_delta_moment_arm_m": self.config["aerodynamics"].get("split_tail_candidate", {}).get("tail_delta_moment_arm_m"),
+            "fin_mechanical_limit_pitch_rad": self.config["aerodynamics"].get("split_tail_candidate", {}).get("fin_mechanical_limit_pitch_rad"),
+            "fin_mechanical_limit_yaw_rad": self.config["aerodynamics"].get("split_tail_candidate", {}).get("fin_mechanical_limit_yaw_rad"),
+            "fin_authority_angle_reference_pitch_rad": self.config["aerodynamics"].get("split_tail_candidate", {}).get("fin_authority_angle_reference_pitch_rad"),
+            "fin_authority_angle_reference_yaw_rad": self.config["aerodynamics"].get("split_tail_candidate", {}).get("fin_authority_angle_reference_yaw_rad"),
+            "pitch_tail_local_alpha_rad": float(
+                state.actual_pitch_fin_angle_rad - diagnostics.pitch_tail_effective_incidence_rad
+            ),
+            "yaw_tail_local_alpha_rad": float(
+                state.actual_yaw_fin_angle_rad - diagnostics.yaw_tail_effective_incidence_rad
+            ),
+            "pitch_residual_damping_moment_nm": float(diagnostics.pitch_residual_damping_moment_nm),
+            "yaw_residual_damping_moment_nm": float(diagnostics.yaw_residual_damping_moment_nm),
+            "pitch_total_moment_nm": float(diagnostics.pitch_total_moment_nm),
+            "yaw_total_moment_nm": float(diagnostics.yaw_total_moment_nm),
             "pitch_body_aoa_force_g": float(diagnostics.pitch_body_aoa_force_g),
             "yaw_body_aoa_force_g": float(diagnostics.yaw_body_aoa_force_g),
             "pitch_fin_moment_equivalent_g": float(diagnostics.pitch_fin_moment_equivalent_g),
@@ -344,13 +523,14 @@ class H2Simulator:
             )
             feedback = update_control_feedback(
                 state,
-                guidance.commanded_body_acceleration_g,
+                guidance.controller_specific_force_command_g,
                 self.config,
                 step,
                 enabled=controlled,
                 authority_scale=authority_scale,
                 feedback_measurement=self.config["control"].get("feedback_measurement", "physical_normal_g"),
                 speed_schedule=speed_schedule,
+                plant_diagnostics=pre_control_diagnostics,
             )
             state_for_step = replace(state, **feedback)
             next_state = rk4_step_h2(
@@ -381,7 +561,10 @@ class H2Simulator:
                 powered,
             )
             feedback_measurement = self.config["control"].get("feedback_measurement", "physical_normal_g")
-            if feedback_measurement == "body_specific_force_g":
+            if feedback_measurement == "cg_wind_normal_specific_force_g":
+                measured_pitch_g = next_diagnostics.wind_normal_pitch_acceleration_g
+                measured_yaw_g = next_diagnostics.wind_normal_yaw_acceleration_g
+            elif feedback_measurement == "body_specific_force_g":
                 measured_pitch_g = next_diagnostics.pitch_normal_acceleration_g
                 measured_yaw_g = next_diagnostics.yaw_normal_acceleration_g
             else:

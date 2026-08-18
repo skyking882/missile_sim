@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from .aerodynamics import body_axes
+from .aerodynamics import body_axes_for_state
 from .dynamics import SimState
 from .math3d import Vector, add, clamp, cross, dot, norm, normalize, scale, sub
 from .target import TargetState
@@ -237,7 +237,7 @@ class RadarSeekerObserver:
         range_rate_mps = dot(relative_velocity, los_hat)
         ground_radial_mps = dot(target_truth.velocity, los_hat)
         look_down = target_truth.position[1] < missile_state.position[1]
-        forward = body_axes(missile_state.pitch, missile_state.yaw).forward
+        forward = body_axes_for_state(missile_state).forward
         off_boresight_rad = math.acos(clamp(dot(forward, los_hat), -1.0, 1.0))
         los_rate_rad_s = norm(cross(relative, relative_velocity)) / max(range_sq, 1.0e-12)
         off_boresight_deg = rad_to_deg(off_boresight_rad)

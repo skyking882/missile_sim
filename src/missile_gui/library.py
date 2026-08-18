@@ -52,8 +52,12 @@ def _load_one(path: Path, project_dir: Path) -> dict[str, Any]:
                 defaults_path = (project_dir / "config" / "profile_h2_runtime_defaults.json").resolve()
                 defaults = load_runtime_defaults(str(defaults_path))
                 profile["_model_config"], profile["_runtime_assumptions"] = build_h2_candidate_config(profile, defaults)
-                profile["_runtime_boundary"] = defaults["boundary"]
-                profile["_runtime_adapter"] = defaults["runtime_name"]
+                profile["_runtime_boundary"] = profile["_model_config"].get(
+                    "reference", {}
+                ).get("runtime_boundary", defaults["boundary"])
+                profile["_runtime_adapter"] = profile["_model_config"].get(
+                    "runtime_adapter", defaults["runtime_name"]
+                )
             except (KeyError, TypeError, ValueError, OSError) as exc:
                 raise MissileLibraryError(f"{path.name} 无法接入 profile H2 runtime：{exc}") from exc
         profile["_runtime_unsupported"] = unsupported

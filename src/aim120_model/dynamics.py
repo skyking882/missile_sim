@@ -39,6 +39,11 @@ class SimState:
     yaw_requested_fin_command: float = 0.0
     measured_pitch_normal_g: float = 0.0
     measured_yaw_normal_g: float = 0.0
+    commanded_pitch_rate_rad_s: float = 0.0
+    commanded_yaw_rate_rad_s: float = 0.0
+    pitch_rate_error_rad_s: float = 0.0
+    yaw_rate_error_rad_s: float = 0.0
+    orientation_quaternion: tuple[float, float, float, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -257,7 +262,15 @@ def state_is_finite(state: SimState) -> bool:
                 state.yaw_requested_fin_command,
                 state.measured_pitch_normal_g,
                 state.measured_yaw_normal_g,
+                state.commanded_pitch_rate_rad_s,
+                state.commanded_yaw_rate_rad_s,
+                state.pitch_rate_error_rad_s,
+                state.yaw_rate_error_rad_s,
             )
+        )
+        and (
+            state.orientation_quaternion is None
+            or all(math.isfinite(value) for value in state.orientation_quaternion)
         )
         and state.mass > 0.0
     )
