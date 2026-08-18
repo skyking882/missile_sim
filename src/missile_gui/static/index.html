@@ -50,15 +50,22 @@
           <option value="head_on">正面对头</option>
           <option value="off_axis_10">10°离轴</option>
           <option value="off_axis_38">38°离轴</option>
+          <option value="sensorwhale_pl12_off_axis_38">SensorWhale PL-12 · 38° / course 0°</option>
           <option value="tail_chase">尾追</option>
           <option value="custom">自定义场景</option>
         </select>
 
         <div class="convention">
           <strong>目标航向约定</strong>
-          <span>0°：迎头，目标飞向发射点</span>
-          <span>180°：尾追，目标远离发射点</span>
+          <span>相对视线：0°迎头，180°尾追</span>
+          <span>SensorWhale：0°沿固定发射轴迎头；本地等效角 = course − 方位角</span>
         </div>
+
+        <label class="preset-label" for="target-course-reference-select">目标航向参考系</label>
+        <select id="target-course-reference-select" class="preset-select" name="target_course_reference" form="scenario-form">
+          <option value="statshark_relative_to_los">相对初始视线</option>
+          <option value="sensorwhale_launch_axis">SensorWhale 固定发射轴</option>
+        </select>
 
         <label class="preset-label" for="observation-mode-select">制导观测</label>
         <select id="observation-mode-select" class="preset-select" name="observation_mode">

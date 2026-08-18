@@ -16,6 +16,10 @@ from .math3d import norm
 
 SUPPORTED_ENGINE_TYPES = {"piecewise_constant_thrust"}
 SUPPORTED_CONTROL_TYPES = {"pn_pid_first_order"}
+SUPPORTED_TARGET_COURSE_REFERENCES = {
+    "statshark_relative_to_los",
+    "sensorwhale_launch_axis",
+}
 
 
 class SimulationInputError(ValueError):
@@ -81,6 +85,16 @@ def validate_scenario(scenario: dict[str, Any]) -> dict[str, Any]:
     if observation_mode not in {"ideal_truth", "sensor_track"}:
         raise SimulationInputError("制导观测必须是 ideal_truth 或 sensor_track。")
     normalized["observation_mode"] = str(observation_mode)
+
+    course_reference = scenario.get(
+        "target_course_reference",
+        "statshark_relative_to_los",
+    )
+    if course_reference not in SUPPORTED_TARGET_COURSE_REFERENCES:
+        raise SimulationInputError(
+            "目标航向参考系必须是 statshark_relative_to_los 或 sensorwhale_launch_axis。"
+        )
+    normalized["target_course_reference"] = str(course_reference)
 
     simulation_dt = scenario.get("simulation_dt_s")
     if simulation_dt in (None, ""):
@@ -174,7 +188,7 @@ def _case_from_scenario(scenario: dict[str, Any]) -> dict[str, Any]:
             "initial_target_distance_m": scenario["initial_distance_m"],
             "target_azimuth_deg": scenario["target_azimuth_deg"],
             "target_course_deg": scenario["target_heading_deg"],
-            "target_course_reference": "statshark_relative_to_los",
+            "target_course_reference": scenario["target_course_reference"],
             "target_constant_g_turn": scenario["target_constant_turn_g"],
             "target_vertical_course_deg": scenario["target_vertical_heading_deg"],
         },

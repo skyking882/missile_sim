@@ -233,6 +233,16 @@
         "lofting_elevation_deg": {"type": "number", "minimum": -90, "maximum": 90},
         "loft_exit_distance_m": {"type": ["number", "null"], "minimum": 0},
         "loft_exit_time_to_go_s": {"type": ["number", "null"], "minimum": 0},
+        "flight_time_gain_table": {
+          "type": ["array", "null"],
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "items": {"type": "number", "minimum": 0},
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
         "proximity_radius_m": {"type": "number", "exclusiveMinimum": 0},
         "guidance_type": {"enum": ["pn", "pn_loft", "beam_riding", "command_guidance"]},
         "seeker_type": {"type": "string", "minLength": 1},

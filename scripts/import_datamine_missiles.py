@@ -57,6 +57,26 @@ def _number(value: Any) -> float | None:
     return number if math.isfinite(number) else None
 
 
+def _indexed_gain_table(node: dict[str, Any], prefix: str) -> list[list[float]] | None:
+    """Read BLK pairs such as timeToGain0=[time, gain] in index order."""
+
+    points: list[tuple[int, float, float]] = []
+    pattern = re.compile(rf"^{re.escape(prefix)}(\d+)$")
+    for key, value in node.items():
+        match = pattern.match(str(key))
+        if match is None or not isinstance(value, list) or len(value) != 2:
+            continue
+        time_s = _number(value[0])
+        gain = _number(value[1])
+        if time_s is None or gain is None or time_s < 0.0 or gain < 0.0:
+            continue
+        points.append((int(match.group(1)), time_s, gain))
+    if not points:
+        return None
+    points.sort(key=lambda item: item[0])
+    return [[time_s, gain] for _, time_s, gain in points]
+
+
 def _source(kind: str, field: str | None, notes: str) -> dict[str, Any]:
     return {"kind": kind, "source_field": field, "notes": notes}
 
@@ -575,6 +595,7 @@ def _profile(
 ) -> dict[str, Any]:
     guidance = rocket.get("guidance") or {}
     autopilot, autopilot_path = _autopilot(guidance)
+    flight_time_gain_table = _indexed_gain_table(autopilot, "timeToGain")
     seeker, seeker_path = _seeker(rocket)
     stages, propulsion_sources = _stages(rocket)
     source_files = [_relative(path, repo) for path in variants]
@@ -652,6 +673,7 @@ def _profile(
         "lofting_elevation_deg": _number(autopilot.get("loftElevation")) or 0.0,
         "loft_exit_distance_m": None,
         "loft_exit_time_to_go_s": None,
+        "flight_time_gain_table": flight_time_gain_table,
         "proximity_radius_m": proximity or 0.1,
         "seeker_type": str(rocket.get("guidanceType", "unknown")),
         "parameter_sources": {
@@ -664,6 +686,11 @@ def _profile(
             "lofting_elevation_deg": _source("datamine" if "loftElevation" in autopilot else "assumed", "rocket.guidance.guidanceAutopilot.loftElevation" if "loftElevation" in autopilot else None, "直接读取 loft 仰角；未声明时使用 0 度占位。"),
             "loft_exit_distance_m": _source("assumed", None, "datamine 未提供与此字段语义一致的退出距离。"),
             "loft_exit_time_to_go_s": _source("assumed", None, "datamine 未提供与此字段语义一致的剩余时间门槛。"),
+            "flight_time_gain_table": _source(
+                "datamine" if flight_time_gain_table is not None else "assumed",
+                f"{autopilot_path}.timeToGain*" if flight_time_gain_table is not None else None,
+                "按索引读取飞行时间控制增益表；缺失时保留 null，由运行时显式回退。",
+            ),
             "proximity_radius_m": _source(proximity_kind, proximity_source, "优先读取 proximityFuse.radius；缺失时使用 shutterDamageRadius 作为代理。"),
             "seeker_type": _source("datamine", "rocket.guidanceType", "直接读取 seeker 制导类型标签。"),
         },

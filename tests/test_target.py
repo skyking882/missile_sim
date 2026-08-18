@@ -44,6 +44,38 @@ def test_statshark_180_course_is_tail_away():
     assert horizontal_radial_dot(model) > 0.0
 
 
+def test_sensorwhale_zero_course_uses_fixed_head_on_launch_axis():
+    model = TargetModel(make_initial(0.0, "sensorwhale_launch_axis"), 9.80665)
+    velocity = model.initial_state.velocity
+    assert velocity[0] < 0.0
+    assert abs(velocity[2]) < 1e-9
+
+
+def test_sensorwhale_zero_course_matches_local_minus_azimuth_course():
+    sensorwhale = TargetModel(
+        make_initial(0.0, "sensorwhale_launch_axis", azimuth_deg=38.0),
+        9.80665,
+    )
+    local = TargetModel(
+        make_initial(-38.0, "statshark_relative_to_los", azimuth_deg=38.0),
+        9.80665,
+    )
+    assert sensorwhale.initial_state == local.initial_state
+
+
+def test_sensorwhale_course_equal_to_azimuth_is_los_head_on():
+    model = TargetModel(
+        make_initial(38.0, "sensorwhale_launch_axis", azimuth_deg=38.0),
+        9.80665,
+    )
+    position = model.initial_state.position
+    velocity = model.initial_state.velocity
+    horizontal_range = math.hypot(position[0], position[2])
+    horizontal_speed = math.hypot(velocity[0], velocity[2])
+    assert abs(velocity[0] / horizontal_speed + position[0] / horizontal_range) < 1e-12
+    assert abs(velocity[2] / horizontal_speed + position[2] / horizontal_range) < 1e-12
+
+
 def test_unknown_course_reference_is_rejected():
     try:
         TargetModel(make_initial(0.0, "unknown"), 9.80665)

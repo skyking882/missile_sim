@@ -35,6 +35,12 @@ class TargetModel:
             # StatShark defines TargetCourse relative to the initial line of sight:
             # 0 deg is head-on (toward the launcher) and 180 deg is tail-away.
             course += azimuth + math.pi
+        elif course_reference == "sensorwhale_launch_axis":
+            # SensorWhale's public calculator uses a fixed launch-axis convention:
+            # 0 deg is head-on along world -X, independent of target azimuth.
+            # Therefore its native course C is equivalent to our LOS-relative
+            # course C - target_azimuth.
+            course += math.pi
         elif course_reference != "absolute_world":
             raise ValueError(f"unknown target_course_reference: {course_reference}")
         vertical_course = deg_to_rad(initial_conditions.get("target_vertical_course_deg", 0.0))

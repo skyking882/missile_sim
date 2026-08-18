@@ -237,6 +237,16 @@
     "lofting_elevation_deg": 20.0,
     "loft_exit_distance_m": null,
     "loft_exit_time_to_go_s": null,
+    "flight_time_gain_table": [
+      [
+        0.3,
+        0.0
+      ],
+      [
+        0.31,
+        1.0
+      ]
+    ],
     "proximity_radius_m": 10.0,
     "seeker_type": "radar",
     "parameter_sources": {
@@ -284,6 +294,11 @@
         "kind": "assumed",
         "source_field": null,
         "notes": "datamine 未提供与此字段语义一致的剩余时间门槛。"
+      },
+      "flight_time_gain_table": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.timeToGain*",
+        "notes": "按索引读取飞行时间控制增益表：0.30 秒为 0，0.31 秒为 1。"
       },
       "proximity_radius_m": {
         "kind": "datamine",

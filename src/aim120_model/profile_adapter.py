@@ -155,6 +155,31 @@ def _mach_settings(node: dict[str, Any], fallback: dict[str, Any], assumptions: 
     return {key: float(value) for key, value in fallback.items()}
 
 
+def _gain_table(
+    value: Any,
+    fallback: list[list[float]],
+    assumptions: list[str],
+    label: str,
+) -> list[list[float]]:
+    if value is None:
+        assumptions.append(f"{label} missing -> universal H2 runtime table")
+        return copy.deepcopy(fallback)
+    if not isinstance(value, list) or not value:
+        raise ValueError(f"{label} must be a non-empty list")
+    table: list[list[float]] = []
+    previous_time = -math.inf
+    for index, row in enumerate(value):
+        if not isinstance(row, list) or len(row) != 2:
+            raise ValueError(f"{label}[{index}] must be [time_s, gain]")
+        time_s = _nonnegative_finite(row[0], f"{label}[{index}][0]")
+        gain = _nonnegative_finite(row[1], f"{label}[{index}][1]")
+        if time_s <= previous_time:
+            raise ValueError(f"{label} times must be strictly increasing")
+        table.append([time_s, gain])
+        previous_time = time_s
+    return table
+
+
 def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     unsupported = unsupported_model_types(profile)
     if unsupported:
@@ -289,6 +314,12 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     if loft_exit_tgo is None:
         loft_exit_tgo = float(layer_guidance["loft_exit_time_to_go_s"])
         assumptions.append(f"guidance.loft_exit_time_to_go_s missing -> {loft_exit_tgo:g}")
+    flight_time_gain_table = _gain_table(
+        guidance.get("flight_time_gain_table"),
+        layer_guidance["flight_time_gain_table"],
+        assumptions,
+        "guidance.flight_time_gain_table",
+    )
 
     stages = [
         {
@@ -542,7 +573,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "target_elevation_deg": float(layer_guidance["target_elevation_deg"]),
             "omega_max_deg_s": float(layer_guidance["omega_max_deg_s"]),
             "angle_to_acceleration_multiplier": float(layer_guidance["angle_to_acceleration_multiplier"]),
-            "flight_time_gain_table": copy.deepcopy(layer_guidance["flight_time_gain_table"]),
+            "flight_time_gain_table": flight_time_gain_table,
             "time_to_hit_gain_table": copy.deepcopy(layer_guidance["time_to_hit_gain_table"]),
         },
         "control": {

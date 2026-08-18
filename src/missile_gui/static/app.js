@@ -8,10 +8,11 @@ const COLORS = { missile: "#f16a45", target: "#5ed2d6", actual: "#eac469", grid:
 const COLORS_3D = { ground: "rgba(95,132,141,.16)", axisX: "#f16a45", axisY: "#61c995", axisZ: "#5ed2d6", stage: "#eac469", burnout: "#d58cff", termination: "#ff8576", connector: "rgba(255,133,118,.45)" };
 
 const PRESETS = {
-  head_on: { observation_mode: "ideal_truth", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 12000, target_azimuth_deg: 0, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
-  off_axis_10: { observation_mode: "ideal_truth", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 12000, target_azimuth_deg: 10, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
-  off_axis_38: { observation_mode: "ideal_truth", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 15000, target_azimuth_deg: 38, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
-  tail_chase: { observation_mode: "ideal_truth", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 900, target_altitude_m: 6500, initial_distance_m: 8000, target_azimuth_deg: 0, target_heading_deg: 180, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null }
+  head_on: { observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 12000, target_azimuth_deg: 0, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
+  off_axis_10: { observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 12000, target_azimuth_deg: 10, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
+  off_axis_38: { observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 15000, target_azimuth_deg: 38, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
+  sensorwhale_pl12_off_axis_38: { observation_mode: "ideal_truth", target_course_reference: "sensorwhale_launch_axis", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 15000, target_azimuth_deg: 38, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
+  tail_chase: { observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 900, target_altitude_m: 6500, initial_distance_m: 8000, target_azimuth_deg: 0, target_heading_deg: 180, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null }
 };
 
 function showAlert(element, message) { element.textContent = message; element.classList.remove("hidden"); }
@@ -81,6 +82,7 @@ function applyScenario(values) {
     const input = $(`[name="${key}"]`);
     if (input) input.value = value == null ? "" : value;
   }
+  if (values.target_course_reference) $("#target-course-reference-select").value = values.target_course_reference;
 }
 
 function collectScenario() {
@@ -92,8 +94,9 @@ function collectScenario() {
   }
   const data = new FormData(form);
   const scenario = {};
-  for (const [key, value] of data.entries()) scenario[key] = key === "observation_mode" ? value : (value === "" ? null : Number(value));
+  for (const [key, value] of data.entries()) scenario[key] = ["observation_mode", "target_course_reference"].includes(key) ? value : (value === "" ? null : Number(value));
   scenario.observation_mode = $("#observation-mode-select").value;
+  scenario.target_course_reference = $("#target-course-reference-select").value;
   return scenario;
 }
 

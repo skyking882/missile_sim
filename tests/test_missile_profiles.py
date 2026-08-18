@@ -37,6 +37,19 @@ def test_every_runnable_profile_has_an_observation_toggle_provider():
             assert sensor_model["provider"] == "profile_kinematic_v1"
 
 
+def test_pl12_maps_datamine_initial_control_lockout_table():
+    from missile_gui.library import scan_library
+
+    profiles, errors = scan_library(ROOT / "missiles", ROOT)
+    assert errors == []
+    pl12 = next(profile for profile in profiles if profile["missile_id"] == "cn_pl12")
+    assert pl12["guidance"]["flight_time_gain_table"] == [[0.3, 0.0], [0.31, 1.0]]
+    assert pl12["_model_config"]["guidance"]["flight_time_gain_table"] == [
+        [0.3, 0.0],
+        [0.31, 1.0],
+    ]
+
+
 def test_manifest_records_tvc_exclusions_without_profiles():
     manifest = json.loads((ROOT / "data" / "aam_non_tvc_manifest.json").read_text(encoding="utf-8"))
     assert manifest["included_profile_count"] == 120

@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "artifact_type": "sensorwhale_public_black_box_reference",
+  "source": {
+    "url": "https://sensorwhale.com/",
+    "captured_utc": "2026-08-18T13:57:06Z",
+    "input_export_filename": "wtatc-missile-params (1).json",
+    "input_export_sha256": "c963a3c8dd55467a6a5d6d7930eedfc7feba89c7dd16bec2b1eed97dabeae62e"
+  },
+  "boundary": {
+    "status": "black_box_behavioral_reference",
+    "statement": "The public page exposes inputs, summaries, plots, and sampled UI telemetry but not the protected engine source or a result JSON export. This artifact is not a source-code replica or an end-to-end validated physics model."
+  },
+  "missile_id": "cn_pl12",
+  "sensorwhale_input": {
+    "launchSpeedKmh": 1200.0,
+    "launchAltitudeM": 6500.0,
+    "launchPitchDeg": 0.0,
+    "launchYawDeg": 0.0,
+    "targetSpeedKmh": 1200.0,
+    "targetAltitudeM": 6500.0,
+    "initialDistanceM": 15000.0,
+    "targetAzimuthDeg": 38.0,
+    "targetCourseDeg": 0.0,
+    "targetConstantGTurn": 0.0,
+    "targetVerticalCourseDeg": 0.0,
+    "seaLevelTempC": 15.0
+  },
+  "local_scenario": {
+    "launch_speed_kmh": 1200.0,
+    "launch_altitude_m": 6500.0,
+    "launch_pitch_deg": 0.0,
+    "launch_heading_deg": 0.0,
+    "target_speed_kmh": 1200.0,
+    "target_altitude_m": 6500.0,
+    "initial_distance_m": 15000.0,
+    "target_azimuth_deg": 38.0,
+    "target_heading_deg": 0.0,
+    "target_course_reference": "sensorwhale_launch_axis",
+    "target_vertical_heading_deg": 0.0,
+    "target_constant_turn_g": 0.0,
+    "max_simulation_time_s": null,
+    "observation_mode": "ideal_truth"
+  },
+  "equivalent_existing_local_input": {
+    "target_azimuth_deg": 38.0,
+    "target_heading_deg": -38.0,
+    "target_course_reference": "statshark_relative_to_los"
+  },
+  "public_result_summary": {
+    "outcome": "MISS",
+    "time_to_hit_s": null,
+    "terminal_speed_kmh": 1175.0,
+    "max_downrange_m": 19800.0,
+    "samples": 4001,
+    "peak_g": 38.0,
+    "aoa_at_peak_g_deg": 4.2,
+    "peak_aoa_deg": 20.9
+  },
+  "ui_timeline_samples": [
+    {"time_s": 10.88, "distance_to_target_m": 2503.0, "speed_kmh": 5179.0, "altitude_m": 7355.0, "seeker_off_boresight_deg": 0.0},
+    {"time_s": 11.52, "distance_to_target_m": 1949.0, "speed_kmh": 5498.0, "altitude_m": 7145.0, "seeker_off_boresight_deg": 0.3},
+    {"time_s": 11.84, "distance_to_target_m": 1829.0, "speed_kmh": 5647.0, "altitude_m": 7040.0, "seeker_off_boresight_deg": 15.6},
+    {"time_s": 12.00, "distance_to_target_m": 1827.0, "speed_kmh": 5658.0, "altitude_m": 6987.0, "seeker_off_boresight_deg": 23.9},
+    {"time_s": 12.32, "distance_to_target_m": 1940.0, "speed_kmh": 5811.0, "altitude_m": 6881.0, "seeker_off_boresight_deg": 39.6},
+    {"time_s": 13.60, "distance_to_target_m": 3426.0, "speed_kmh": 5657.0, "altitude_m": 6459.0, "seeker_off_boresight_deg": 77.4},
+    {"time_s": 79.84, "distance_to_target_m": 52120.0, "speed_kmh": 1176.0, "altitude_m": -3724.0, "seeker_off_boresight_deg": 78.6}
+  ]
+}
