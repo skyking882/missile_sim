@@ -233,6 +233,8 @@ def update_control_feedback(
     updates: dict[str, float] = {}
     output_semantics = str(control_cfg.get("pid_output_semantics", "normalized_fin_command"))
     rate_inner_plant = output_semantics == "body_rate_command_rad_s"
+    plant_semantics = str(control_cfg.get("plant_semantics", "direct_fin_g"))
+    pid_discarded = rate_inner_plant and plant_semantics == "fin_torque_body_aoa"
     commands = (float(command_body_acceleration_g[0]), float(command_body_acceleration_g[1]))
     for axis, command, integral_name, previous_name, derivative_name, actual_name, fin_angle_name, fin_name, fin_limit_key in (
         (
@@ -272,27 +274,35 @@ def update_control_feedback(
         else:
             # Preserve the H1 actuator-state feedback path exactly.
             measured = actuator_state
-        error = (command - measured) * error_scale
-        stored_integral = float(getattr(state, integral_name))
-        integral_limit = float(pid["integral_limit"])
-        integral_semantics = str(control_cfg.get("integral_limit_semantics", "state"))
-        if integral_semantics == "term":
-            # accelControlIntgLim bounds the accumulated I contribution.  The
-            # state therefore advances by Ki*error*dt and enters the PID sum
-            # directly; the raw per-profile gain and limit remain unchanged.
-            integral_delta = float(pid["i"]) * error * dt
-        elif integral_semantics == "state":
-            # Compatibility path for the frozen H1/H2 artifacts.
-            integral_delta = error * dt
+        if pid_discarded:
+            error = 0.0
+            integral = 0.0
+            derivative = 0.0
+            output = 0.0
+            scheduled_output = 0.0
         else:
-            raise ValueError(f"unknown integral_limit_semantics: {integral_semantics}")
-        integral = clamp(stored_integral + integral_delta, -integral_limit, integral_limit)
-        raw_derivative = (error - float(getattr(state, previous_name))) / dt
-        derivative = float(getattr(state, derivative_name)) + alpha * (raw_derivative - float(getattr(state, derivative_name)))
-        integral_output = integral if integral_semantics == "term" else float(pid["i"]) * integral
-        output = float(pid["p"]) * error + integral_output + float(pid["d"]) * derivative
-        scheduled_output = output * schedule.pid_output_scale
-        plant_semantics = str(control_cfg.get("plant_semantics", "direct_fin_g"))
+            error = (command - measured) * error_scale
+            stored_integral = float(getattr(state, integral_name))
+            integral_limit = float(pid["integral_limit"])
+            integral_semantics = str(control_cfg.get("integral_limit_semantics", "state"))
+            if integral_semantics == "term":
+                # accelControlIntgLim bounds the accumulated I contribution.  The
+                # state therefore advances by Ki*error*dt and enters the PID sum
+                # directly; the raw per-profile gain and limit remain unchanged.
+                integral_delta = float(pid["i"]) * error * dt
+            elif integral_semantics == "state":
+                # Compatibility path for the frozen H1/H2 artifacts.
+                integral_delta = error * dt
+            else:
+                raise ValueError(f"unknown integral_limit_semantics: {integral_semantics}")
+            integral = clamp(stored_integral + integral_delta, -integral_limit, integral_limit)
+            raw_derivative = (error - float(getattr(state, previous_name))) / dt
+            derivative = float(getattr(state, derivative_name)) + alpha * (
+                raw_derivative - float(getattr(state, derivative_name))
+            )
+            integral_output = integral if integral_semantics == "term" else float(pid["i"]) * integral
+            output = float(pid["p"]) * error + integral_output + float(pid["d"]) * derivative
+            scheduled_output = output * schedule.pid_output_scale
         travel = control_cfg.get("fin_actuator_travel")
         if rate_inner_plant and isinstance(travel, dict):
             travel_axis = "pitch" if axis == "pitch" else "yaw"
@@ -316,7 +326,7 @@ def update_control_feedback(
             rate_command = scheduled_output
             if plant_semantics == "fin_torque_body_aoa":
                 # Measured G holds the current path rate; G error closes over
-                # path_rate_time_constant_s.  Raw PID stays a small rad/s trim.
+                # path_rate_time_constant_s.  Raw PID is not applied.
                 speed = math.sqrt(sum(float(value) * float(value) for value in state.velocity))
                 gravity = float(config["atmosphere"]["gravity_mps2"])
                 measured_g = float(getattr(state, f"measured_{axis}_normal_g", 0.0))

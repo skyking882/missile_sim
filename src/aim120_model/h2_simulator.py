@@ -277,6 +277,11 @@ class H2Simulator:
             "actual_yaw_fin_angle_rad": float(state.actual_yaw_fin_angle_rad),
             "pitch_pid_output": float(state.pitch_pid_output),
             "yaw_pid_output": float(state.yaw_pid_output),
+            "pid_output_applied": not (
+                str(self.config["control"].get("plant_semantics", "")) == "fin_torque_body_aoa"
+                and str(self.config["control"].get("pid_output_semantics", ""))
+                == "body_rate_command_rad_s"
+            ),
             "pitch_pid_integral": float(state.pitch_pid_integral),
             "yaw_pid_integral": float(state.yaw_pid_integral),
             "pitch_requested_fin_command": float(state.pitch_requested_fin_command),

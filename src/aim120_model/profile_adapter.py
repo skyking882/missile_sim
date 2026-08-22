@@ -268,7 +268,8 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
                 "(specific force plus gravity along the body normal) plus G-error closing over "
                 "path_rate_time_constant_s; command and measurement are both specific force. "
                 "raw accelControl P/I/D is not added to q_cmd because those "
-                "datamine gains are not (rad/s)/g. The inner loop maps rate error onto a shared fraction "
+                "datamine gains are not (rad/s)/g and are not applied to q_cmd; "
+                "pitch_pid_output telemetry is zeroed. The inner loop maps rate error onto a shared fraction "
                 "of each profile's finsAoa so finsLatAccel, arm and fin limit stay visible"
             )
     elif plant_model == BODY_CM_TAIL_FORCE_PLANT:
@@ -777,14 +778,26 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "source": "shared_unsupported_candidate_assumption",
         }
     if plant_model == LEGACY_CRITICAL_DAMPED_PLANT and legacy_rate_inner:
+        path_tau_raw = control.get("path_rate_time_constant_s")
+        if path_tau_raw is None:
+            path_tau_raw = defaults.get("path_rate_time_constant_s", 0.35)
+            assumptions.append(
+                "control.path_rate_time_constant_s missing -> shared default 0.35"
+            )
+        omega_ref_raw = control.get("rate_error_for_full_fin_rad_s")
+        if omega_ref_raw is None:
+            omega_ref_raw = defaults.get("rate_error_for_full_fin_rad_s", 0.35)
+            assumptions.append(
+                "control.rate_error_for_full_fin_rad_s missing -> shared default 0.35"
+            )
         config["control"]["candidate_rate_inner_loop"] = {
             "time_constant_s": rate_loop_time_constant_s,
             "path_rate_time_constant_s": _positive_finite(
-                defaults.get("path_rate_time_constant_s", 0.35),
+                path_tau_raw,
                 "path_rate_time_constant_s",
             ),
             "rate_error_for_full_fin_rad_s": _positive_finite(
-                defaults.get("rate_error_for_full_fin_rad_s", 0.35),
+                omega_ref_raw,
                 "rate_error_for_full_fin_rad_s",
             ),
             "outer_pid_output_semantics": "body_rate_command_rad_s",

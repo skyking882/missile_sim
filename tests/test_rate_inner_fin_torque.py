@@ -285,6 +285,51 @@ def test_runtime_flag_selects_rate_inner_without_changing_raw_pid() -> None:
     assert enabled["control_model_version"] == "raw_pid_accel_outer_rate_inner_fin_torque_v13"
 
 
+def test_legacy_rate_inner_discards_pid_state() -> None:
+    config = _config()
+    state = SimState(
+        (0.0, 3000.0, 0.0),
+        (400.0, 0.0, 0.0),
+        0.0, 0.0, 0.0, 0.0, 147.87,
+        measured_pitch_normal_g=0.0,
+        pitch_pid_integral=0.4,
+        previous_pitch_error=1.0,
+    )
+    diagnostics = forces_for_state_h2(
+        state, 0.0, config, PiecewisePropulsion.from_config(config), powered=False
+    )
+    updates = update_control_feedback(
+        state, (10.0, 0.0), config, 0.02, enabled=True, plant_diagnostics=diagnostics
+    )
+    assert updates["pitch_pid_output"] == 0.0
+    assert updates["pitch_pid_integral"] == 0.0
+    assert updates["previous_pitch_error"] == 0.0
+    assert updates["commanded_pitch_rate_rad_s"] != 0.0
+    profiles, errors = scan_library(ROOT / "missiles", ROOT)
+    assert errors == []
+    indexed = {profile["missile_id"]: profile for profile in profiles}
+    result = simulate(indexed["us_aim_120a"], _off_axis_scenario(10.0, time_s=1.0))
+    assert result["samples"][0]["pid_output_applied"] is False
+
+
+def test_profile_can_override_rate_loop_time_constants() -> None:
+    profile = json.loads((ROOT / "missiles" / "us_aim_120a.json").read_text(encoding="utf-8"))
+    profile["control"]["path_rate_time_constant_s"] = 0.5
+    profile["control"]["rate_error_for_full_fin_rad_s"] = 0.2
+    config, assumptions = build_h2_candidate_config(profile, _defaults())
+    loop = config["control"]["candidate_rate_inner_loop"]
+    assert loop["path_rate_time_constant_s"] == 0.5
+    assert loop["rate_error_for_full_fin_rad_s"] == 0.2
+    assert all("path_rate_time_constant_s missing" not in item for item in assumptions)
+    assert all("rate_error_for_full_fin_rad_s missing" not in item for item in assumptions)
+    missing, missing_assumptions = build_h2_candidate_config(
+        json.loads((ROOT / "missiles" / "us_aim_120a.json").read_text(encoding="utf-8")),
+        _defaults(),
+    )
+    assert missing["control"]["candidate_rate_inner_loop"]["path_rate_time_constant_s"] == 0.35
+    assert any("path_rate_time_constant_s missing" in item for item in missing_assumptions)
+
+
 def test_fin_torque_rate_inner_uses_g_error_to_command_body_rate() -> None:
     config = _config()
     config["control"]["pid"].update({"p": 0.0, "i": 0.0, "d": 0.0})
