@@ -2,6 +2,7 @@ import copy
 import math
 from pathlib import Path
 
+from aim120_model.aerodynamics import quaternion_from_pitch_yaw
 from aim120_model.config import load_model_config
 from aim120_model.control import base_indicated_speed_schedule, update_control_feedback
 from aim120_model.dynamics import SimState, clamp_body_angle_of_attack
@@ -264,3 +265,15 @@ def test_body_aoa_guard_projects_attitude_onto_total_angle_limit():
     assert abs((limited.pitch * limited.pitch + limited.yaw * limited.yaw) ** 0.5 - math.radians(30.0)) < 1e-12
     assert limited.pitch_rate == 0.0
     assert limited.yaw_rate == 0.0
+    assert limited.orientation_quaternion is None
+
+    quat_state = SimState(
+        (0.0, 3000.0, 0.0),
+        (300.0, 0.0, 0.0),
+        0.6, 0.4, 1.0, 1.0, 147.87,
+        orientation_quaternion=quaternion_from_pitch_yaw(0.6, 0.4),
+    )
+    limited_quat = clamp_body_angle_of_attack(quat_state, config)
+    assert limited_quat.orientation_quaternion is not None
+    expected = quaternion_from_pitch_yaw(limited_quat.pitch, limited_quat.yaw)
+    assert max(abs(a - b) for a, b in zip(limited_quat.orientation_quaternion, expected)) < 1e-12

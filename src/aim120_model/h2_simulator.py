@@ -16,7 +16,7 @@ from .control import base_indicated_speed_schedule, update_control_feedback
 from .dynamics import SimState
 from .events import event_candidates
 from .guidance import guidance_command
-from .h2_dynamics import forces_for_state_h2, rk4_step_h2
+from .h2_dynamics import _uses_quaternion_candidate, forces_for_state_h2, rk4_step_h2
 from .math3d import Vector, lerp, norm, sub
 from .observation import IdealTruthTrackProvider, KinematicTrackProvider, SensorTrackProvider
 from .propulsion import PiecewisePropulsion
@@ -97,10 +97,7 @@ class H2Simulator:
         velocity = tuple(value * kmh_to_mps(initial["start_speed_kmh"]) for value in axes.forward)
         candidate_orientation = (
             quaternion_from_pitch_yaw(pitch, yaw)
-            if self.config["control"].get("plant_semantics") in {
-                "body_cm_tail_force_moment",
-                "generalized_aero_moment",
-            }
+            if _uses_quaternion_candidate(self.config)
             else None
         )
         return SimState(

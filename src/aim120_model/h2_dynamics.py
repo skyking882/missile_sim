@@ -1148,6 +1148,7 @@ def _uses_quaternion_candidate(config: dict[str, Any]) -> bool:
     return config["control"].get("plant_semantics") in {
         "body_cm_tail_force_moment",
         "generalized_aero_moment",
+        "fin_torque_body_aoa",
     }
 
 

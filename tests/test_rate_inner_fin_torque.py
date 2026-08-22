@@ -5,9 +5,11 @@ import math
 from dataclasses import replace
 from pathlib import Path
 
+from aim120_model.aerodynamics import quaternion_from_pitch_yaw
 from aim120_model.control import update_control_feedback
 from aim120_model.dynamics import SimState
-from aim120_model.h2_dynamics import forces_for_state_h2
+from aim120_model.h2_dynamics import _uses_quaternion_candidate, forces_for_state_h2
+from aim120_model.h2_simulator import H2Simulator
 from aim120_model.profile_adapter import (
     LEGACY_CRITICAL_DAMPED_PLANT,
     build_h2_candidate_config,
@@ -46,13 +48,31 @@ def test_fin_torque_adapter_enables_body_cn_alpha() -> None:
     assert config["aerodynamics"]["natural_lift_enabled"] is True
     assert config["aerodynamics"]["cn_alpha_per_rad"] == 2.0
     assert config["aerodynamics"]["cy_k"] == 2.0
-    assert config["force_geometry_version"] == "fin_delta_g_no_arm_scale_v7"
+    assert config["force_geometry_version"] == "fin_delta_g_no_arm_scale_v7_quat"
     assert config["runtime_adapter"] == "profile_h2_fin_torque_aoa_v11"
     assert config["release_version"] == "profile-adapter-v15-path-g-finslataccel-arm-moment-only"
     assert not config["aerodynamics"].get("fin_arm_as_length_fraction")
     assert "path_g_scales_with_wing_area_multiplier" not in config["aerodynamics"]
     assert config["control"]["base_indicated_speed_mode"] == "none"
     assert abs(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"] - math.degrees(0.268941)) < 1e-4
+    assert _uses_quaternion_candidate(config) is True
+
+
+def test_legacy_fin_torque_initial_state_carries_quaternion() -> None:
+    config = _config()
+    state = H2Simulator(config).initial_state(
+        {
+            "initial_conditions": {
+                "launch_angle_deg": 0.0,
+                "launch_yaw_deg": 10.0,
+                "start_speed_kmh": 1200.0,
+                "launch_altitude_m": 3000.0,
+            }
+        }
+    )
+    assert state.orientation_quaternion is not None
+    expected = quaternion_from_pitch_yaw(state.pitch, state.yaw)
+    assert max(abs(a - b) for a, b in zip(state.orientation_quaternion, expected)) < 1e-12
 
 
 def test_body_cn_alpha_adds_path_g_at_aoa() -> None:

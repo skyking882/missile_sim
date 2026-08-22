@@ -369,7 +369,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         natural_lift_enabled = True
         normal_force_model = "thin_plate_2pi"
         release_version = "profile-adapter-v15-path-g-finslataccel-arm-moment-only"
-        force_geometry_version = "fin_delta_g_no_arm_scale_v7"
+        force_geometry_version = "fin_delta_g_no_arm_scale_v7_quat"
         plant_semantics = "fin_torque_body_aoa"
         fin_arm_as_length_fraction = False
         legacy_rate_inner = bool(defaults.get("acceleration_outer_rate_inner", False))

@@ -6,7 +6,13 @@ import math
 from dataclasses import dataclass, replace
 from typing import Any
 
-from .aerodynamics import AeroSample, StandardAtmosphere, body_axes, compute_aerodynamics
+from .aerodynamics import (
+    AeroSample,
+    StandardAtmosphere,
+    body_axes,
+    compute_aerodynamics,
+    quaternion_from_pitch_yaw,
+)
 from .math3d import Vector, add, scale, is_finite_vector
 from .propulsion import PiecewisePropulsion, PropulsionSample
 from .units import deg_to_rad, g_to_mps2
@@ -227,12 +233,19 @@ def clamp_body_angle_of_attack(state: SimState, config: dict[str, Any]) -> SimSt
         pitch_rate = 0.0
     if yaw_error * yaw_rate > 0.0:
         yaw_rate = 0.0
+    new_pitch = flight_pitch + limited_pitch_error
+    new_yaw = flight_yaw + limited_yaw_error
     return replace(
         state,
-        pitch=flight_pitch + limited_pitch_error,
-        yaw=flight_yaw + limited_yaw_error,
+        pitch=new_pitch,
+        yaw=new_yaw,
         pitch_rate=pitch_rate,
         yaw_rate=yaw_rate,
+        orientation_quaternion=(
+            quaternion_from_pitch_yaw(new_pitch, new_yaw)
+            if state.orientation_quaternion is not None
+            else None
+        ),
     )
 
 
