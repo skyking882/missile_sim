@@ -41,9 +41,11 @@ def _profile_config(missile_id: str, **overrides: object) -> dict:
     return config
 
 
-def test_fin_torque_adapter_disables_body_cn_translation() -> None:
+def test_fin_torque_adapter_enables_body_cn_alpha() -> None:
     config = _config()
-    assert config["aerodynamics"]["natural_lift_enabled"] is False
+    assert config["aerodynamics"]["natural_lift_enabled"] is True
+    assert config["aerodynamics"]["cn_alpha_per_rad"] == 2.0
+    assert config["aerodynamics"]["cy_k"] == 2.0
     assert config["force_geometry_version"] == "fin_delta_g_no_arm_scale_v7"
     assert config["runtime_adapter"] == "profile_h2_fin_torque_aoa_v11"
     assert config["release_version"] == "profile-adapter-v15-path-g-finslataccel-arm-moment-only"
@@ -51,6 +53,19 @@ def test_fin_torque_adapter_disables_body_cn_translation() -> None:
     assert "path_g_scales_with_wing_area_multiplier" not in config["aerodynamics"]
     assert config["control"]["base_indicated_speed_mode"] == "none"
     assert abs(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"] - math.degrees(0.268941)) < 1e-4
+
+
+def test_body_cn_alpha_adds_path_g_at_aoa() -> None:
+    config = _profile_config("cn_pl12")
+    state = SimState(
+        (0.0, 3000.0, 0.0), (400.0, 0.0, 0.0), 0.1, 0.0, 0.0, 0.0, 198.0,
+    )
+    diagnostics = forces_for_state_h2(
+        state, 0.0, config, PiecewisePropulsion.from_config(config), powered=False
+    )
+    assert diagnostics.aero.pitch_alpha_rad > 0.0
+    assert diagnostics.pitch_body_aoa_force_g > 0.0
+    assert diagnostics.trajectory_pitch_normal_acceleration_g > 0.0
 
 
 def test_path_g_does_not_scale_with_dynamic_pressure() -> None:

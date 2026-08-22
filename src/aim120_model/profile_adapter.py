@@ -242,8 +242,8 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     )
     if plant_model == LEGACY_CRITICAL_DAMPED_PLANT:
         assumptions.append(
-            "no body CN-alpha translation: natural lift is disabled so 2*pi thin-plate lift is not applied; "
-            "this does not invent a CyK and does not claim the game body-lift term is zero"
+            "body CN-alpha translation: natural lift uses CN_alpha=2 /rad; "
+            "this is a shared candidate slope, not a datamine CyK"
         )
         assumptions.append(
             "candidate fin translation: a_fin = finsLatAccel*(delta/finsAoa); "
@@ -365,8 +365,8 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     fin_arm_as_length_fraction = False
     if plant_model == LEGACY_CRITICAL_DAMPED_PLANT:
         runtime_name = legacy_runtime_name
-        cn_alpha_per_rad = 2.0 * math.pi
-        natural_lift_enabled = False
+        cn_alpha_per_rad = 2.0
+        natural_lift_enabled = True
         normal_force_model = "thin_plate_2pi"
         release_version = "profile-adapter-v15-path-g-finslataccel-arm-moment-only"
         force_geometry_version = "fin_delta_g_no_arm_scale_v7"

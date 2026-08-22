@@ -25,5 +25,5 @@
     "cm_alpha_dot": 0.0,
     "body_rate_inner_loop_time_constant_s": 0.1
   },
-  "boundary": "Experimental true-difference H2 layer: path G = finsLatAccel*(delta/finsAoa), distFromCmToStab only on tail moment/bandwidth, no baseIndSpeed q/q_base on fin force, CdA from datamine CxK*area with no AIM-120A 0.30 drag scale, no body CN-alpha, global gameparams CxAoA=9, no imputed CyK; not an end-to-end validation or game-solver reproduction."
+  "boundary": "Experimental true-difference H2 layer: path G = finsLatAccel*(delta/finsAoa) plus body CN_alpha=2 /rad, distFromCmToStab only on tail moment/bandwidth, no baseIndSpeed q/q_base on fin force, CdA from datamine CxK*area with no AIM-120A 0.30 drag scale, global gameparams CxAoA=9, no imputed CyK; not an end-to-end validation or game-solver reproduction."
 }
