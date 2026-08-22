@@ -30,25 +30,10 @@
         "isp_s": 234.53472898492353,
         "fire_delay_s": 0.0,
         "parameter_sources": {
-          "duration_s": {
+          "stage": {
             "kind": "datamine",
-            "source_field": "rocket.timeFire",
-            "notes": "直接读取顶层燃烧时间。"
-          },
-          "thrust_n": {
-            "kind": "datamine",
-            "source_field": "rocket.force",
-            "notes": "直接读取顶层推力。"
-          },
-          "mass_lost_kg": {
-            "kind": "derived",
-            "source_field": "rocket.mass - rocket.massEnd",
-            "notes": "由阶段开始质量和阶段末质量相减。"
-          },
-          "isp_s": {
-            "kind": "derived",
-            "source_field": "thrust_n / (mass_flow_kg_s * g0)",
-            "notes": "由推力、阶段失重和公共重力常数计算。"
+            "source_field": "rocket.timeFire/force/massEnd",
+            "notes": "PL-12 boost stage mapped from datamine."
           }
         }
       },
@@ -60,25 +45,10 @@
         "isp_s": 234.53472898492353,
         "fire_delay_s": null,
         "parameter_sources": {
-          "duration_s": {
+          "stage": {
             "kind": "datamine",
-            "source_field": "rocket.timeFire1",
-            "notes": "直接读取顶层燃烧时间。"
-          },
-          "thrust_n": {
-            "kind": "datamine",
-            "source_field": "rocket.force1",
-            "notes": "直接读取顶层推力。"
-          },
-          "mass_lost_kg": {
-            "kind": "derived",
-            "source_field": "rocket.massEnd - rocket.massEnd1",
-            "notes": "由阶段开始质量和阶段末质量相减。"
-          },
-          "isp_s": {
-            "kind": "derived",
-            "source_field": "thrust_n / (mass_flow_kg_s * g0)",
-            "notes": "由推力、阶段失重和公共重力常数计算。"
+            "source_field": "rocket.timeFire1/force1/massEnd1",
+            "notes": "PL-12 sustain stage mapped from datamine."
           }
         }
       }
@@ -88,12 +58,7 @@
       "stages": {
         "kind": "datamine",
         "source_field": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl12.blkx",
-        "notes": "阶段由顶层 timeFire/force 或嵌套 propulsion impulse 批量解析。"
-      },
-      "mach_thrust_correction": {
-        "kind": "assumed",
-        "source_field": null,
-        "notes": "该条目未声明可直接映射的 Mach 推力修正。"
+        "notes": "Stage data from public datamine."
       }
     }
   },
@@ -125,60 +90,10 @@
     "drag_scale": 1.0,
     "lift_area_scale": 1.4,
     "parameter_sources": {
-      "cx_k": {
+      "aero": {
         "kind": "datamine",
-        "source_field": "rocket.CxK",
-        "notes": "直接读取轴向阻力系数标度。"
-      },
-      "cy_k": {
-        "kind": "assumed",
-        "source_field": null,
-        "notes": "datamine 未提供 CyK；保留 null，不写入数值假设。"
-      },
-      "cx_vs_aoa": {
-        "kind": "assumed",
-        "source_field": null,
-        "notes": "datamine 未提供 CxAoA；仅保留模型槽位，未填拟合系数。"
-      },
-      "max_cy_at_aoa": {
-        "kind": "assumed",
-        "source_field": null,
-        "notes": "datamine 未提供 CyMaxAoA；保留 null。"
-      },
-      "fins_lateral_acceleration_g": {
-        "kind": "datamine",
-        "source_field": "rocket.finsLatAccel",
-        "notes": "直接读取舵面横向加速度能力；部分条目缺失时为 null。"
-      },
-      "fin_moment_arm_m": {
-        "kind": "datamine",
-        "source_field": "rocket.distFromCmToStab",
-        "notes": "直接读取质心到稳定面力臂。"
-      },
-      "fin_aoa_limit_rad": {
-        "kind": "datamine",
-        "source_field": "rocket.finsAoaHor/finsAoaVer",
-        "notes": "直接读取水平/垂直舵面 AoA 限制，原始值按弧度保留。"
-      },
-      "mach_drag_correction": {
-        "kind": "assumed",
-        "source_field": null,
-        "notes": "datamine 未提供可直接映射的 Mach 阻力修正表。"
-      },
-      "mach_lift_correction": {
-        "kind": "assumed",
-        "source_field": null,
-        "notes": "datamine 未提供可直接映射的 Mach 升力修正表。"
-      },
-      "drag_scale": {
-        "kind": "assumed",
-        "source_field": null,
-        "notes": "中性候选标度 1.0；不是 datamine 识别结果。"
-      },
-      "lift_area_scale": {
-        "kind": "datamine",
-        "source_field": "rocket.wingAreaMult",
-        "notes": "直接读取翼面积标度。"
+        "source_field": "rocket.CxK/finsLatAccel/distFromCmToStab/finsAoaHor/finsAoaVer/wingAreaMult",
+        "notes": "Direct PL-12 aerodynamic fields from datamine; undeclared derivatives remain null."
       }
     }
   },
@@ -195,35 +110,10 @@
       "lifetime_s": "hard_limit"
     },
     "parameter_sources": {
-      "maximum_speed_mps": {
+      "performance": {
         "kind": "datamine",
-        "source_field": "rocket.endSpeed",
-        "notes": "直接读取速度上限字段。"
-      },
-      "maximum_distance_m": {
-        "kind": "datamine",
-        "source_field": "rocket.maxDistance",
-        "notes": "直接读取最大距离事件字段。"
-      },
-      "lifetime_s": {
-        "kind": "datamine",
-        "source_field": "rocket.timeLife",
-        "notes": "直接读取寿命字段。"
-      },
-      "maximum_mach": {
-        "kind": "datamine",
-        "source_field": "rocket.machMax",
-        "notes": "直接读取 Mach 上限字段。"
-      },
-      "minimum_distance_m": {
-        "kind": "datamine",
-        "source_field": "rocket.minDistance",
-        "notes": "直接读取最小距离字段。"
-      },
-      "range_reference_m": {
-        "kind": "datamine",
-        "source_field": "rocket.rangeMax",
-        "notes": "直接读取显示/性能参考距离。"
+        "source_field": "rocket.endSpeed/maxDistance/timeLife/machMax/minDistance/rangeMax",
+        "notes": "Direct PL-12 performance fields from datamine."
       }
     }
   },
@@ -249,66 +139,88 @@
     ],
     "proximity_radius_m": 10.0,
     "seeker_type": "radar",
+    "sensor_model": {
+      "active_radar": true,
+      "inertial_navigation": true,
+      "use_target_velocity": true,
+      "lock_after_launch": true,
+      "lock_timeout_s": 0.75,
+      "break_lock_max_time_s": 100.0,
+      "inertial_drift_speed_mps": 2.0,
+      "datalink": true,
+      "reconnect_datalink": false,
+      "radar_seeker": {
+        "band": 8.0,
+        "active": true,
+        "angle_gate_rate_deg_s": 30.0,
+        "prolongation_time_max_s": 1.0,
+        "multipath_effect": [
+          0.0,
+          1.0,
+          60.0,
+          0.0
+        ],
+        "side_lobes_attenuation_db": -30.0,
+        "lock_angle_max_deg": 60.0,
+        "angle_max_deg": 60.0,
+        "rate_max_deg_s": 60.0,
+        "doppler_speed_gate": {
+          "filter_alpha": 0.8,
+          "filter_beta": 0.05,
+          "search_range_mps": 300.0
+        },
+        "dist_gate": {
+          "filter_alpha": 0.8,
+          "filter_beta": 0.05,
+          "search_range_m": 5000.0
+        },
+        "transmitter": {
+          "power": 100.0,
+          "antenna": {
+            "angle_half_sens_deg": 15.0,
+            "side_lobes_sensitivity_db": -30.0
+          }
+        },
+        "receiver": {
+          "rcs_m2": 2.0,
+          "range_m": 16000.0,
+          "range_max_m": 25000.0,
+          "time_gain_control": false,
+          "antenna": {
+            "angle_half_sens_deg": 15.0,
+            "side_lobes_sensitivity_db": -30.0
+          }
+        },
+        "doppler_speed": {
+          "presents": true,
+          "min_mps": -3000.0,
+          "max_mps": 3000.0,
+          "width_mps": 20.0,
+          "ref_width_mps": 80.0,
+          "signal_width_min_mps": 5.0
+        },
+        "distance": {
+          "presents": true,
+          "min_m": 300.0,
+          "max_m": 150000.0,
+          "width_m": 300.0,
+          "signal_width_min_m": 300.0,
+          "ref_width_m": 1200.0
+        }
+      },
+      "parameter_sources": {
+        "radar_seeker": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.radarSeeker",
+          "notes": "Active radar seeker and Doppler parameters mapped directly from PL-12 datamine."
+        }
+      }
+    },
     "parameter_sources": {
-      "guidance_type": {
-        "kind": "derived",
-        "source_field": "model_family.guidance",
-        "notes": "由原始制导结构和 loft 标志映射到显式 v1 模型族；不支持类型保持原值，不做 PN 退化。"
-      },
-      "maximum_lateral_acceleration_g": {
+      "guidance": {
         "kind": "datamine",
-        "source_field": "rocket.guidance.guidanceAutopilot.reqAccelMax",
-        "notes": "直接读取制导横向指令上限，不等同于实战达到过载。"
-      },
-      "maximum_angular_rate_deg_s": {
-        "kind": "datamine",
-        "source_field": "rocket.guidance.radarSeeker.rateMax",
-        "notes": "直接读取 seeker rateMax；语义是 seeker 角速率上限。"
-      },
-      "pn_gain": {
-        "kind": "datamine",
-        "source_field": "rocket.guidance.guidanceAutopilot.propNavMult",
-        "notes": "直接读取比例导引增益；非 PN 制导 profile 仅保留原始可用字段。"
-      },
-      "lock_range_m": {
-        "kind": "datamine",
-        "source_field": "rocket.guidance.lockDistance",
-        "notes": "直接读取锁定距离。"
-      },
-      "lofting_enabled": {
-        "kind": "derived",
-        "source_field": "rocket.guidance.guidanceAutopilot.loftEnabled",
-        "notes": "存在 true 时映射为 pn_loft，否则按未启用处理。"
-      },
-      "lofting_elevation_deg": {
-        "kind": "datamine",
-        "source_field": "rocket.guidance.guidanceAutopilot.loftElevation",
-        "notes": "直接读取 loft 仰角；未声明时使用 0 度占位。"
-      },
-      "loft_exit_distance_m": {
-        "kind": "assumed",
-        "source_field": null,
-        "notes": "datamine 未提供与此字段语义一致的退出距离。"
-      },
-      "loft_exit_time_to_go_s": {
-        "kind": "assumed",
-        "source_field": null,
-        "notes": "datamine 未提供与此字段语义一致的剩余时间门槛。"
-      },
-      "flight_time_gain_table": {
-        "kind": "datamine",
-        "source_field": "rocket.guidance.guidanceAutopilot.timeToGain*",
-        "notes": "按索引读取飞行时间控制增益表：0.30 秒为 0，0.31 秒为 1。"
-      },
-      "proximity_radius_m": {
-        "kind": "datamine",
-        "source_field": "rocket.proximityFuse.radius",
-        "notes": "优先读取 proximityFuse.radius；缺失时使用 shutterDamageRadius 作为代理。"
-      },
-      "seeker_type": {
-        "kind": "datamine",
-        "source_field": "rocket.guidanceType",
-        "notes": "直接读取 seeker 制导类型标签。"
+        "source_field": "rocket.guidance/guidanceAutopilot/radarSeeker",
+        "notes": "PL-12 PN, loft, lock, and seeker parameters from datamine."
       }
     }
   },
@@ -325,50 +237,10 @@
     "max_pitch_yaw_rate_deg_s": null,
     "identified_controller": null,
     "parameter_sources": {
-      "pid.p": {
+      "pid": {
         "kind": "datamine",
-        "source_field": "rocket.guidance.guidanceAutopilot.accelControlProp",
-        "notes": "直接读取比例控制项。"
-      },
-      "pid.i": {
-        "kind": "datamine",
-        "source_field": "rocket.guidance.guidanceAutopilot.accelControlIntg",
-        "notes": "直接读取积分控制项。"
-      },
-      "pid.d": {
-        "kind": "datamine",
-        "source_field": "rocket.guidance.guidanceAutopilot.accelControlDiff",
-        "notes": "直接读取微分控制项。"
-      },
-      "pid.integral_limit": {
-        "kind": "datamine",
-        "source_field": "rocket.guidance.guidanceAutopilot.accelControlIntgLim",
-        "notes": "直接读取积分限幅。"
-      },
-      "base_indicated_speed_kmh": {
-        "kind": "datamine",
-        "source_field": "rocket.guidance.guidanceAutopilot.baseIndSpeed",
-        "notes": "直接读取自动驾驶仪基准指示空速；原始值按 km/h 候选语义保留，确切求解公式尚未确认。"
-      },
-      "fin_command_limit": {
-        "kind": "assumed",
-        "source_field": null,
-        "notes": "标准化舵面命令中性上限 1.0；datamine 未声明该接口量。"
-      },
-      "actuator_time_constant_s": {
-        "kind": "assumed",
-        "source_field": null,
-        "notes": "datamine 未提供独立舵机时间常数。"
-      },
-      "max_pitch_yaw_rate_deg_s": {
-        "kind": "assumed",
-        "source_field": null,
-        "notes": "datamine 未提供导弹俯仰/偏航速率上限。"
-      },
-      "identified_controller": {
-        "kind": "assumed",
-        "source_field": null,
-        "notes": "没有外部识别控制器结果；不得把 PID 与独立识别层混合。"
+        "source_field": "rocket.guidance.guidanceAutopilot.accelControl*",
+        "notes": "Raw PL-12 acceleration controller gains from datamine."
       }
     }
   },
@@ -385,20 +257,20 @@
       "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl12.blkx": "fe3c1a244af418381816075dab670beb091d4f55c111b0e7741af0aad182171b",
       "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl12_default.blkx": "fe3c1a244af418381816075dab670beb091d4f55c111b0e7741af0aad182171b"
     },
-    "notes": "批处理导入；canonical source=aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl12.blkx；raw bulletName='cn_pl12'。按 bulletName 去重，保留所有 default、平台和吊舱变体路径。本 profile 是实验性数据层，不代表端到端轨迹已验证；缺失字段保留 null 或中性占位。"
+    "notes": "PL-12 profile refreshed to include the datamine radarSeeker sensor_model. This enables the runtime radar/Doppler/notch path instead of the profile_kinematic fallback."
   },
   "validation": {
     "status": "experimental",
     "validated_cases": [],
     "known_limitations": [
-      "仅完成 profile contract smoke，不等同于 War Thunder/StatShark 求解器复现。",
-      "datamine 未声明的 CxAoA、CyK、Mach 气动修正和舵机动态未被虚构。",
-      "reqAccelMax 是制导指令上限，不是时间域实际达到过载。"
+      "Profile remains an experimental reduced-order model, not a reproduction of the proprietary game solver.",
+      "Radar observation is deterministic and does not model SNR/RCS probability or stochastic noise.",
+      "The current ground-clutter notch is a deterministic Doppler-width candidate."
     ]
   },
   "runtime": {
     "implemented": true,
     "config_path": null,
-    "notes": "使用公共 Python profile_h2_universal_v2 模型层并叠加本 JSON 的导弹参数；仍保持 experimental 状态。"
+    "notes": "Uses shared profile_h2_universal_v2 runtime; sensor_model now selects radar_datalink_ins tracking for PL-12."
   }
 }
