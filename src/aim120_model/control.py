@@ -58,6 +58,9 @@ def base_indicated_speed_schedule(
         ratio = 1.0
     else:
         ratio = (indicated_speed_kmh / base) ** 2
+    ratio_max = control.get("base_indicated_speed_ratio_max")
+    if ratio_max is not None:
+        ratio = min(ratio, float(ratio_max))
     if mode == "fin_authority_q":
         pid_scale, fin_command_scale, fin_force_scale = 1.0, 1.0, ratio
     elif mode == "matched_q":

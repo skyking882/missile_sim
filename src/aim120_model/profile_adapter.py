@@ -246,11 +246,12 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "this is a shared candidate slope, not a datamine CyK"
         )
         assumptions.append(
-            "candidate fin translation: a_fin = finsLatAccel*(delta/finsAoa); "
+            "candidate fin translation: a_fin = finsLatAccel*(delta/finsAoa)*(q/q_base); "
             "distFromCmToStab is not a steady-state G multiplier. "
             "finsAoaHor/Ver is treated as radians. "
             "reqAccelMax remains a PN command cap, not a plant load cap. "
-            "baseIndSpeed q/q_base is not applied to path G because that field lives on the autopilot"
+            "baseIndSpeed q/q_base scales fin force when fin_force_q_scaling is on and "
+            "the profile declares base_indicated_speed_kmh; missing base falls back to none"
         )
         assumptions.append(
             "candidate fin moment still uses the stored distFromCmToStab value as metres on local tail "
@@ -370,7 +371,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         cn_alpha_per_rad = 2.0
         natural_lift_enabled = True
         normal_force_model = "thin_plate_2pi"
-        release_version = "profile-adapter-v15-path-g-finslataccel-arm-moment-only"
+        release_version = "profile-adapter-v16-fin-force-q-scale"
         force_geometry_version = "fin_delta_g_no_arm_scale_v7_quat"
         plant_semantics = "fin_torque_body_aoa"
         fin_arm_as_length_fraction = False
@@ -652,9 +653,27 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "base_indicated_speed_kmh": base_indicated_speed,
             "base_indicated_speed_mode": (
                 "none"
-                if plant_model
-                in {GENERALIZED_AERO_MOMENT_PLANT, LEGACY_CRITICAL_DAMPED_PLANT}
-                else ("fin_authority_q" if base_indicated_speed is not None else "none")
+                if plant_model == GENERALIZED_AERO_MOMENT_PLANT
+                else (
+                    "fin_authority_q"
+                    if base_indicated_speed is not None
+                    and (
+                        plant_model == BODY_CM_TAIL_FORCE_PLANT
+                        or bool(defaults.get("fin_force_q_scaling", False))
+                    )
+                    else "none"
+                )
+            ),
+            **(
+                {
+                    "base_indicated_speed_ratio_max": _positive_finite(
+                        defaults.get("fin_force_q_ratio_max", 4.0),
+                        "fin_force_q_ratio_max",
+                    )
+                }
+                if plant_model == LEGACY_CRITICAL_DAMPED_PLANT
+                and defaults.get("fin_force_q_ratio_max") is not None
+                else {}
             ),
             "pid": {
                 "switch_time_s": 3.4028234663852886e38,
