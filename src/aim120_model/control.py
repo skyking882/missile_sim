@@ -6,6 +6,7 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
+from .aerodynamics import body_axes_for_state
 from .math3d import clamp
 
 
@@ -321,7 +322,10 @@ def update_control_feedback(
                         "path_rate_time_constant_s", 0.35
                     )
                 )
-                hold_rate = measured_g * gravity / max(speed, 50.0)
+                axes = body_axes_for_state(state)
+                normal_axis = axes.up if axis == "pitch" else axes.right
+                gravity_along_axis_g = -normal_axis[1]
+                hold_rate = (measured_g + gravity_along_axis_g) * gravity / max(speed, 50.0)
                 close_rate = (command - measured_g) * gravity / max(speed, 50.0) / max(path_tau, 1e-3)
                 # Raw accelControl P/I/D is not in (rad/s)/g.  Adding it here
                 # lets the PL-12's larger P request more rate than R-77 and

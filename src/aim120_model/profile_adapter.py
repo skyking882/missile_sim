@@ -262,8 +262,10 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         )
         if bool(defaults.get("acceleration_outer_rate_inner", False)):
             assumptions.append(
-                "candidate controller: body rate is commanded as a_meas*g/V plus G-error closing over "
-                "path_rate_time_constant_s; raw accelControl P/I/D is not added to q_cmd because those "
+                "candidate controller: body rate is commanded from kinematic normal accel "
+                "(specific force plus gravity along the body normal) plus G-error closing over "
+                "path_rate_time_constant_s; command and measurement are both specific force. "
+                "raw accelControl P/I/D is not added to q_cmd because those "
                 "datamine gains are not (rad/s)/g. The inner loop maps rate error onto a shared fraction "
                 "of each profile's finsAoa so finsLatAccel, arm and fin limit stay visible"
             )
@@ -631,7 +633,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
                 else "cg_wind_normal_specific_force_g"
             ),
             "controller_command_basis": (
-                "legacy_body_up_right_acceleration"
+                "legacy_body_up_right_required_specific_force"
                 if plant_model == LEGACY_CRITICAL_DAMPED_PLANT
                 else "cg_velocity_wind_normal_required_specific_force"
             ),

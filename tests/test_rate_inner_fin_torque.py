@@ -8,8 +8,10 @@ from pathlib import Path
 from aim120_model.aerodynamics import quaternion_from_pitch_yaw
 from aim120_model.control import update_control_feedback
 from aim120_model.dynamics import SimState
+from aim120_model.guidance import guidance_command
 from aim120_model.h2_dynamics import _uses_quaternion_candidate, forces_for_state_h2
 from aim120_model.h2_simulator import H2Simulator
+from aim120_model.target import TargetState
 from aim120_model.profile_adapter import (
     LEGACY_CRITICAL_DAMPED_PLANT,
     build_h2_candidate_config,
@@ -203,10 +205,58 @@ def test_fin_torque_rate_inner_uses_g_error_to_command_body_rate() -> None:
         enabled=True,
         plant_diagnostics=diagnostics,
     )
-    expected_rate = 10.0 * config["atmosphere"]["gravity_mps2"] / 400.0 / 0.35
+    gravity = config["atmosphere"]["gravity_mps2"]
+    hold_rate = (0.0 - 1.0) * gravity / 400.0
+    close_rate = 10.0 * gravity / 400.0 / 0.35
+    expected_rate = hold_rate + close_rate
     assert abs(updates["commanded_pitch_rate_rad_s"] - expected_rate) < 1e-12
     assert updates["actual_pitch_fin_angle_rad"] > 0.0
     assert updates["actual_pitch_acceleration_g"] == 0.0
+
+
+def test_level_flight_specific_force_command_is_one_g() -> None:
+    config = _config()
+    config["guidance"]["lofting_enabled"] = False
+    state = SimState((0.0, 3000.0, 0.0), (400.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 147.87)
+    output = guidance_command(
+        state,
+        TargetState((20000.0, 3000.0, 0.0), (0.0, 0.0, 0.0)),
+        0.0,
+        config,
+        enabled=True,
+    )
+    assert abs(output.commanded_body_acceleration_g[0]) < 1e-9
+    assert abs(output.controller_specific_force_command_g[0] - 1.0) < 1e-9
+    assert abs(output.controller_specific_force_command_g[1]) < 1e-9
+
+
+def test_level_glide_specific_force_hold_bounds_altitude_drop() -> None:
+    profiles, errors = scan_library(ROOT / "missiles", ROOT)
+    assert errors == []
+    indexed = {profile["missile_id"]: profile for profile in profiles}
+    result = simulate(
+        indexed["cn_pl12"],
+        {
+            "launch_speed_kmh": 1200.0,
+            "launch_altitude_m": 3000.0,
+            "launch_pitch_deg": 0.0,
+            "launch_heading_deg": 0.0,
+            "target_speed_kmh": 900.0,
+            "target_altitude_m": 3000.0,
+            "initial_distance_m": 40000.0,
+            "target_azimuth_deg": 0.0,
+            "target_heading_deg": 0.0,
+            "target_vertical_heading_deg": 0.0,
+            "target_constant_turn_g": 0.0,
+            "max_simulation_time_s": 8.0,
+            "loft_enabled": False,
+        },
+    )
+    start_alt = float(result["samples"][0]["position_m"][1])
+    end_alt = float(result["samples"][-1]["position_m"][1])
+    first = result["samples"][0]
+    assert abs(float(first["controller_specific_force_command_g"][0]) - 1.0) < 0.15
+    assert start_alt - end_alt < 80.0
 
 
 def test_opposing_body_rate_reduces_fin_demand() -> None:

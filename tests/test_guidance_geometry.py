@@ -1,3 +1,4 @@
+import copy
 from pathlib import Path
 
 from aim120_model.config import load_model_config
@@ -59,4 +60,18 @@ def test_pn_acceleration_is_transverse_and_bounded_by_guidance_layer():
     assert abs(acceleration[0]) < 1e-12
     output = guidance_command(make_state(), TargetState((20000.0, 3000.0, 1000.0), (0.0, 0.0, 0.0)), 0.0, CONFIG, True)
     assert norm(output.commanded_acceleration_mps2) <= CONFIG["guidance"]["maximum_lateral_acceleration_g"] * CONFIG["atmosphere"]["gravity_mps2"] + 1e-9
+
+
+def test_frozen_h2_controller_command_stays_kinematic_without_gravity_term():
+    config = copy.deepcopy(CONFIG)
+    config["guidance"]["lofting_enabled"] = False
+    output = guidance_command(
+        make_state(),
+        TargetState((20000.0, 3000.0, 0.0), (0.0, 0.0, 0.0)),
+        0.0,
+        config,
+        True,
+    )
+    assert abs(output.commanded_body_acceleration_g[0]) < 1e-9
+    assert abs(output.controller_specific_force_command_g[0]) < 1e-9
 

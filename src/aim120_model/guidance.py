@@ -177,14 +177,19 @@ def guidance_command(
         loft = (0.0, 0.0, 0.0)
         loft_active = False
     axes = body_axes_for_state(state)
-    body_pitch_g = mps2_to_g(dot(commanded, axes.up), config["atmosphere"]["gravity_mps2"])
-    body_yaw_g = mps2_to_g(dot(commanded, axes.right), config["atmosphere"]["gravity_mps2"])
+    gravity_mps2 = float(config["atmosphere"]["gravity_mps2"])
+    gravity_vector = (0.0, -gravity_mps2, 0.0)
+    body_pitch_g = mps2_to_g(dot(commanded, axes.up), gravity_mps2)
+    body_yaw_g = mps2_to_g(dot(commanded, axes.right), gravity_mps2)
+    # Required specific force keeps the gravity term.  Do not strip the
+    # wind-forward component here: that projection is wind-basis only.
+    raw_required = sub(commanded, gravity_vector)
+    body_pitch_sf_g = mps2_to_g(dot(raw_required, axes.up), gravity_mps2)
+    body_yaw_sf_g = mps2_to_g(dot(raw_required, axes.right), gravity_mps2)
     wind_basis = cg_wind_normal_basis(state, config)
-    gravity_vector = (0.0, -float(config["atmosphere"]["gravity_mps2"]), 0.0)
-    required_specific_force = sub(commanded, gravity_vector)
     required_specific_force = sub(
-        required_specific_force,
-        scale(wind_basis.forward, dot(required_specific_force, wind_basis.forward)),
+        raw_required,
+        scale(wind_basis.forward, dot(raw_required, wind_basis.forward)),
     )
     gravity_compensation = scale(gravity_vector, -1.0)
     gravity_compensation = sub(
@@ -192,18 +197,25 @@ def guidance_command(
         scale(wind_basis.forward, dot(gravity_compensation, wind_basis.forward)),
     )
     wind_command = (
-        mps2_to_g(dot(required_specific_force, wind_basis.up), config["atmosphere"]["gravity_mps2"]),
-        mps2_to_g(dot(required_specific_force, wind_basis.right), config["atmosphere"]["gravity_mps2"]),
+        mps2_to_g(dot(required_specific_force, wind_basis.up), gravity_mps2),
+        mps2_to_g(dot(required_specific_force, wind_basis.right), gravity_mps2),
     )
     gravity_command = (
-        mps2_to_g(dot(gravity_compensation, wind_basis.up), config["atmosphere"]["gravity_mps2"]),
-        mps2_to_g(dot(gravity_compensation, wind_basis.right), config["atmosphere"]["gravity_mps2"]),
+        mps2_to_g(dot(gravity_compensation, wind_basis.up), gravity_mps2),
+        mps2_to_g(dot(gravity_compensation, wind_basis.right), gravity_mps2),
     )
-    candidate = config["control"].get("plant_semantics") in {
+    plant_semantics = str(config["control"].get("plant_semantics", ""))
+    candidate = plant_semantics in {
         "body_cm_tail_force_moment",
         "generalized_aero_moment",
     }
-    controller_command = wind_command if candidate else (body_pitch_g, body_yaw_g)
+    if candidate:
+        controller_command = wind_command
+    elif plant_semantics == "fin_torque_body_aoa":
+        controller_command = (body_pitch_sf_g, body_yaw_sf_g)
+    else:
+        # Frozen H1/H2 compatibility: kinematic body command, no gravity term.
+        controller_command = (body_pitch_g, body_yaw_g)
     return GuidanceOutput(
         enabled=enabled,
         range_m=range_m,
