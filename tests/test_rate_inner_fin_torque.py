@@ -53,7 +53,9 @@ def test_fin_torque_adapter_enables_body_cn_alpha() -> None:
     assert config["aerodynamics"]["cy_k"] == 2.0
     assert config["force_geometry_version"] == "fin_delta_g_no_arm_scale_v7_quat"
     assert config["runtime_adapter"] == "profile_h2_fin_torque_aoa_v11"
-    assert config["release_version"] == "profile-adapter-v16-fin-force-q-scale"
+    assert config["release_version"] == "profile-adapter-v17-body-lift-share"
+    assert config["aerodynamics"]["normal_force_model"] == "body_cn_linear"
+    assert config["aerodynamics"]["fin_translation_share"] == 1.0
     assert not config["aerodynamics"].get("fin_arm_as_length_fraction")
     assert "path_g_scales_with_wing_area_multiplier" not in config["aerodynamics"]
     assert config["control"]["base_indicated_speed_mode"] == "fin_authority_q"
@@ -117,6 +119,42 @@ def test_fin_delta_drag_defaults_off_and_adds_axial_drag_when_enabled() -> None:
     straight_on = forces_for_state_h2(straight, 0.0, enabled, propulsion, powered=False)
     straight_off = forces_for_state_h2(straight, 0.0, config, propulsion, powered=False)
     assert max(abs(a - b) for a, b in zip(straight_on.total_force_n, straight_off.total_force_n)) < 1e-9
+
+
+def test_fin_translation_share_scales_path_g_not_moment() -> None:
+    full = _profile_config("cn_pl12")
+    half = copy.deepcopy(full)
+    half["aerodynamics"]["fin_translation_share"] = 0.5
+    limit = math.radians(full["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
+    state = SimState(
+        (0.0, 3000.0, 0.0), (400.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 198.0,
+        actual_pitch_fin_angle_rad=limit,
+    )
+    full_diag = forces_for_state_h2(
+        state, 0.0, full, PiecewisePropulsion.from_config(full), powered=False
+    )
+    half_diag = forces_for_state_h2(
+        state, 0.0, half, PiecewisePropulsion.from_config(half), powered=False
+    )
+    assert abs(
+        half_diag.trajectory_pitch_normal_acceleration_g
+        - 0.5 * full_diag.trajectory_pitch_normal_acceleration_g
+    ) < 0.05
+    assert abs(
+        half_diag.pitch_angular_acceleration_rad_s2
+        - full_diag.pitch_angular_acceleration_rad_s2
+    ) < 1e-6
+
+
+def test_legacy_body_lift_knob_can_disable_natural_lift() -> None:
+    config = _config(
+        legacy_body_lift={
+            "enabled": False,
+            "cn_alpha_per_rad": 2.0,
+            "fin_translation_share": 1.0,
+        }
+    )
+    assert config["aerodynamics"]["natural_lift_enabled"] is False
 
 
 def test_body_cn_alpha_adds_path_g_at_aoa() -> None:

@@ -236,10 +236,9 @@ def compute_aerodynamics_h2(
     else:
         normal_force_area = area_for_h2_lift(config)
     if aero_cfg.get("natural_lift_enabled", True):
-        if normal_force_model == "thin_plate_2pi":
-            # Diagnostic small-angle thin-airfoil closure.  Keep it separate
-            # from the unresolved Mach-lift mapping so CN_alpha is exactly the
-            # declared 2*pi value in this candidate.
+        if normal_force_model in {"thin_plate_2pi", "body_cn_linear"}:
+            # Linear CN_alpha on the H2 lift area.  thin_plate_2pi remains as
+            # the frozen diagnostic name; body_cn_linear is the profile plant.
             lift_multiplier = 1.0
             cy_k = float(aero_cfg["cn_alpha_per_rad"])
         elif normal_force_model == "body_circular_cn2":

@@ -757,8 +757,9 @@ def forces_for_state_h2(
             # weathercocks; bandwidth stays ∝ sqrt(arm).
             pitch_fin_moment_equivalent_g = scheduled_fins_g * pitch_moment_fraction
             yaw_fin_moment_equivalent_g = scheduled_fins_g * yaw_moment_fraction
-            pitch_fin_translation_equivalent_g = scheduled_fins_g * pitch_delta_fraction
-            yaw_fin_translation_equivalent_g = scheduled_fins_g * yaw_delta_fraction
+            share = float(config["aerodynamics"].get("fin_translation_share", 1.0))
+            pitch_fin_translation_equivalent_g = scheduled_fins_g * pitch_delta_fraction * share
+            yaw_fin_translation_equivalent_g = scheduled_fins_g * yaw_delta_fraction * share
             pitch_tail_force_n = pitch_fin_translation_equivalent_g * gravity * mass
             yaw_tail_force_n = yaw_fin_translation_equivalent_g * gravity * mass
             pitch_tail_moment_nm = pitch_fin_moment_equivalent_g * gravity * mass * arm

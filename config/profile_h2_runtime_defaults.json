@@ -10,6 +10,12 @@
   "fin_force_q_scaling": true,
   "fin_force_q_ratio_max": 4.0,
   "cx_vs_fin_delta": 0.0,
+  "legacy_body_lift": {
+    "enabled": true,
+    "cn_alpha_per_rad": 2.0,
+    "fin_translation_share": 1.0,
+    "stall_cap_enabled": true
+  },
   "body_cm_candidate": {
     "cn_alpha_body_per_rad": 2.0,
     "cp_cg_arm_over_diameter": 3.0,
@@ -28,5 +34,5 @@
     "cm_alpha_dot": 0.0,
     "body_rate_inner_loop_time_constant_s": 0.1
   },
-  "boundary": "Experimental true-difference H2 layer: path G = finsLatAccel*(delta/finsAoa)*(q/q_base) plus body CN_alpha=2 /rad capped at max_cy, distFromCmToStab only on tail moment/bandwidth, q/q_base ratio capped at fin_force_q_ratio_max, optional cx_vs_fin_delta fin-delta drag default 0, scaled_h1_shape_supersonic_decay is opt-in and unused, CdA from datamine CxK*area with no AIM-120A 0.30 drag scale, global gameparams CxAoA=9, no imputed CyK; not an end-to-end validation or game-solver reproduction."
+  "boundary": "Experimental true-difference H2 layer: path G = fin_translation_share*finsLatAccel*(delta/finsAoa)*(q/q_base) plus body CN_alpha from legacy_body_lift (default 2 /rad, stall-capped), distFromCmToStab only on tail moment/bandwidth, q/q_base ratio capped at fin_force_q_ratio_max, optional cx_vs_fin_delta fin-delta drag default 0, scaled_h1_shape_supersonic_decay is opt-in and unused, PL-12 q_base trim formula gives share~0.935 as a start (share left at 1.0 pending reference residual sweep), CdA from datamine CxK*area with no AIM-120A 0.30 drag scale, global gameparams CxAoA=9, no imputed CyK; not an end-to-end validation or game-solver reproduction."
 }

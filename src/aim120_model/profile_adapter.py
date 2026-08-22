@@ -247,7 +247,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "the coefficient is capped at max_cy_at_aoa"
         )
         assumptions.append(
-            "candidate fin translation: a_fin = finsLatAccel*(delta/finsAoa)*(q/q_base); "
+            "candidate fin translation: a_fin = fin_translation_share*finsLatAccel*(delta/finsAoa)*(q/q_base); "
             "distFromCmToStab is not a steady-state G multiplier. "
             "finsAoaHor/Ver is treated as radians. "
             "reqAccelMax remains a PN command cap, not a plant load cap. "
@@ -367,12 +367,23 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     legacy_rate_inner = False
     rate_loop_time_constant_s = 0.1
     fin_arm_as_length_fraction = False
+    fin_translation_share = 1.0
+    stall_cap_enabled = False
     if plant_model == LEGACY_CRITICAL_DAMPED_PLANT:
         runtime_name = legacy_runtime_name
-        cn_alpha_per_rad = 2.0
-        natural_lift_enabled = True
-        normal_force_model = "thin_plate_2pi"
-        release_version = "profile-adapter-v16-fin-force-q-scale"
+        body_lift = defaults.get("legacy_body_lift") or {}
+        natural_lift_enabled = bool(body_lift.get("enabled", True))
+        cn_alpha_per_rad = _positive_finite(
+            body_lift.get("cn_alpha_per_rad", 2.0),
+            "legacy_body_lift.cn_alpha_per_rad",
+        )
+        fin_translation_share = _positive_finite(
+            body_lift.get("fin_translation_share", 1.0),
+            "legacy_body_lift.fin_translation_share",
+        )
+        stall_cap_enabled = bool(body_lift.get("stall_cap_enabled", True))
+        normal_force_model = "body_cn_linear"
+        release_version = "profile-adapter-v17-body-lift-share"
         force_geometry_version = "fin_delta_g_no_arm_scale_v7_quat"
         plant_semantics = "fin_torque_body_aoa"
         fin_arm_as_length_fraction = False
@@ -572,7 +583,10 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "cx_vs_aoa": cx_aoa,
             "normal_force_model": normal_force_model,
             "cn_alpha_per_rad": cn_alpha_per_rad,
-            "normal_force_cap_enabled": plant_model == LEGACY_CRITICAL_DAMPED_PLANT,
+            "normal_force_cap_enabled": (
+                plant_model == LEGACY_CRITICAL_DAMPED_PLANT and stall_cap_enabled
+            ),
+            "fin_translation_share": fin_translation_share,
             "cx_vs_fin_delta": float(defaults.get("cx_vs_fin_delta", 0.0)),
             "cy_k": cn_alpha_per_rad,
             "max_cy_at_aoa": max_cy,
