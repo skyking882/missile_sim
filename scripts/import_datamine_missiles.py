@@ -724,6 +724,7 @@ def _profile(
             "datamine 未提供 endSpeed；用标准海平面音速将 Mach 上限转换为显示参考值，不作为硬限制。",
         )
         speed_semantics = "display_reference"
+    load_factor_max_g = _number(rocket.get("loadFactorMax"))
     performance = {
         "maximum_speed_mps": maximum_speed_mps,
         "maximum_distance_m": _number(rocket.get("maxDistance")) or 0.0,
@@ -731,6 +732,7 @@ def _profile(
         "maximum_mach": _number(rocket.get("machMax")),
         "minimum_distance_m": _number(rocket.get("minDistance")),
         "range_reference_m": _number(rocket.get("rangeMax")),
+        "load_factor_max_g": load_factor_max_g,
         "limit_semantics": {
             "maximum_speed_mps": speed_semantics,
             "maximum_distance_m": "event_threshold",
@@ -743,6 +745,11 @@ def _profile(
             "maximum_mach": _source("datamine", "rocket.machMax", "直接读取 Mach 上限字段。"),
             "minimum_distance_m": _source("datamine", "rocket.minDistance", "直接读取最小距离字段。"),
             "range_reference_m": _source("datamine", "rocket.rangeMax", "直接读取显示/性能参考距离。"),
+            "load_factor_max_g": _source(
+                "datamine" if load_factor_max_g is not None else "assumed",
+                "rocket.loadFactorMax" if load_factor_max_g is not None else None,
+                "直接读取机体横向过载上限；缺失时保留 null，由运行时回退 reqAccelMax。",
+            ),
         },
     }
     control = {
@@ -815,6 +822,7 @@ def _profile(
                 "仅完成 profile contract smoke，不等同于 War Thunder/StatShark 求解器复现。",
                 "datamine 未声明的 CxAoA、CyK、Mach 气动修正和舵机动态未被虚构。",
                 "reqAccelMax 是制导指令上限，不是时间域实际达到过载。",
+                "loadFactorMax 是机体横向过载上限，写入 performance.load_factor_max_g。",
             ],
         },
         "runtime": {

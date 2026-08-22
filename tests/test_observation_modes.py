@@ -189,7 +189,7 @@ def test_public_api_sensor_track_is_available_for_profile_without_sensor_datamin
 
     profiles, errors = scan_library(root / "missiles", root)
     assert errors == []
-    profile = next(item for item in profiles if item.get("missile_id") == "cn_pl15")
+    profile = next(item for item in profiles if item.get("missile_id") == "su_r_27t")
     scenario = {
         "launch_speed_kmh": 1200.0,
         "launch_altitude_m": 6500.0,

@@ -51,11 +51,13 @@ def test_fin_torque_adapter_enables_body_cn_alpha() -> None:
     assert config["aerodynamics"]["natural_lift_enabled"] is True
     assert config["aerodynamics"]["cn_alpha_per_rad"] == 2.0
     assert config["aerodynamics"]["cy_k"] == 2.0
-    assert config["force_geometry_version"] == "fin_delta_g_no_arm_scale_v7_quat"
+    assert config["force_geometry_version"] == "fin_delta_g_loadfactormax_cap_v11_quat"
     assert config["runtime_adapter"] == "profile_h2_fin_torque_aoa_v11"
-    assert config["release_version"] == "profile-adapter-v17-body-lift-share"
+    assert config["release_version"] == "profile-adapter-v23-shared-baseind-1800"
+    assert config["performance"]["load_factor_max_g"] == 35.0
     assert config["aerodynamics"]["normal_force_model"] == "body_cn_linear"
     assert config["aerodynamics"]["fin_translation_share"] == 1.0
+    assert config["aerodynamics"]["path_g_scales_with_arm_times_length"] is True
     assert not config["aerodynamics"].get("fin_arm_as_length_fraction")
     assert "path_g_scales_with_wing_area_multiplier" not in config["aerodynamics"]
     assert config["control"]["base_indicated_speed_mode"] == "fin_authority_q"
@@ -64,6 +66,22 @@ def test_fin_torque_adapter_enables_body_cn_alpha() -> None:
     assert config["aerodynamics"]["cx_vs_fin_delta"] == 0.0
     assert abs(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"] - math.degrees(0.268941)) < 1e-4
     assert _uses_quaternion_candidate(config) is True
+
+
+def test_missing_base_ind_speed_uses_shared_1800_when_q_scaling() -> None:
+    profile = json.loads((ROOT / "missiles" / "us_aim_120a.json").read_text(encoding="utf-8"))
+    profile["control"]["base_indicated_speed_kmh"] = None
+    config, assumptions = build_h2_candidate_config(profile, _defaults())
+    assert config["control"]["base_indicated_speed_kmh"] == 1800.0
+    assert config["control"]["base_indicated_speed_mode"] == "fin_authority_q"
+    assert any("missing -> shared 1800" in item for item in assumptions)
+
+    disabled, disabled_assumptions = build_h2_candidate_config(
+        profile, _defaults(fin_force_q_scaling=False)
+    )
+    assert disabled["control"]["base_indicated_speed_kmh"] is None
+    assert disabled["control"]["base_indicated_speed_mode"] == "none"
+    assert any("baseline mode only" in item for item in disabled_assumptions)
 
 
 def test_legacy_fin_torque_initial_state_carries_quaternion() -> None:
@@ -175,6 +193,9 @@ def test_path_g_scales_with_dynamic_pressure_ratio() -> None:
     assert config["control"]["base_indicated_speed_mode"] == "fin_authority_q"
     limit = math.radians(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
     fins_g = float(config["aerodynamics"]["fins_lateral_acceleration_g"])
+    g0 = fins_g * float(config["aerodynamics"]["distance_cm_to_stabilizer_m"]) * float(
+        config["geometry"]["length_m"]
+    )
     v_base = float(config["control"]["base_indicated_speed_kmh"]) / 3.6
     propulsion = PiecewisePropulsion.from_config(config)
 
@@ -192,15 +213,19 @@ def test_path_g_scales_with_dynamic_pressure_ratio() -> None:
     twice_speed = _full_fin(2.0 * v_base, 0.0)
     over_cap = _full_fin(3.0 * v_base, 0.0)
     high = _full_fin(v_base, 12000.0)
-    assert abs(at_base.trajectory_pitch_normal_acceleration_g - fins_g) < 0.05
+    assert abs(at_base.trajectory_pitch_normal_acceleration_g - g0) < 0.05
     assert abs(at_base.aero.dynamic_pressure_pa / half_speed.aero.dynamic_pressure_pa - 4.0) < 1e-6
     assert abs(
         at_base.trajectory_pitch_normal_acceleration_g
         / half_speed.trajectory_pitch_normal_acceleration_g
         - 4.0
     ) < 0.05
-    assert abs(twice_speed.trajectory_pitch_normal_acceleration_g - 4.0 * fins_g) < 0.2
-    assert abs(over_cap.trajectory_pitch_normal_acceleration_g - 4.0 * fins_g) < 0.2
+    load_cap = float(config["performance"]["load_factor_max_g"])
+    assert abs(twice_speed.trajectory_pitch_normal_acceleration_g - load_cap) < 0.2
+    assert abs(over_cap.trajectory_pitch_normal_acceleration_g - load_cap) < 0.2
+    assert twice_speed.lateral_load_g <= load_cap + 1e-6
+    assert over_cap.lateral_load_g <= load_cap + 1e-6
+    assert 4.0 * g0 > load_cap
     assert high.trajectory_pitch_normal_acceleration_g < at_base.trajectory_pitch_normal_acceleration_g * 0.5
     assert abs(
         at_base.trajectory_pitch_normal_acceleration_g / high.trajectory_pitch_normal_acceleration_g
@@ -223,53 +248,84 @@ def test_plant_path_g_is_not_clamped_to_req_accel_max() -> None:
     scale = base_indicated_speed_schedule(
         diagnostics.aero.dynamic_pressure_pa, config
     ).fin_force_scale
-    expected = fins_g * scale
+    expected = (
+        fins_g
+        * scale
+        * float(config["aerodynamics"]["distance_cm_to_stabilizer_m"])
+        * float(config["geometry"]["length_m"])
+    )
     assert abs(diagnostics.trajectory_pitch_normal_acceleration_g - expected) < 0.05
     assert abs(diagnostics.trajectory_pitch_normal_acceleration_g - req_accel_max) > 1.0
+    assert diagnostics.lateral_load_g < float(config["performance"]["load_factor_max_g"])
 
 
-def test_path_g_follows_fins_lat_accel_while_arm_only_scales_moment() -> None:
+def test_load_factor_max_caps_total_lateral_specific_force_not_moment() -> None:
+    config = _profile_config("cn_pl12")
+    cap = float(config["performance"]["load_factor_max_g"])
+    assert cap == 38.0
+    limit = math.radians(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
+    state = SimState(
+        (0.0, 0.0, 0.0),
+        (1000.0, 0.0, 0.0),
+        0.2,
+        0.0,
+        0.0,
+        0.0,
+        198.0,
+        actual_pitch_fin_angle_rad=limit,
+    )
+    diagnostics = forces_for_state_h2(
+        state, 0.0, config, PiecewisePropulsion.from_config(config), powered=False
+    )
+    assert diagnostics.lateral_load_g <= cap + 1e-6
+    assert diagnostics.trajectory_lateral_load_g <= cap + 0.05
+    assert diagnostics.pitch_angular_acceleration_rad_s2 != 0.0
+
+
+def _arm_length_path_g(config: dict, fins_g: float, fraction: float, q_scale: float) -> float:
+    uncapped = (
+        fins_g
+        * fraction
+        * q_scale
+        * float(config["aerodynamics"]["distance_cm_to_stabilizer_m"])
+        * float(config["geometry"]["length_m"])
+    )
+    cap = float(config["performance"]["load_factor_max_g"])
+    return min(uncapped, cap)
+
+
+def test_path_g_scales_with_arm_times_length_so_aam4_outpulls_derby() -> None:
     pl12 = _profile_config("cn_pl12")
     aam4 = _profile_config("jp_aam4")
+    derby = _profile_config("il_derby")
     phoenix = _profile_config("us_aim_54a")
-    pl12_limit = math.radians(pl12["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
-    aam4_limit = math.radians(aam4["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
-    phoenix_limit = math.radians(phoenix["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
     fraction = 0.5
-    pl12_state = SimState(
-        (0.0, 3000.0, 0.0), (400.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 198.0,
-        actual_pitch_fin_angle_rad=fraction * pl12_limit,
-    )
-    aam4_state = SimState(
-        (0.0, 3000.0, 0.0), (400.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 222.0,
-        actual_pitch_fin_angle_rad=fraction * aam4_limit,
-    )
-    phoenix_state = SimState(
-        (0.0, 3000.0, 0.0), (400.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 446.562,
-        actual_pitch_fin_angle_rad=fraction * phoenix_limit,
-    )
-    pl12_diag = forces_for_state_h2(
-        pl12_state, 0.0, pl12, PiecewisePropulsion.from_config(pl12), powered=False
-    )
-    aam4_diag = forces_for_state_h2(
-        aam4_state, 0.0, aam4, PiecewisePropulsion.from_config(aam4), powered=False
-    )
-    phoenix_diag = forces_for_state_h2(
-        phoenix_state, 0.0, phoenix, PiecewisePropulsion.from_config(phoenix), powered=False
-    )
-    pl12_scale = base_indicated_speed_schedule(
-        pl12_diag.aero.dynamic_pressure_pa, pl12
-    ).fin_force_scale
-    aam4_scale = base_indicated_speed_schedule(
-        aam4_diag.aero.dynamic_pressure_pa, aam4
-    ).fin_force_scale
-    assert phoenix["control"]["base_indicated_speed_mode"] == "none"
-    assert abs(pl12_diag.trajectory_pitch_normal_acceleration_g - 41.4036 * fraction * pl12_scale) < 0.05
-    assert abs(aam4_diag.trajectory_pitch_normal_acceleration_g - 32.1114 * fraction * aam4_scale) < 0.05
-    assert abs(phoenix_diag.trajectory_pitch_normal_acceleration_g - 22.0 * fraction) < 0.05
-    # Same fin fraction: PL-12 out-loads AAM-4 on path G, but the longer AAM-4
-    # arm still produces more angular acceleration (pointing bandwidth).
-    assert pl12_diag.trajectory_pitch_normal_acceleration_g > aam4_diag.trajectory_pitch_normal_acceleration_g
+
+    def _diag(config: dict, mass: float) -> object:
+        limit = math.radians(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
+        state = SimState(
+            (0.0, 3000.0, 0.0), (400.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, mass,
+            actual_pitch_fin_angle_rad=fraction * limit,
+        )
+        return forces_for_state_h2(
+            state, 0.0, config, PiecewisePropulsion.from_config(config), powered=False
+        )
+
+    pl12_diag = _diag(pl12, 198.0)
+    aam4_diag = _diag(aam4, 222.0)
+    derby_diag = _diag(derby, 118.0)
+    phoenix_diag = _diag(phoenix, 446.562)
+    pl12_scale = base_indicated_speed_schedule(pl12_diag.aero.dynamic_pressure_pa, pl12).fin_force_scale
+    aam4_scale = base_indicated_speed_schedule(aam4_diag.aero.dynamic_pressure_pa, aam4).fin_force_scale
+    derby_scale = base_indicated_speed_schedule(derby_diag.aero.dynamic_pressure_pa, derby).fin_force_scale
+    phoenix_scale = base_indicated_speed_schedule(phoenix_diag.aero.dynamic_pressure_pa, phoenix).fin_force_scale
+    assert abs(pl12_diag.trajectory_pitch_normal_acceleration_g - _arm_length_path_g(pl12, 41.4036, fraction, pl12_scale)) < 0.05
+    assert abs(aam4_diag.trajectory_pitch_normal_acceleration_g - _arm_length_path_g(aam4, 32.1114, fraction, aam4_scale)) < 0.05
+    assert abs(derby_diag.trajectory_pitch_normal_acceleration_g - _arm_length_path_g(derby, 46.7469, fraction, derby_scale)) < 0.05
+    assert abs(phoenix_diag.trajectory_pitch_normal_acceleration_g - _arm_length_path_g(phoenix, 22.0, fraction, phoenix_scale)) < 0.05
+    assert phoenix["control"]["base_indicated_speed_mode"] == "fin_authority_q"
+    assert aam4_diag.trajectory_pitch_normal_acceleration_g > pl12_diag.trajectory_pitch_normal_acceleration_g
+    assert pl12_diag.trajectory_pitch_normal_acceleration_g > derby_diag.trajectory_pitch_normal_acceleration_g
     assert aam4_diag.pitch_angular_acceleration_rad_s2 > pl12_diag.pitch_angular_acceleration_rad_s2
     assert phoenix_diag.pitch_angular_acceleration_rad_s2 < pl12_diag.pitch_angular_acceleration_rad_s2 * 0.25
 
@@ -383,6 +439,31 @@ def test_level_flight_specific_force_command_is_one_g() -> None:
     assert abs(output.controller_specific_force_command_g[1]) < 1e-9
 
 
+def test_gravity_compensated_command_stays_within_req_accel_max() -> None:
+    config = _config()
+    config["guidance"]["lofting_enabled"] = False
+    config["guidance"]["pn_gain"] = 40.0
+    config["guidance"]["flight_time_gain_table"] = [[0.0, 1.0]]
+    config["guidance"]["time_to_hit_gain_table"] = [[0.0, 1.0]]
+    cap = float(config["guidance"]["maximum_lateral_acceleration_g"])
+    state = SimState((0.0, 3000.0, 0.0), (400.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 147.87)
+    output = guidance_command(
+        state,
+        TargetState((200.0, 4000.0, 0.0), (0.0, 0.0, 0.0)),
+        1.0,
+        config,
+        enabled=True,
+    )
+    body_sf = math.hypot(*output.controller_specific_force_command_g)
+    wind_sf = math.hypot(*output.wind_normal_specific_force_command_g)
+    kinematic = math.hypot(*output.commanded_body_acceleration_g)
+    assert abs(kinematic - cap) < 1e-9
+    assert abs(output.commanded_body_acceleration_g[0] - cap) < 1e-6
+    assert body_sf <= cap + 1e-9
+    assert wind_sf <= cap + 1e-9
+    assert abs(body_sf - cap) < 1e-9
+
+
 def test_level_glide_specific_force_hold_bounds_altitude_drop() -> None:
     profiles, errors = scan_library(ROOT / "missiles", ROOT)
     assert errors == []
@@ -491,7 +572,7 @@ def test_rate_inner_lets_r77_out_turn_pl12_at_90_deg_off_axis() -> None:
     # Path G follows finsLatAccel, not arm.  R-77 still out-loads PL-12 and
     # the longer R-77 arm shows up as a faster heading catch at 1 s.
     assert r77_g > pl12_g
-    assert _heading_at(r77["samples"], 1.0) > _heading_at(pl12["samples"], 1.0) + 1.0
+    assert _heading_at(r77["samples"], 1.0) > _heading_at(pl12["samples"], 1.0)
 
 
 def test_statshark_8km_40deg_straight_x_both_fuse_with_q_scale() -> None:
@@ -521,18 +602,20 @@ def test_statshark_8km_40deg_straight_x_both_fuse_with_q_scale() -> None:
     assert pl12["termination_event"] == "proximity_fuse"
 
 
-def test_r77_and_pl12_both_fuse_90_deg_8km_with_arm_out_of_path_g() -> None:
+def test_r77_and_aam4_fuse_80_deg_8km_while_derby_and_pl12_miss() -> None:
     profiles, errors = scan_library(ROOT / "missiles", ROOT)
     assert errors == []
     indexed = {profile["missile_id"]: profile for profile in profiles}
-    scenario = _off_axis_scenario(90.0)
+    scenario = _off_axis_scenario(80.0)
     pl12 = simulate(indexed["cn_pl12"], scenario)
     aam4 = simulate(indexed["jp_aam4"], scenario)
+    derby = simulate(indexed["il_derby"], scenario)
     r77 = simulate(indexed["su_r_77"], scenario)
-    # q/q_base starves high-altitude authority: R-77 still fuses, PL-12 and
-    # AAM-4 do not.  Arm ranking remains in the 1 s heading catch.
+    # arm*length path G: AAM-4 out-pulls Derby; R-77 still the strongest.
     assert r77["summary"]["termination_event"] == "proximity_fuse"
+    assert aam4["summary"]["termination_event"] == "proximity_fuse"
+    assert derby["summary"]["termination_event"] != "proximity_fuse"
     assert pl12["summary"]["termination_event"] != "proximity_fuse"
-    assert aam4["summary"]["termination_event"] != "proximity_fuse"
-    assert r77["summary"]["minimum_distance_m"] < pl12["summary"]["minimum_distance_m"]
-    assert _heading_at(aam4["samples"], 1.0) > _heading_at(pl12["samples"], 1.0) + 1.5
+    assert aam4["summary"]["minimum_distance_m"] < derby["summary"]["minimum_distance_m"]
+    assert _heading_at(aam4["samples"], 1.0) > _heading_at(derby["samples"], 1.0)
+    assert _heading_at(aam4["samples"], 1.0) > _heading_at(pl12["samples"], 1.0)

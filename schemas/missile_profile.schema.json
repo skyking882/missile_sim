@@ -194,6 +194,7 @@
         "maximum_mach": {"type": ["number", "null"], "exclusiveMinimum": 0},
         "minimum_distance_m": {"type": ["number", "null"], "minimum": 0},
         "range_reference_m": {"type": ["number", "null"], "minimum": 0},
+        "load_factor_max_g": {"type": ["number", "null"], "exclusiveMinimum": 0},
         "limit_semantics": {
           "type": "object",
           "additionalProperties": false,

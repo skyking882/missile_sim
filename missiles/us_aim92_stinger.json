@@ -189,6 +189,7 @@
     "maximum_mach": 2.0,
     "minimum_distance_m": 30.0,
     "range_reference_m": 5000.0,
+    "load_factor_max_g": 13.0,
     "limit_semantics": {
       "maximum_speed_mps": "hard_limit",
       "maximum_distance_m": "event_threshold",
@@ -224,6 +225,11 @@
         "kind": "datamine",
         "source_field": "rocket.rangeMax",
         "notes": "直接读取显示/性能参考距离。"
+      },
+      "load_factor_max_g": {
+        "kind": "datamine",
+        "source_field": "rocket.loadFactorMax",
+        "notes": "直接读取机体横向过载上限；缺失时保留 null，由运行时回退 reqAccelMax。"
       }
     }
   },
@@ -237,6 +243,7 @@
     "lofting_elevation_deg": 0.0,
     "loft_exit_distance_m": null,
     "loft_exit_time_to_go_s": null,
+    "flight_time_gain_table": null,
     "proximity_radius_m": 0.5,
     "seeker_type": "optical",
     "parameter_sources": {
@@ -285,6 +292,11 @@
         "source_field": null,
         "notes": "datamine 未提供与此字段语义一致的剩余时间门槛。"
       },
+      "flight_time_gain_table": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "按索引读取飞行时间控制增益表；缺失时保留 null，由运行时显式回退。"
+      },
       "proximity_radius_m": {
         "kind": "datamine",
         "source_field": "rocket.proximityFuse.radius",
@@ -304,6 +316,7 @@
       "d": 0.0005,
       "integral_limit": 1.0
     },
+    "base_indicated_speed_kmh": 1800.0,
     "fin_command_limit": 1.0,
     "actuator_time_constant_s": null,
     "max_pitch_yaw_rate_deg_s": null,
@@ -329,6 +342,11 @@
         "source_field": "rocket.guidance.guidanceAutopilot.accelControlIntgLim",
         "notes": "直接读取积分限幅。"
       },
+      "base_indicated_speed_kmh": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.baseIndSpeed",
+        "notes": "直接读取自动驾驶仪基准指示空速；原始数值按 km/h 候选语义保留，确切求解公式尚未确认。"
+      },
       "fin_command_limit": {
         "kind": "assumed",
         "source_field": null,
@@ -353,9 +371,9 @@
   },
   "provenance": {
     "source_name": "War Thunder public datamine",
-    "source_version": "2.57.1.90",
-    "source_commit": "3260ef312fcc1dc1da690328607abe744ca69137",
-    "retrieved_date": "2026-08-14",
+    "source_version": "2.57.1.107",
+    "source_commit": "3f20645862c538b46c94e3f60ee30da9dfacd81a",
+    "retrieved_date": "2026-08-22",
     "source_files": [
       "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger.blkx",
       "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger_atas_tiger.blkx",
@@ -363,10 +381,10 @@
       "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger_right.blkx"
     ],
     "source_sha256": {
-      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger.blkx": "098b90fd4bfb50510c327671591a28a438a2f1dd258e653564471fc1a82eb2b6",
-      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger_atas_tiger.blkx": "7cb7e4425af2e47aed8ed6f253adc0bf15a69a241261bff0328f25dadc442cbb",
-      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger_left.blkx": "ee51a938888a923895d9da69a5588cbf29b1235e66b286ed612efd019d230653",
-      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger_right.blkx": "16eab86544241522708f7a551c81d0555d1d023db55e632fb32fadefebbe51ca"
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger.blkx": "c5fb4aa4568cf2fa93434b9db27e5150bf4306395350d3de384e4bb8eb34ce9c",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger_atas_tiger.blkx": "a44d42cb02bef437fd3da8fe12db70ce5ddb91dbb75fa12e6ee526b70ffa5854",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger_left.blkx": "ba8ff43756d3fe12948b2640031e2a09f00cac6ce4f90c0d234036ea570c7b93",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger_right.blkx": "3ff9733026189cd326f75cd56ce7ad0a0c0d953c52d4152be1c99ac77b92028e"
     },
     "notes": "批处理导入；canonical source=aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim92_stinger.blkx；raw bulletName='us_aim92_stinger'。按 bulletName 去重，保留所有 default、平台和吊舱变体路径。本 profile 是实验性数据层，不代表端到端轨迹已验证；缺失字段保留 null 或中性占位。"
   },
@@ -376,7 +394,8 @@
     "known_limitations": [
       "仅完成 profile contract smoke，不等同于 War Thunder/StatShark 求解器复现。",
       "datamine 未声明的 CxAoA、CyK、Mach 气动修正和舵机动态未被虚构。",
-      "reqAccelMax 是制导指令上限，不是时间域实际达到过载。"
+      "reqAccelMax 是制导指令上限，不是时间域实际达到过载。",
+      "loadFactorMax 是机体横向过载上限，写入 performance.load_factor_max_g。"
     ]
   },
   "runtime": {

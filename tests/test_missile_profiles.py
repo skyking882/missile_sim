@@ -31,10 +31,22 @@ def test_every_runnable_profile_has_an_observation_toggle_provider():
         guidance = profile["_model_config"]["guidance"]
         sensor_model = guidance.get("sensor_model")
         assert isinstance(sensor_model, dict)
-        if profile["missile_id"] == "us_aim_120a":
-            assert "radar_seeker" in sensor_model
-        else:
-            assert sensor_model["provider"] == "profile_kinematic_v1"
+        if "radar_seeker" in sensor_model or sensor_model.get("active_radar") is True:
+            continue
+        assert sensor_model.get("provider") == "profile_kinematic_v1"
+
+
+def test_pl12_maps_datamine_load_factor_max():
+    from missile_gui.library import scan_library
+
+    profiles, errors = scan_library(ROOT / "missiles", ROOT)
+    assert errors == []
+    pl12 = next(profile for profile in profiles if profile["missile_id"] == "cn_pl12")
+    assert pl12["performance"]["load_factor_max_g"] == 38.0
+    assert pl12["performance"]["parameter_sources"]["load_factor_max_g"]["source_field"] == (
+        "rocket.loadFactorMax"
+    )
+    assert pl12["_model_config"]["performance"]["load_factor_max_g"] == 38.0
 
 
 def test_pl12_maps_datamine_initial_control_lockout_table():

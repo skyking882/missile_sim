@@ -189,6 +189,7 @@
     "maximum_mach": 2.7,
     "minimum_distance_m": 30.0,
     "range_reference_m": 18000.0,
+    "load_factor_max_g": 15.0,
     "limit_semantics": {
       "maximum_speed_mps": "display_reference",
       "maximum_distance_m": "event_threshold",
@@ -224,6 +225,11 @@
         "kind": "datamine",
         "source_field": "rocket.rangeMax",
         "notes": "直接读取显示/性能参考距离。"
+      },
+      "load_factor_max_g": {
+        "kind": "datamine",
+        "source_field": "rocket.loadFactorMax",
+        "notes": "直接读取机体横向过载上限；缺失时保留 null，由运行时回退 reqAccelMax。"
       }
     }
   },
@@ -237,6 +243,16 @@
     "lofting_elevation_deg": 0.0,
     "loft_exit_distance_m": null,
     "loft_exit_time_to_go_s": null,
+    "flight_time_gain_table": [
+      [
+        0.5,
+        0.0
+      ],
+      [
+        2.5,
+        1.0
+      ]
+    ],
     "proximity_radius_m": 8.0,
     "seeker_type": "radar",
     "parameter_sources": {
@@ -285,6 +301,11 @@
         "source_field": null,
         "notes": "datamine 未提供与此字段语义一致的剩余时间门槛。"
       },
+      "flight_time_gain_table": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.timeToGain*",
+        "notes": "按索引读取飞行时间控制增益表；缺失时保留 null，由运行时显式回退。"
+      },
       "proximity_radius_m": {
         "kind": "datamine",
         "source_field": "rocket.proximityFuse.radius",
@@ -295,6 +316,128 @@
         "source_field": "rocket.guidanceType",
         "notes": "直接读取 seeker 制导类型标签。"
       }
+    },
+    "sensor_model": {
+      "active_radar": null,
+      "inertial_navigation": null,
+      "use_target_velocity": null,
+      "lock_after_launch": null,
+      "lock_timeout_s": null,
+      "break_lock_max_time_s": 3.0,
+      "inertial_drift_speed_mps": null,
+      "datalink": null,
+      "reconnect_datalink": false,
+      "radar_seeker": {
+        "band": 8.0,
+        "active": null,
+        "angle_gate_rate_deg_s": null,
+        "prolongation_time_max_s": 1.0,
+        "multipath_effect": [
+          0.0,
+          1.0,
+          60.0,
+          0.0
+        ],
+        "side_lobes_attenuation_db": -18.0,
+        "lock_angle_max_deg": 40.0,
+        "angle_max_deg": 45.0,
+        "rate_max_deg_s": 12.0,
+        "doppler_speed_gate": {
+          "filter_alpha": null,
+          "filter_beta": null,
+          "search_range_mps": null
+        },
+        "dist_gate": {
+          "filter_alpha": 0.8,
+          "filter_beta": 0.05,
+          "search_range_m": null
+        },
+        "transmitter": {
+          "power": 200.0,
+          "antenna": {
+            "angle_half_sens_deg": 5.0,
+            "side_lobes_sensitivity_db": -27.0
+          }
+        },
+        "receiver": {
+          "rcs_m2": 2.0,
+          "range_m": 12500.0,
+          "range_max_m": 20000.0,
+          "time_gain_control": null,
+          "antenna": {
+            "angle_half_sens_deg": 10.0,
+            "side_lobes_sensitivity_db": -15.0
+          }
+        },
+        "doppler_speed": {
+          "presents": null,
+          "min_mps": null,
+          "max_mps": null,
+          "width_mps": null,
+          "ref_width_mps": null,
+          "signal_width_min_mps": null
+        },
+        "distance": {
+          "presents": true,
+          "min_m": 300.0,
+          "max_m": 38000.0,
+          "width_m": 300.0,
+          "signal_width_min_m": 150.0,
+          "ref_width_m": 900.0
+        }
+      },
+      "parameter_sources": {
+        "active_radar": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.radarSeeker.active",
+          "notes": "直接读取主动雷达标志。"
+        },
+        "inertial_navigation": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.inertialNavigation",
+          "notes": "直接读取惯性导航标志。"
+        },
+        "use_target_velocity": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.useTargetVel",
+          "notes": "直接读取目标速度使用标志。"
+        },
+        "lock_after_launch": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.lockAfterLaunch",
+          "notes": "直接读取发射后锁定标志。"
+        },
+        "lock_timeout_s": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.lockTimeOut",
+          "notes": "直接读取锁定超时字段；本阶段只保留。"
+        },
+        "break_lock_max_time_s": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.breakLockMaxTime",
+          "notes": "直接读取惯性保持最大时间。"
+        },
+        "inertial_drift_speed_mps": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.inertialGuidance.inertialNavigationDriftSpeed",
+          "notes": "直接读取惯性导航漂移速度。"
+        },
+        "datalink": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.inertialGuidance.datalink",
+          "notes": "直接读取数据链标志。"
+        },
+        "reconnect_datalink": {
+          "kind": "assumed",
+          "source_field": null,
+          "notes": "原始字段缺失，按计划固定为 false。"
+        },
+        "radar_seeker": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.radarSeeker",
+          "notes": "保留主动雷达原始映射值。"
+        }
+      }
     }
   },
   "control": {
@@ -304,6 +447,7 @@
       "d": 0.0011,
       "integral_limit": 1.0
     },
+    "base_indicated_speed_kmh": 1800.0,
     "fin_command_limit": 1.0,
     "actuator_time_constant_s": null,
     "max_pitch_yaw_rate_deg_s": null,
@@ -329,6 +473,11 @@
         "source_field": "rocket.guidance.guidanceAutopilot.accelControlIntgLim",
         "notes": "直接读取积分限幅。"
       },
+      "base_indicated_speed_kmh": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.baseIndSpeed",
+        "notes": "直接读取自动驾驶仪基准指示空速；原始数值按 km/h 候选语义保留，确切求解公式尚未确认。"
+      },
       "fin_command_limit": {
         "kind": "assumed",
         "source_field": null,
@@ -353,14 +502,14 @@
   },
   "provenance": {
     "source_name": "War Thunder public datamine",
-    "source_version": "2.57.1.90",
-    "source_commit": "3260ef312fcc1dc1da690328607abe744ca69137",
-    "retrieved_date": "2026-08-14",
+    "source_version": "2.57.1.107",
+    "source_commit": "3f20645862c538b46c94e3f60ee30da9dfacd81a",
+    "retrieved_date": "2026-08-22",
     "source_files": [
       "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_530_matra_radar.blkx"
     ],
     "source_sha256": {
-      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_530_matra_radar.blkx": "75ed758ba94bc4b71e9098e8a04172e51682a9d18d0bc7e65d96a04683029054"
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_530_matra_radar.blkx": "c19e846c6a630b5b6128d68a2f685ff684e6c219d210d69193d2b492c95b6f00"
     },
     "notes": "批处理导入；canonical source=aces.vromfs.bin_u/gamedata/weapons/rocketguns/fr_r_530_matra_radar.blkx；raw bulletName='fr_r_530_matra_radar'。按 bulletName 去重，保留所有 default、平台和吊舱变体路径。本 profile 是实验性数据层，不代表端到端轨迹已验证；缺失字段保留 null 或中性占位。"
   },
@@ -370,7 +519,8 @@
     "known_limitations": [
       "仅完成 profile contract smoke，不等同于 War Thunder/StatShark 求解器复现。",
       "datamine 未声明的 CxAoA、CyK、Mach 气动修正和舵机动态未被虚构。",
-      "reqAccelMax 是制导指令上限，不是时间域实际达到过载。"
+      "reqAccelMax 是制导指令上限，不是时间域实际达到过载。",
+      "loadFactorMax 是机体横向过载上限，写入 performance.load_factor_max_g。"
     ]
   },
   "runtime": {

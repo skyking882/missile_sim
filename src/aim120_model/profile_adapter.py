@@ -220,11 +220,25 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         "d": _number(pid.get("d"), 0.0, assumptions, "control.pid.d"),
     }
     mapped_pid = raw_pid
+    SHARED_BASE_INDICATED_SPEED_KMH = 1800.0
     base_indicated_speed = control.get("base_indicated_speed_kmh")
+    use_fin_force_q_scaling = (
+        plant_model == LEGACY_CRITICAL_DAMPED_PLANT
+        and bool(defaults.get("fin_force_q_scaling", False))
+    )
     if base_indicated_speed is None:
-        assumptions.append(
-            "control.base_indicated_speed_kmh missing -> speed scheduling unavailable; baseline mode only"
-        )
+        if use_fin_force_q_scaling:
+            base_indicated_speed = float(
+                defaults.get(
+                    "shared_base_indicated_speed_kmh",
+                    SHARED_BASE_INDICATED_SPEED_KMH,
+                )
+            )
+            assumptions.append("control.base_indicated_speed_kmh missing -> shared 1800")
+        else:
+            assumptions.append(
+                "control.base_indicated_speed_kmh missing -> speed scheduling unavailable; baseline mode only"
+            )
     else:
         base_indicated_speed = float(base_indicated_speed)
         if base_indicated_speed <= 0.0:
@@ -247,12 +261,13 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "the coefficient is capped at max_cy_at_aoa"
         )
         assumptions.append(
-            "candidate fin translation: a_fin = fin_translation_share*finsLatAccel*(delta/finsAoa)*(q/q_base); "
-            "distFromCmToStab is not a steady-state G multiplier. "
+            "candidate fin translation: a_fin = fin_translation_share*finsLatAccel*(delta/finsAoa)*(q/q_base)*(arm*length); "
+            "distFromCmToStab still sets tail moment/bandwidth and also scales path G via arm*length. "
             "finsAoaHor/Ver is treated as radians. "
-            "reqAccelMax remains a PN command cap, not a plant load cap. "
-            "baseIndSpeed q/q_base scales fin force when fin_force_q_scaling is on and "
-            "the profile declares base_indicated_speed_kmh; missing base falls back to none"
+            "reqAccelMax radially caps the gravity-compensated specific-force command. "
+            "loadFactorMax radially caps fin+body+fixed-lift lateral specific force; moments are not scaled. "
+            "baseIndSpeed q/q_base scales fin force when fin_force_q_scaling is on; "
+            "missing profile baseIndSpeed uses shared 1800 km/h and does not fall back to none"
         )
         assumptions.append(
             "candidate fin moment still uses the stored distFromCmToStab value as metres on local tail "
@@ -384,8 +399,8 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         )
         stall_cap_enabled = bool(body_lift.get("stall_cap_enabled", True))
         normal_force_model = "body_cn_linear"
-        release_version = "profile-adapter-v17-body-lift-share"
-        force_geometry_version = "fin_delta_g_no_arm_scale_v7_quat"
+        release_version = "profile-adapter-v23-shared-baseind-1800"
+        force_geometry_version = "fin_delta_g_loadfactormax_cap_v11_quat"
         plant_semantics = "fin_torque_body_aoa"
         fin_arm_as_length_fraction = False
         legacy_rate_inner = bool(defaults.get("acceleration_outer_rate_inner", False))
@@ -550,6 +565,16 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         "profile CdA uses datamine CxK and reference area; the AIM-120A fitted "
         f"0.2995 scale is not applied (effective_drag_scale={effective_drag_scale:.9g})"
     )
+    load_factor_max_raw = performance.get("load_factor_max_g")
+    if load_factor_max_raw is None:
+        load_factor_max_g = float(guidance["maximum_lateral_acceleration_g"])
+        assumptions.append(
+            "performance.load_factor_max_g missing -> guidance.maximum_lateral_acceleration_g (reqAccelMax)"
+        )
+    else:
+        load_factor_max_g = _positive_finite(
+            load_factor_max_raw, "performance.load_factor_max_g"
+        )
     config = {
         "schema_version": 3,
         "release_version": release_version,
@@ -593,6 +618,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "max_cy_at_aoa": max_cy,
             "max_cy_interpretation": str(layer_aero["max_cy_interpretation"]),
             "fins_lateral_acceleration_g": fins_g,
+            "path_g_scales_with_arm_times_length": plant_model == LEGACY_CRITICAL_DAMPED_PLANT,
             "distance_cm_to_stabilizer_m": float(aero["fin_moment_arm_m"]),
             **(
                 {"fin_arm_as_length_fraction": True}
@@ -620,6 +646,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "maximum_speed_mps": float(performance["maximum_speed_mps"]),
             "maximum_distance_m": float(performance["maximum_distance_m"]),
             "lifetime_s": float(performance["lifetime_s"]),
+            "load_factor_max_g": load_factor_max_g,
             "maximum_speed_is_hard_clamp": bool(UNIVERSAL_H2_LAYER["performance"]["maximum_speed_is_hard_clamp"]),
         },
         "guidance": {

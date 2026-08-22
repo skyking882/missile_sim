@@ -189,6 +189,7 @@
     "maximum_mach": 3.5,
     "minimum_distance_m": 30.0,
     "range_reference_m": 18000.0,
+    "load_factor_max_g": 40.0,
     "limit_semantics": {
       "maximum_speed_mps": "hard_limit",
       "maximum_distance_m": "event_threshold",
@@ -224,6 +225,11 @@
         "kind": "datamine",
         "source_field": "rocket.rangeMax",
         "notes": "直接读取显示/性能参考距离。"
+      },
+      "load_factor_max_g": {
+        "kind": "datamine",
+        "source_field": "rocket.loadFactorMax",
+        "notes": "直接读取机体横向过载上限；缺失时保留 null，由运行时回退 reqAccelMax。"
       }
     }
   },
@@ -237,6 +243,7 @@
     "lofting_elevation_deg": 0.0,
     "loft_exit_distance_m": null,
     "loft_exit_time_to_go_s": null,
+    "flight_time_gain_table": null,
     "proximity_radius_m": 7.0,
     "seeker_type": "optical",
     "parameter_sources": {
@@ -285,6 +292,11 @@
         "source_field": null,
         "notes": "datamine 未提供与此字段语义一致的剩余时间门槛。"
       },
+      "flight_time_gain_table": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "按索引读取飞行时间控制增益表；缺失时保留 null，由运行时显式回退。"
+      },
       "proximity_radius_m": {
         "kind": "datamine",
         "source_field": "rocket.proximityFuse.radius",
@@ -304,6 +316,7 @@
       "d": 0.0007,
       "integral_limit": 1.0
     },
+    "base_indicated_speed_kmh": 1800.0,
     "fin_command_limit": 1.0,
     "actuator_time_constant_s": null,
     "max_pitch_yaw_rate_deg_s": null,
@@ -329,6 +342,11 @@
         "source_field": "rocket.guidance.guidanceAutopilot.accelControlIntgLim",
         "notes": "直接读取积分限幅。"
       },
+      "base_indicated_speed_kmh": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.baseIndSpeed",
+        "notes": "直接读取自动驾驶仪基准指示空速；原始数值按 km/h 候选语义保留，确切求解公式尚未确认。"
+      },
       "fin_command_limit": {
         "kind": "assumed",
         "source_field": null,
@@ -353,16 +371,16 @@
   },
   "provenance": {
     "source_name": "War Thunder public datamine",
-    "source_version": "2.57.1.90",
-    "source_commit": "3260ef312fcc1dc1da690328607abe744ca69137",
-    "retrieved_date": "2026-08-14",
+    "source_version": "2.57.1.107",
+    "source_commit": "3f20645862c538b46c94e3f60ee30da9dfacd81a",
+    "retrieved_date": "2026-08-22",
     "source_files": [
       "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl8b.blkx",
       "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl8b_default.blkx"
     ],
     "source_sha256": {
-      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl8b.blkx": "7cd306e7cf9f2bd51ca0455b8237e4a03226d5893072aa477119341b08188e65",
-      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl8b_default.blkx": "7cd306e7cf9f2bd51ca0455b8237e4a03226d5893072aa477119341b08188e65"
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl8b.blkx": "57a3bb5d1d0ba404811b9ea6eec922ea743763c04d2f45764d9d3ddfc372301e",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl8b_default.blkx": "57a3bb5d1d0ba404811b9ea6eec922ea743763c04d2f45764d9d3ddfc372301e"
     },
     "notes": "批处理导入；canonical source=aces.vromfs.bin_u/gamedata/weapons/rocketguns/cn_pl8b.blkx；raw bulletName='cn_pl8b'。按 bulletName 去重，保留所有 default、平台和吊舱变体路径。本 profile 是实验性数据层，不代表端到端轨迹已验证；缺失字段保留 null 或中性占位。"
   },
@@ -372,7 +390,8 @@
     "known_limitations": [
       "仅完成 profile contract smoke，不等同于 War Thunder/StatShark 求解器复现。",
       "datamine 未声明的 CxAoA、CyK、Mach 气动修正和舵机动态未被虚构。",
-      "reqAccelMax 是制导指令上限，不是时间域实际达到过载。"
+      "reqAccelMax 是制导指令上限，不是时间域实际达到过载。",
+      "loadFactorMax 是机体横向过载上限，写入 performance.load_factor_max_g。"
     ]
   },
   "runtime": {

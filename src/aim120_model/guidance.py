@@ -181,15 +181,19 @@ def guidance_command(
     gravity_vector = (0.0, -gravity_mps2, 0.0)
     body_pitch_g = mps2_to_g(dot(commanded, axes.up), gravity_mps2)
     body_yaw_g = mps2_to_g(dot(commanded, axes.right), gravity_mps2)
-    # Required specific force keeps the gravity term.  Do not strip the
-    # wind-forward component here: that projection is wind-basis only.
-    raw_required = sub(commanded, gravity_vector)
+    # Required specific force keeps the gravity term, then is radially
+    # clamped to reqAccelMax so a 38 g kinematic command plus 1 g hold
+    # does not become a 39 g controller demand.
+    raw_required = clamp_norm(sub(commanded, gravity_vector), max_accel)
     body_pitch_sf_g = mps2_to_g(dot(raw_required, axes.up), gravity_mps2)
     body_yaw_sf_g = mps2_to_g(dot(raw_required, axes.right), gravity_mps2)
     wind_basis = cg_wind_normal_basis(state, config)
-    required_specific_force = sub(
-        raw_required,
-        scale(wind_basis.forward, dot(raw_required, wind_basis.forward)),
+    required_specific_force = clamp_norm(
+        sub(
+            raw_required,
+            scale(wind_basis.forward, dot(raw_required, wind_basis.forward)),
+        ),
+        max_accel,
     )
     gravity_compensation = scale(gravity_vector, -1.0)
     gravity_compensation = sub(

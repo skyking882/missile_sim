@@ -751,15 +751,23 @@ def forces_for_state_h2(
                 state.actual_pitch_fin_angle_rad / pitch_authority_reference,
                 state.actual_yaw_fin_angle_rad / yaw_authority_reference,
             )
-            # Translation uses commanded fin angle so trim G stays
-            # finsLatAccel*(δ/finsAoa).  Arm is not a path-G multiplier.
-            # Moment uses local tail incidence so the airframe still
-            # weathercocks; bandwidth stays ∝ sqrt(arm).
+            # Translation uses commanded fin angle.  Path G is
+            # finsLatAccel*(δ/finsAoa)*(arm*length) so AAM-4's long tail
+            # out-pulls Derby.  loadFactorMax later radially caps the
+            # composite lateral specific force; this moment channel is
+            # left unscaled.
             pitch_fin_moment_equivalent_g = scheduled_fins_g * pitch_moment_fraction
             yaw_fin_moment_equivalent_g = scheduled_fins_g * yaw_moment_fraction
             share = float(config["aerodynamics"].get("fin_translation_share", 1.0))
-            pitch_fin_translation_equivalent_g = scheduled_fins_g * pitch_delta_fraction * share
-            yaw_fin_translation_equivalent_g = scheduled_fins_g * yaw_delta_fraction * share
+            path_g_scale = share
+            if config["aerodynamics"].get("path_g_scales_with_arm_times_length"):
+                path_g_scale *= arm * max(float(config["geometry"]["length_m"]), 1e-9)
+            pitch_fin_translation_equivalent_g = (
+                scheduled_fins_g * pitch_delta_fraction * path_g_scale
+            )
+            yaw_fin_translation_equivalent_g = (
+                scheduled_fins_g * yaw_delta_fraction * path_g_scale
+            )
             pitch_tail_force_n = pitch_fin_translation_equivalent_g * gravity * mass
             yaw_tail_force_n = yaw_fin_translation_equivalent_g * gravity * mass
             pitch_tail_moment_nm = pitch_fin_moment_equivalent_g * gravity * mass * arm
@@ -786,15 +794,6 @@ def forces_for_state_h2(
             ),
         )
     gravity_force = (0.0, -mass * gravity, 0.0)
-    total_force = _add_many(
-        thrust_force,
-        aero.drag_force_n,
-        fin_drag_force,
-        body_normal_force_vector,
-        fixed_lifting_surface_force_vector,
-        control_force,
-        gravity_force,
-    )
     non_gravity = _add_many(
         thrust_force,
         aero.drag_force_n,
@@ -803,6 +802,32 @@ def forces_for_state_h2(
         fixed_lifting_surface_force_vector,
         control_force,
     )
+    if legacy_fin_torque_plant:
+        load_factor_max_g = config.get("performance", {}).get("load_factor_max_g")
+        if load_factor_max_g is None:
+            load_factor_max_g = config.get("guidance", {}).get("maximum_lateral_acceleration_g")
+        if load_factor_max_g is not None:
+            cap = max(float(load_factor_max_g), 0.0)
+            if cap > 0.0:
+                g_lat = math.hypot(
+                    dot(non_gravity, axes.up) / (gravity * mass),
+                    dot(non_gravity, axes.right) / (gravity * mass),
+                )
+                if g_lat > cap:
+                    load_scale = cap / g_lat
+                    lateral = _add_many(
+                        scale(axes.up, dot(non_gravity, axes.up)),
+                        scale(axes.right, dot(non_gravity, axes.right)),
+                    )
+                    non_gravity = _add_many(sub(non_gravity, lateral), scale(lateral, load_scale))
+                    body_normal_force_vector = scale(body_normal_force_vector, load_scale)
+                    fixed_lifting_surface_force_vector = scale(
+                        fixed_lifting_surface_force_vector, load_scale
+                    )
+                    control_force = scale(control_force, load_scale)
+                    pitch_body_aoa_force_g *= load_scale
+                    yaw_body_aoa_force_g *= load_scale
+    total_force = _add_many(non_gravity, gravity_force)
     specific_force = scale(non_gravity, 1.0 / mass)
     acceleration = scale(total_force, 1.0 / mass)
     # Acceleration-controller feedback belongs to the missile-mounted body
