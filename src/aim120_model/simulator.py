@@ -76,9 +76,14 @@ class H1Simulator:
         case: dict[str, Any],
         powered: bool,
         guided: bool,
+        reuse_guidance: Any = None,
     ) -> dict[str, Any]:
         variant = case["model_variant"]
-        guidance = guidance_command(state, target, time_s, self.config, enabled=guided)
+        guidance = (
+            reuse_guidance
+            if reuse_guidance is not None
+            else guidance_command(state, target, time_s, self.config, enabled=guided)
+        )
         diagnostics = forces_for_state(state, time_s, self.config, self.propulsion, powered)
         relative = sub(target.position, state.position)
         return {
@@ -199,7 +204,15 @@ class H1Simulator:
                 event_state = _interpolate_state(state_for_step, next_state, fraction)
                 event_target = _interpolate_target(target, next_target, fraction)
                 event_time = time_s + fraction * step
-                samples.append(self._sample(event_time, event_state, event_target, case, powered, guided))
+                samples.append(self._sample(
+                    event_time,
+                    event_state,
+                    event_target,
+                    case,
+                    powered,
+                    guided,
+                    reuse_guidance=guidance,
+                ))
                 event_type = candidate.event_type
                 break
             state = next_state

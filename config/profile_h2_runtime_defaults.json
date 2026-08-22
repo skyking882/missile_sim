@@ -1,8 +1,12 @@
 {
   "schema_version": 2,
-  "runtime_name": "profile_h2_fin_torque_aoa_v4",
+  "runtime_name": "profile_h2_fin_torque_aoa_v11",
   "enable_supported_profiles": true,
   "plant_model": "critical_damped_v12",
+  "acceleration_outer_rate_inner": true,
+  "body_rate_inner_loop_time_constant_s": 0.04,
+  "path_rate_time_constant_s": 0.35,
+  "rate_error_for_full_fin_rad_s": 0.35,
   "body_cm_candidate": {
     "cn_alpha_body_per_rad": 2.0,
     "cp_cg_arm_over_diameter": 3.0,
@@ -21,5 +25,5 @@
     "cm_alpha_dot": 0.0,
     "body_rate_inner_loop_time_constant_s": 0.1
   },
-  "boundary": "Experimental true-difference H2 layer: raw per-profile PID and geometry, global gameparams CxAoA=9, no imputed CyK; not an end-to-end validation or game-solver reproduction."
+  "boundary": "Experimental true-difference H2 layer: path G = finsLatAccel*(delta/finsAoa), distFromCmToStab only on tail moment/bandwidth, no baseIndSpeed q/q_base on fin force, CdA from datamine CxK*area with no AIM-120A 0.30 drag scale, no body CN-alpha, global gameparams CxAoA=9, no imputed CyK; not an end-to-end validation or game-solver reproduction."
 }

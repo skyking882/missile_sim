@@ -126,9 +126,14 @@ class H2Simulator:
         powered: bool,
         guided: bool,
         controlled: bool,
+        reuse_guidance: Any = None,
     ) -> dict[str, Any]:
         variant = case["model_variant"]
-        guidance = guidance_command(state, track, time_s, self.config, enabled=guided)
+        guidance = (
+            reuse_guidance
+            if reuse_guidance is not None
+            else guidance_command(state, track, time_s, self.config, enabled=guided)
+        )
         diagnostics = forces_for_state_h2(state, time_s, self.config, self.propulsion, powered)
         speed_schedule = base_indicated_speed_schedule(diagnostics.aero.dynamic_pressure_pa, self.config)
         relative = sub(target.position, state.position)
@@ -598,7 +603,19 @@ class H2Simulator:
                 event_state = _interpolate_state(state_for_step, next_state, fraction)
                 event_target = _interpolate_target(target, next_target, fraction)
                 event_time = time_s + fraction * step
-                samples.append(self._sample(event_time, event_state, event_target, track, provider, observation_mode, case, powered, guided, controlled))
+                samples.append(self._sample(
+                    event_time,
+                    event_state,
+                    event_target,
+                    track,
+                    provider,
+                    observation_mode,
+                    case,
+                    powered,
+                    guided,
+                    controlled,
+                    reuse_guidance=guidance,
+                ))
                 event_type = candidate.event_type
                 break
             state = next_state

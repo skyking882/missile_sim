@@ -555,6 +555,8 @@ def forces_for_state_h2(
         )
     pitch_fin_moment_equivalent_g = state.actual_pitch_acceleration_g
     yaw_fin_moment_equivalent_g = state.actual_yaw_acceleration_g
+    pitch_fin_translation_equivalent_g = state.actual_pitch_acceleration_g
+    yaw_fin_translation_equivalent_g = state.actual_yaw_acceleration_g
     pitch_tail_rate_incidence = 0.0
     yaw_tail_rate_incidence = 0.0
     pitch_tail_effective_incidence = 0.0
@@ -734,20 +736,27 @@ def forces_for_state_h2(
                 pitch_tail_effective_incidence / pitch_authority_reference,
                 yaw_tail_effective_incidence / yaw_authority_reference,
             )
+            pitch_delta_fraction, yaw_delta_fraction = _limit_unit_disk(
+                state.actual_pitch_fin_angle_rad / pitch_authority_reference,
+                state.actual_yaw_fin_angle_rad / yaw_authority_reference,
+            )
+            # Translation uses commanded fin angle so trim G stays
+            # finsLatAccel*(δ/finsAoa).  Arm is not a path-G multiplier.
+            # Moment uses local tail incidence so the airframe still
+            # weathercocks; bandwidth stays ∝ sqrt(arm).
             pitch_fin_moment_equivalent_g = scheduled_fins_g * pitch_moment_fraction
             yaw_fin_moment_equivalent_g = scheduled_fins_g * yaw_moment_fraction
-            pitch_tail_force_n = pitch_fin_moment_equivalent_g * gravity * mass
-            yaw_tail_force_n = yaw_fin_moment_equivalent_g * gravity * mass
-            pitch_tail_moment_nm = pitch_tail_force_n * arm
-            yaw_tail_moment_nm = yaw_tail_force_n * arm
+            pitch_fin_translation_equivalent_g = scheduled_fins_g * pitch_delta_fraction
+            yaw_fin_translation_equivalent_g = scheduled_fins_g * yaw_delta_fraction
+            pitch_tail_force_n = pitch_fin_translation_equivalent_g * gravity * mass
+            yaw_tail_force_n = yaw_fin_translation_equivalent_g * gravity * mass
+            pitch_tail_moment_nm = pitch_fin_moment_equivalent_g * gravity * mass * arm
+            yaw_tail_moment_nm = yaw_fin_moment_equivalent_g * gravity * mass * arm
 
     if legacy_fin_torque_plant:
-        # One resolved tail force supplies both its direct translation and its
-        # moment.  Body CN-alpha lift is a separate airframe contribution; no
-        # extra tail-force multiplier is introduced.
         control_force = _add_many(
-            scale(aero.flow_normal_pitch, pitch_fin_moment_equivalent_g * gravity * mass),
-            scale(aero.flow_normal_yaw, yaw_fin_moment_equivalent_g * gravity * mass),
+            scale(aero.flow_normal_pitch, pitch_fin_translation_equivalent_g * gravity * mass),
+            scale(aero.flow_normal_yaw, yaw_fin_translation_equivalent_g * gravity * mass),
         )
     elif body_cm_tail_plant:
         control_force = _add_many(pitch_tail_force_vector, yaw_tail_force_vector)

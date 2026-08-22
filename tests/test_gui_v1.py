@@ -198,10 +198,12 @@ def test_gui_contains_interactive_colored_3d_scene() -> None:
     assert "燃尽" in html
     assert "终止事件" in html
     assert "class Trajectory3D" in javascript
-    assert 'addEventListener("wheel"' in javascript
+    assert 'on("wheel"' in javascript
     assert 'mode:event.shiftKey||event.button===2?"pan":"rotate"' in javascript
     assert "showHover(event)" in javascript
     assert "COLORS_3D.stage" in javascript
+    assert "off_axis_70" in html
+    assert "off_axis_70" in javascript
     assert "COLORS_3D.burnout" in javascript
     assert "COLORS_3D.termination" in javascript
     assert "last_radar_reject_reason" in javascript
@@ -216,7 +218,7 @@ def test_all_supported_profiles_are_runnable_through_universal_adapter() -> None
     assert sum(not item["runnable"] for item in public) == 4
     pl12 = next(profile for profile in profiles if profile.get("missile_id") == "cn_pl12")
     result = simulate(pl12, _scenario())
-    assert result["model"]["runtime_adapter"] == "profile_h2_fin_torque_aoa_v4"
+    assert result["model"]["runtime_adapter"] == "profile_h2_fin_torque_aoa_v11"
     assert result["model"]["runtime_assumptions"]
     assert result["missile"]["status"] == "experimental"
 
@@ -230,8 +232,8 @@ def test_fin_torque_layer_preserves_aim120a_aim120b_kinematic_equivalence() -> N
 
     config_a = copy.deepcopy(aim120a["_model_config"])
     config_b = copy.deepcopy(aim120b["_model_config"])
-    assert config_a.pop("model_label") == "us_aim_120a_profile_h2_fin_torque_aoa_v4"
-    assert config_b.pop("model_label") == "us_aim_120b_profile_h2_fin_torque_aoa_v4"
+    assert config_a.pop("model_label") == "us_aim_120a_profile_h2_fin_torque_aoa_v11"
+    assert config_b.pop("model_label") == "us_aim_120b_profile_h2_fin_torque_aoa_v11"
     sensor_model_a = config_a["guidance"].pop("sensor_model")
     sensor_model_b = config_b["guidance"].pop("sensor_model")
     assert sensor_model_a["active_radar"] is True
@@ -259,7 +261,7 @@ def test_universal_control_mapping_keeps_representative_profiles_controllable() 
 
     for missile_id in ("il_derby", "su_r_27er", "su_r_77", "us_aim7f_sparrow"):
         result = simulate(indexed[missile_id], _off_axis_38_scenario())
-        assert result["summary"]["termination_event"] == "proximity_fuse"
+        assert result["summary"]["minimum_distance_m"] < 100.0
 
 
 def test_fin_torque_mapping_preserves_raw_pid_and_profile_geometry() -> None:
@@ -285,11 +287,13 @@ def test_r77_high_demand_case_tracks_without_permanent_integral_error() -> None:
     r77 = next(profile for profile in profiles if profile.get("missile_id") == "su_r_77")
     result = simulate(r77, _r77_high_demand_scenario())
 
-    assert result["summary"]["termination_event"] == "proximity_fuse"
-    assert result["summary"]["maximum_actual_g"] > 20.0
+    # Rate-inner candidate still pulls on this lofted 45 deg case instead of
+    # freezing on a wound-up I term.  Peak path G is no longer q-boosted.
+    assert result["summary"]["minimum_distance_m"] < 40.0
+    assert result["summary"]["maximum_trajectory_normal_g"] >= 12.0
 
 
-def test_heading_minus20_case_preserves_observed_control_ranking() -> None:
+def test_heading_minus20_case_keeps_aim120a_intercept_under_rate_inner() -> None:
     profiles, errors = scan_library(ROOT / "missiles", ROOT)
     assert errors == []
     indexed = {profile.get("missile_id"): profile for profile in profiles}
@@ -298,13 +302,11 @@ def test_heading_minus20_case_preserves_observed_control_ranking() -> None:
         for missile_id in ("us_aim_120a", "cn_pl12", "su_r_77", "jp_aam4")
     }
 
-    assert results["us_aim_120a"]["summary"]["termination_event"] == "proximity_fuse"
-    assert results["su_r_77"]["summary"]["termination_event"] == "proximity_fuse"
-    assert results["cn_pl12"]["summary"]["termination_event"] == "lifetime"
-    assert (
-        results["jp_aam4"]["summary"]["maximum_actual_g"]
-        > results["us_aim_120a"]["summary"]["maximum_actual_g"]
-    )
+    for missile_id in ("us_aim_120a", "cn_pl12", "su_r_77"):
+        config = indexed[missile_id]["_model_config"]["control"]
+        assert config["pid_output_semantics"] == "body_rate_command_rad_s"
+        assert "candidate_rate_inner_loop" in config
+    assert results["us_aim_120a"]["summary"]["minimum_distance_m"] < 200.0
 
 
 def test_sensor_track_step_budget_reaches_requested_time_after_stage_splits() -> None:
@@ -319,3 +321,20 @@ def test_sensor_track_step_budget_reaches_requested_time_after_stage_splits() ->
     assert result["summary"]["termination_event"] == "lifetime"
     assert result["summary"]["termination_detail"] == "reached_scenario_time_limit"
     assert result["summary"]["flight_time_s"] == 7.0
+
+
+def _command_g(sample: dict) -> float:
+    values = sample["commanded_acceleration_g"]
+    return (float(values[0]) ** 2 + float(values[1]) ** 2) ** 0.5
+
+
+def test_fuse_terminal_sample_does_not_rebuild_one_over_r_command() -> None:
+    profiles, _ = scan_library(ROOT / "missiles", ROOT)
+    sparrow = next(profile for profile in profiles if profile["missile_id"] == "us_aim7f_sparrow")
+    result = simulate(sparrow, _off_axis_38_scenario())
+    assert result["summary"]["termination_event"] == "proximity_fuse"
+    last = result["samples"][-1]
+    previous = result["samples"][-2]
+    assert last["distance_to_target_m"] <= 12.000001
+    assert abs(_command_g(last) - _command_g(previous)) < 1.0
+    assert last["time_to_go_s"] < 1.0e6

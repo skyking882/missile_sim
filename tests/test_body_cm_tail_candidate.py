@@ -110,11 +110,19 @@ def test_candidate_adapter_is_selectable_without_changing_frozen_control_inputs(
     assert candidate["runtime_adapter"] == "profile_h2_body_cm_split_tail_fixed_lift_v3_candidate"
     assert candidate["model_label"] == "us_aim_120a_profile_h2_body_cm_split_tail_fixed_lift_v3_candidate"
     assert "Unsupported local reduced-order" in candidate["reference"]["runtime_boundary"]
-    assert legacy["runtime_adapter"] == "profile_h2_fin_torque_aoa_v4"
-    assert legacy["model_label"] == "us_aim_120a_profile_h2_fin_torque_aoa_v4"
+    assert legacy["runtime_adapter"] == "profile_h2_fin_torque_aoa_v11"
+    assert legacy["model_label"] == "us_aim_120a_profile_h2_fin_torque_aoa_v11"
     assert candidate["control"]["pid_error_scale"] == 1.0
-    assert legacy["control"]["pid_output_semantics"] == "fin_angle_rad"
+    assert legacy["control"]["pid_output_semantics"] == "body_rate_command_rad_s"
     assert candidate["control"]["pid_output_semantics"] == "body_rate_command_rad_s"
+    assert legacy["control"]["candidate_rate_inner_loop"] == {
+        "time_constant_s": 0.04,
+        "path_rate_time_constant_s": 0.35,
+        "rate_error_for_full_fin_rad_s": 0.35,
+        "outer_pid_output_semantics": "body_rate_command_rad_s",
+        "inner_loop_semantics": "proportional_rate_error_to_profile_fin_fraction_shared_omega_ref",
+        "source": "shared_unsupported_candidate_assumption",
+    }
     assert candidate["control"]["candidate_rate_inner_loop"] == {
         "time_constant_s": 0.1,
         "outer_pid_output_semantics": "body_rate_command_rad_s",

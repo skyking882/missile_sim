@@ -49,12 +49,23 @@ def interpolate_table(x: float, table: list[list[float]]) -> float:
     return points[-1][1]
 
 
+# Below these floors the 1/R and 1/R^2 PN terms are leftover numerics, not
+# a guidance solution.  Do not substitute the floor into the divisor.
+NEAR_RANGE_M = 1.0e-6
+NEAR_CLOSING_MPS = 1.0e-6
+NEAR_LOS_RATE = 1.0e-8
+
+
+def _flush_tiny(value: float, floor: float) -> float:
+    return 0.0 if abs(value) < floor else value
+
+
 def pn_acceleration(
     relative_position: Vector,
     relative_velocity: Vector,
     missile_velocity: Vector,
     pn_gain: float,
-    epsilon: float = 1e-9,
+    epsilon: float = NEAR_RANGE_M,
 ) -> tuple[Vector, float, Vector]:
     """Return candidate PN acceleration, closing speed, and LOS rate."""
 
@@ -64,10 +75,15 @@ def pn_acceleration(
         return (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 0.0)
     missile_speed = norm(missile_velocity)
     v_hat = normalize(missile_velocity)
-    los_rate = scale(cross(relative_position, relative_velocity), 1.0 / max(range_sq, epsilon))
-    closing = -dot(relative_position, relative_velocity) / max(range_m, epsilon)
-    if closing <= 0.0 or missile_speed <= epsilon:
-        return (0.0, 0.0, 0.0), closing, los_rate
+    los_rate = scale(cross(relative_position, relative_velocity), 1.0 / range_sq)
+    los_rate = (
+        _flush_tiny(los_rate[0], NEAR_LOS_RATE),
+        _flush_tiny(los_rate[1], NEAR_LOS_RATE),
+        _flush_tiny(los_rate[2], NEAR_LOS_RATE),
+    )
+    closing = -dot(relative_position, relative_velocity) / range_m
+    if closing <= NEAR_CLOSING_MPS or missile_speed <= epsilon:
+        return (0.0, 0.0, 0.0), _flush_tiny(closing, NEAR_CLOSING_MPS), los_rate
     acceleration = scale(cross(los_rate, v_hat), pn_gain * closing)
     return acceleration, closing, los_rate
 
@@ -132,7 +148,7 @@ def guidance_command(
         guidance_cfg["pn_gain"],
     )
     flight_gain = interpolate_table(time_s, guidance_cfg["flight_time_gain_table"])
-    time_to_go = range_m / max(closing, 1e-6)
+    time_to_go = range_m / closing if closing > NEAR_CLOSING_MPS else 0.0
     hit_gain = interpolate_table(time_to_go, guidance_cfg["time_to_hit_gain_table"])
     effective_gain = flight_gain * hit_gain
     pn = scale(pn_raw, effective_gain)

@@ -120,6 +120,17 @@ def _candidate_rate_inner_fin_angle(
             * cm_delta
             / max(float(getattr(state, "mass")) * inertia_per_mass, 1e-12)
         )
+    elif plant_semantics == "fin_torque_body_aoa":
+        # Do not invert local tail effectiveness.  A shared rate-error scale
+        # maps onto each missile's own finsAoa, so finsLatAccel, arm and inertia
+        # remain visible in the closed-loop turn instead of being cancelled.
+        omega_ref = float(rate_loop.get("rate_error_for_full_fin_rad_s", 0.35))
+        requested_fin_angle = clamp(
+            rate_error / max(omega_ref, 1e-6) * maximum_fin_angle_rad,
+            -maximum_fin_angle_rad,
+            maximum_fin_angle_rad,
+        )
+        return requested_fin_angle, rate_error
     else:
         tail_arm = abs(float(config["aerodynamics"]["tail_station_x_m"]))
         scheduled_fins_g = (
@@ -216,10 +227,8 @@ def update_control_feedback(
         if not math.isfinite(error_scale) or error_scale <= 0.0:
             raise ValueError("control.pid_error_scale must be finite and positive")
     updates: dict[str, float] = {}
-    rate_inner_plant = str(control_cfg.get("plant_semantics", "")) in {
-        "body_cm_tail_force_moment",
-        "generalized_aero_moment",
-    }
+    output_semantics = str(control_cfg.get("pid_output_semantics", "normalized_fin_command"))
+    rate_inner_plant = output_semantics == "body_rate_command_rad_s"
     commands = (float(command_body_acceleration_g[0]), float(command_body_acceleration_g[1]))
     for axis, command, integral_name, previous_name, derivative_name, actual_name, fin_angle_name, fin_name, fin_limit_key in (
         (
@@ -280,23 +289,44 @@ def update_control_feedback(
         output = float(pid["p"]) * error + integral_output + float(pid["d"]) * derivative
         scheduled_output = output * schedule.pid_output_scale
         plant_semantics = str(control_cfg.get("plant_semantics", "direct_fin_g"))
-        if rate_inner_plant:
+        travel = control_cfg.get("fin_actuator_travel")
+        if rate_inner_plant and isinstance(travel, dict):
             travel_axis = "pitch" if axis == "pitch" else "yaw"
             maximum_fin_angle = max(
-                float(control_cfg["fin_actuator_travel"][f"{travel_axis}_limit_rad"]),
+                float(travel[f"{travel_axis}_limit_rad"]),
                 1e-9,
             )
         else:
             maximum_fin_angle = math.radians(
                 max(float(config["aerodynamics"][fin_limit_key]), 1e-9)
             )
-        output_semantics = str(control_cfg.get("pid_output_semantics", "normalized_fin_command"))
         if rate_inner_plant:
+            if "candidate_rate_inner_loop" not in control_cfg:
+                raise ValueError(
+                    "body_rate_command_rad_s requires control.candidate_rate_inner_loop"
+                )
             if output_semantics != "body_rate_command_rad_s":
                 raise ValueError(
                     "rate-inner candidate requires body_rate_command_rad_s PID output semantics"
                 )
             rate_command = scheduled_output
+            if plant_semantics == "fin_torque_body_aoa":
+                # Measured G holds the current path rate; G error closes over
+                # path_rate_time_constant_s.  Raw PID stays a small rad/s trim.
+                speed = math.sqrt(sum(float(value) * float(value) for value in state.velocity))
+                gravity = float(config["atmosphere"]["gravity_mps2"])
+                measured_g = float(getattr(state, f"measured_{axis}_normal_g", 0.0))
+                path_tau = float(
+                    control_cfg["candidate_rate_inner_loop"].get(
+                        "path_rate_time_constant_s", 0.35
+                    )
+                )
+                hold_rate = measured_g * gravity / max(speed, 50.0)
+                close_rate = (command - measured_g) * gravity / max(speed, 50.0) / max(path_tau, 1e-3)
+                # Raw accelControl P/I/D is not in (rad/s)/g.  Adding it here
+                # lets the PL-12's larger P request more rate than R-77 and
+                # hides finsLatAccel / finsAoa.  Keep the outer loop kinematic.
+                rate_command = hold_rate + close_rate
             requested_fin_angle, rate_error = _candidate_rate_inner_fin_angle(
                 state,
                 axis,

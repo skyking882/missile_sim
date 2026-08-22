@@ -59,21 +59,25 @@ def test_body_axis_pid_feedback_is_distinct_from_trajectory_normal_telemetry_at_
     assert diagnostics.lateral_load_g > diagnostics.trajectory_lateral_load_g
 
 
-def test_fin_torque_plant_applies_one_tail_force_to_translation_and_moment():
+def test_fin_torque_plant_uses_delta_for_translation_and_incidence_for_moment():
     config = copy.deepcopy(CONFIG)
     config["aerodynamics"]["natural_lift_enabled"] = False
     config["control"]["plant_semantics"] = "fin_torque_body_aoa"
     config["control"]["base_indicated_speed_mode"] = "none"
     propulsion = PiecewisePropulsion.from_config(config)
+    fins_g = float(config["aerodynamics"]["fins_lateral_acceleration_g"])
+    fin_limit = math.radians(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
+    delta = 0.1
 
     fin_only = SimState(
         (0.0, 3000.0, 0.0),
         (300.0, 0.0, 0.0),
         0.0, 0.0, 0.0, 0.0, 147.87,
-        actual_pitch_fin_angle_rad=0.1,
+        actual_pitch_fin_angle_rad=delta,
     )
     fin_only_diagnostics = forces_for_state_h2(fin_only, 0.0, config, propulsion, powered=False)
-    assert fin_only_diagnostics.trajectory_pitch_normal_acceleration_g > 0.0
+    expected_g = fins_g * delta / fin_limit
+    assert abs(fin_only_diagnostics.trajectory_pitch_normal_acceleration_g - expected_g) < 1e-6
     assert fin_only_diagnostics.pitch_angular_acceleration_rad_s2 > 0.0
     assert fin_only_diagnostics.pitch_fin_moment_equivalent_g > 0.0
     assert fin_only_diagnostics.pitch_body_aoa_force_g == 0.0
@@ -85,8 +89,18 @@ def test_fin_torque_plant_applies_one_tail_force_to_translation_and_moment():
     )
     aoa_diagnostics = forces_for_state_h2(body_aoa, 0.0, config, propulsion, powered=False)
     assert aoa_diagnostics.pitch_body_aoa_force_g == 0.0
-    assert aoa_diagnostics.trajectory_pitch_normal_acceleration_g < 0.0
+    assert abs(aoa_diagnostics.trajectory_pitch_normal_acceleration_g) < 1e-9
     assert aoa_diagnostics.pitch_angular_acceleration_rad_s2 < 0.0
+
+    trimmed = SimState(
+        (0.0, 3000.0, 0.0),
+        (300.0, 0.0, 0.0),
+        delta, 0.0, 0.0, 0.0, 147.87,
+        actual_pitch_fin_angle_rad=delta,
+    )
+    trimmed_diagnostics = forces_for_state_h2(trimmed, 0.0, config, propulsion, powered=False)
+    assert abs(trimmed_diagnostics.trajectory_pitch_normal_acceleration_g - expected_g) < 1e-6
+    assert abs(trimmed_diagnostics.pitch_fin_moment_equivalent_g) < 1e-6
 
 
 def test_thin_plate_normal_force_uses_two_pi_slope_without_imputed_cap():

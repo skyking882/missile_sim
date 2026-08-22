@@ -32,6 +32,27 @@ def test_forward_target_has_no_false_lateral_command():
     assert abs(output.commanded_body_acceleration_g[1]) < 1e-12
 
 
+def test_pn_does_not_inflate_one_over_r_on_numerical_leftovers():
+    acceleration, closing, los = pn_acceleration(
+        (1.0e-8, 0.0, 0.0),
+        (-300.0, 0.0, 1.0e-8),
+        (300.0, 0.0, 0.0),
+        4.0,
+    )
+    assert acceleration == (0.0, 0.0, 0.0)
+    assert closing == 0.0
+    assert los == (0.0, 0.0, 0.0)
+    output = guidance_command(
+        make_state(),
+        TargetState((1.0e-8, 3000.0, 0.0), (0.0, 0.0, 0.0)),
+        0.0,
+        CONFIG,
+        True,
+    )
+    assert output.time_to_go_s == 0.0
+    assert output.commanded_body_acceleration_g == (0.0, 0.0)
+
+
 def test_pn_acceleration_is_transverse_and_bounded_by_guidance_layer():
     acceleration, closing, _los = pn_acceleration((20000.0, 0.0, 1000.0), (-300.0, 0.0, 0.0), (300.0, 0.0, 0.0), 4.0)
     assert closing > 0.0

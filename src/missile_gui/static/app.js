@@ -11,6 +11,7 @@ const PRESETS = {
   head_on: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 12000, target_azimuth_deg: 0, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
   off_axis_10: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 12000, target_azimuth_deg: 10, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
   off_axis_38: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 15000, target_azimuth_deg: 38, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
+  off_axis_70: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 8000, target_azimuth_deg: 70, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
   sensorwhale_pl12_off_axis_38: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "sensorwhale_launch_axis", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 15000, target_azimuth_deg: 38, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
   tail_chase: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 900, target_altitude_m: 6500, initial_distance_m: 8000, target_azimuth_deg: 0, target_heading_deg: 180, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null }
 };
@@ -218,12 +219,14 @@ class CanvasChart {
     if (this.hover) { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(this.hover.px, this.hover.py, 3, 0, Math.PI * 2); ctx.fill(); }
   }
   bind() {
-    this.canvas.addEventListener("wheel", (event) => { event.preventDefault(); const rect = this.canvas.getBoundingClientRect(), px = event.clientX - rect.left, py = event.clientY - rect.top, cx = this.ux(px), cy = this.uy(py), factor = event.deltaY > 0 ? 1.16 : .86; this.view = { x0: cx + (this.view.x0 - cx) * factor, x1: cx + (this.view.x1 - cx) * factor, y0: cy + (this.view.y0 - cy) * factor, y1: cy + (this.view.y1 - cy) * factor }; this.draw(); }, { passive: false });
-    this.canvas.addEventListener("pointerdown", (event) => { this.canvas.setPointerCapture(event.pointerId); this.drag = { x: event.clientX, y: event.clientY, view: { ...this.view } }; this.canvas.classList.add("dragging"); });
-    this.canvas.addEventListener("pointermove", (event) => { if (this.drag) { const a = this.area(), dx = (event.clientX - this.drag.x) / (a.right - a.left) * (this.drag.view.x1 - this.drag.view.x0), dy = (event.clientY - this.drag.y) / (a.bottom - a.top) * (this.drag.view.y1 - this.drag.view.y0); this.view = { x0: this.drag.view.x0 - dx, x1: this.drag.view.x1 - dx, y0: this.drag.view.y0 + dy, y1: this.drag.view.y1 + dy }; tooltip.classList.add("hidden"); this.draw(); } else this.showHover(event); });
-    this.canvas.addEventListener("pointerup", () => { this.drag = null; this.canvas.classList.remove("dragging"); });
-    this.canvas.addEventListener("pointerleave", () => { this.hover = null; tooltip.classList.add("hidden"); this.draw(); });
-    this.canvas.addEventListener("dblclick", () => this.reset());
+    this._listeners = [];
+    const on = (type, handler, options) => { this.canvas.addEventListener(type, handler, options); this._listeners.push([type, handler]); };
+    on("wheel", (event) => { event.preventDefault(); const rect = this.canvas.getBoundingClientRect(), px = event.clientX - rect.left, py = event.clientY - rect.top, cx = this.ux(px), cy = this.uy(py), factor = event.deltaY > 0 ? 1.16 : .86; this.view = { x0: cx + (this.view.x0 - cx) * factor, x1: cx + (this.view.x1 - cx) * factor, y0: cy + (this.view.y0 - cy) * factor, y1: cy + (this.view.y1 - cy) * factor }; this.draw(); }, { passive: false });
+    on("pointerdown", (event) => { this.canvas.setPointerCapture(event.pointerId); this.drag = { x: event.clientX, y: event.clientY, view: { ...this.view } }; this.canvas.classList.add("dragging"); });
+    on("pointermove", (event) => { if (this.drag) { const a = this.area(), dx = (event.clientX - this.drag.x) / (a.right - a.left) * (this.drag.view.x1 - this.drag.view.x0), dy = (event.clientY - this.drag.y) / (a.bottom - a.top) * (this.drag.view.y1 - this.drag.view.y0); this.view = { x0: this.drag.view.x0 - dx, x1: this.drag.view.x1 - dx, y0: this.drag.view.y0 + dy, y1: this.drag.view.y1 + dy }; tooltip.classList.add("hidden"); this.draw(); } else this.showHover(event); });
+    on("pointerup", () => { this.drag = null; this.canvas.classList.remove("dragging"); });
+    on("pointerleave", () => { this.hover = null; tooltip.classList.add("hidden"); this.draw(); });
+    on("dblclick", () => this.reset());
   }
   showHover(event) {
     const rect = this.canvas.getBoundingClientRect(), mx = event.clientX - rect.left, my = event.clientY - rect.top; let best = null;
@@ -231,7 +234,7 @@ class CanvasChart {
     if (!best || best.distance > 32) { this.hover = null; tooltip.classList.add("hidden"); this.draw(); return; }
     this.hover = best; tooltip.textContent = `${best.dataset.label}\n${this.options.xLabel}: ${number(best.point.x, 2)}\n${this.options.yLabel}: ${number(best.point.y, 2)}${best.point.time != null ? `\n时间: ${number(best.point.time, 2)} s` : ""}`; tooltip.style.left = `${Math.min(window.innerWidth - 270, event.clientX + 14)}px`; tooltip.style.top = `${Math.min(window.innerHeight - 100, event.clientY + 14)}px`; tooltip.classList.remove("hidden"); this.draw();
   }
-  destroy() { this.observer.disconnect(); }
+  destroy() { this.observer.disconnect(); for (const [type, handler] of this._listeners || []) this.canvas.removeEventListener(type, handler); this._listeners = []; }
 }
 
 class Trajectory3D {
@@ -323,15 +326,19 @@ class Trajectory3D {
     tooltip.style.left = `${Math.min(window.innerWidth-270,event.clientX+14)}px`; tooltip.style.top = `${Math.min(window.innerHeight-120,event.clientY+14)}px`; tooltip.classList.remove("hidden");
   }
   bind() {
-    this.canvas.addEventListener("contextmenu", (event) => event.preventDefault());
-    this.canvas.addEventListener("wheel", (event) => { event.preventDefault(); this.camera.distance = Math.max(1.35, Math.min(8, this.camera.distance * (event.deltaY > 0 ? 1.1 : .9))); tooltip.classList.add("hidden"); this.draw(); }, {passive:false});
-    this.canvas.addEventListener("pointerdown", (event) => { this.canvas.setPointerCapture(event.pointerId); this.drag={x:event.clientX,y:event.clientY,camera:{...this.camera},mode:event.shiftKey||event.button===2?"pan":"rotate"}; this.canvas.classList.add("dragging"); tooltip.classList.add("hidden"); });
-    this.canvas.addEventListener("pointermove", (event) => { if (!this.drag) { this.showHover(event); return; } const dx=event.clientX-this.drag.x,dy=event.clientY-this.drag.y; if(this.drag.mode==="rotate"){this.camera.yaw=this.drag.camera.yaw+dx*.007;this.camera.pitch=Math.max(-1.35,Math.min(1.35,this.drag.camera.pitch+dy*.007));}else{this.camera.panX=this.drag.camera.panX+dx/Math.min(this.width,this.height)*1.2;this.camera.panY=this.drag.camera.panY-dy/Math.min(this.width,this.height)*1.2;} this.draw(); });
-    const end=()=>{this.drag=null;this.canvas.classList.remove("dragging");}; this.canvas.addEventListener("pointerup",end); this.canvas.addEventListener("pointercancel",end); this.canvas.addEventListener("pointerleave",()=>{if(!this.drag)tooltip.classList.add("hidden");});
-    this.canvas.addEventListener("dblclick",()=>this.reset());
-    this.canvas.addEventListener("keydown",(event)=>{let used=true;if(event.key==="ArrowLeft")this.camera.yaw-=.08;else if(event.key==="ArrowRight")this.camera.yaw+=.08;else if(event.key==="ArrowUp")this.camera.pitch-=.08;else if(event.key==="ArrowDown")this.camera.pitch+=.08;else if(event.key==="+"||event.key==="=")this.camera.distance=Math.max(1.35,this.camera.distance*.9);else if(event.key==="-")this.camera.distance=Math.min(8,this.camera.distance*1.1);else if(event.key==="Home")this.reset();else used=false;if(used){event.preventDefault();this.draw();}});
+    this._listeners = [];
+    const on = (type, handler, options) => { this.canvas.addEventListener(type, handler, options); this._listeners.push([type, handler]); };
+    on("contextmenu", (event) => event.preventDefault());
+    on("wheel", (event) => { event.preventDefault(); this.camera.distance = Math.max(1.35, Math.min(8, this.camera.distance * (event.deltaY > 0 ? 1.1 : .9))); tooltip.classList.add("hidden"); this.draw(); }, {passive:false});
+    on("pointerdown", (event) => { this.canvas.setPointerCapture(event.pointerId); this.drag={x:event.clientX,y:event.clientY,camera:{...this.camera},mode:event.shiftKey||event.button===2?"pan":"rotate"}; this.canvas.classList.add("dragging"); tooltip.classList.add("hidden"); });
+    on("pointermove", (event) => { if (!this.drag) { this.showHover(event); return; } const dx=event.clientX-this.drag.x,dy=event.clientY-this.drag.y; if(this.drag.mode==="rotate"){this.camera.yaw=this.drag.camera.yaw+dx*.007;this.camera.pitch=Math.max(-1.35,Math.min(1.35,this.drag.camera.pitch+dy*.007));}else{this.camera.panX=this.drag.camera.panX+dx/Math.min(this.width,this.height)*1.2;this.camera.panY=this.drag.camera.panY-dy/Math.min(this.width,this.height)*1.2;} this.draw(); });
+    const end=()=>{this.drag=null;this.canvas.classList.remove("dragging");};
+    on("pointerup", end); on("pointercancel", end);
+    on("pointerleave", ()=>{if(!this.drag)tooltip.classList.add("hidden");});
+    on("dblclick", ()=>this.reset());
+    on("keydown", (event)=>{let used=true;if(event.key==="ArrowLeft")this.camera.yaw-=.08;else if(event.key==="ArrowRight")this.camera.yaw+=.08;else if(event.key==="ArrowUp")this.camera.pitch-=.08;else if(event.key==="ArrowDown")this.camera.pitch+=.08;else if(event.key==="+"||event.key==="=")this.camera.distance=Math.max(1.35,this.camera.distance*.9);else if(event.key==="-")this.camera.distance=Math.min(8,this.camera.distance*1.1);else if(event.key==="Home")this.reset();else used=false;if(used){event.preventDefault();this.draw();}});
   }
-  destroy(){this.observer.disconnect();}
+  destroy(){ this.observer.disconnect(); for (const [type, handler] of this._listeners || []) this.canvas.removeEventListener(type, handler); this._listeners = []; }
 }
 
 function point(x, y, time = null) { return { x: Number(x), y: Number(y), time }; }
