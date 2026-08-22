@@ -44,6 +44,13 @@ def effective_cda0(mach: float, config: dict[str, Any]) -> float:
     if mode == "scaled_h1_shape":
         shape = mach_multiplier(mach, config["aerodynamics"]["mach_drag"])
         cda = area_basis(config) * float(config["aerodynamics"]["cx_k"]) * shape
+    elif mode == "scaled_h1_shape_supersonic_decay":
+        shape = mach_multiplier(mach, config["aerodynamics"]["mach_drag"])
+        start = float(drag_cfg.get("decay_start_mach", 1.2))
+        exponent = float(drag_cfg.get("decay_exponent", 0.5))
+        floor = float(drag_cfg.get("decay_floor", 0.6))
+        decay = 1.0 if mach <= start else max((start / max(mach, 1e-9)) ** exponent, floor)
+        cda = area_basis(config) * float(config["aerodynamics"]["cx_k"]) * shape * decay
     elif mode == "smooth_step_gaussian":
         center = float(drag_cfg.get("center", 1.0))
         width = max(float(drag_cfg.get("width", 0.45)), 1e-9)

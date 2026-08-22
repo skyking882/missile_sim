@@ -33,3 +33,21 @@ def test_area_basis_matches_explicit_caliber_multiplier():
     base = math.pi * CONFIG["geometry"]["caliber_m"] ** 2 / 4.0
     expected = base * CONFIG["geometry"]["wing_area_multiplier"]
     assert abs(area_basis(CONFIG) - expected) < 1e-12
+
+
+def test_supersonic_decay_shape_is_opt_in_and_floored():
+    import copy
+
+    baseline = effective_cda0(1.0, CONFIG)
+    decayed_config = copy.deepcopy(CONFIG)
+    decayed_config["drag_model"]["shape_mode"] = "scaled_h1_shape_supersonic_decay"
+    decayed_config["drag_model"]["decay_start_mach"] = 1.2
+    decayed_config["drag_model"]["decay_exponent"] = 0.5
+    decayed_config["drag_model"]["decay_floor"] = 0.6
+    below = effective_cda0(1.0, decayed_config)
+    assert abs(below - baseline) < 1e-12
+    high = effective_cda0(5.0, decayed_config)
+    high_base = effective_cda0(5.0, CONFIG)
+    assert high < high_base
+    assert high >= 0.6 * high_base - 1e-12
+    assert CONFIG["drag_model"]["shape_mode"] == "scaled_h1_shape"

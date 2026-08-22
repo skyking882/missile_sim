@@ -25,6 +25,7 @@ from .aerodynamics import (
     quaternion_from_pitch_yaw,
 )
 from .control import base_indicated_speed_schedule
+from .drag_models import area_basis
 from .dynamics import SimState, state_is_finite
 from .math3d import Vector, add, cross, dot, is_finite_vector, norm, normalize, scale, sub
 from .propulsion import PiecewisePropulsion, PropulsionSample
@@ -36,6 +37,7 @@ class H2DynamicsDiagnostics:
     aero: H2AeroSample
     thrust_force_n: Vector
     drag_force_n: Vector
+    fin_drag_force_n: Vector
     natural_lift_force_n: Vector
     fixed_lifting_surface_force_n: Vector
     control_force_n: Vector
@@ -360,6 +362,15 @@ def forces_for_state_h2(
         axes_override=axes,
         normal_force_velocity_mps=normal_force_velocity,
     )
+    cx_fin = float(config["aerodynamics"].get("cx_vs_fin_delta", 0.0))
+    fin_drag_force = (0.0, 0.0, 0.0)
+    if cx_fin > 0.0:
+        delta_sq = (
+            float(state.actual_pitch_fin_angle_rad) ** 2
+            + float(state.actual_yaw_fin_angle_rad) ** 2
+        )
+        cda_fin = area_basis(config) * cx_fin * delta_sq
+        fin_drag_force = scale(aero.air_velocity_hat, -aero.dynamic_pressure_pa * cda_fin)
     # The generalized candidate deliberately resolves normal force and pitch/
     # yaw moment as separate nondimensional outputs.  It has no force station:
     # the shared inputs are CG flow alpha, actual fin angle, body rate, and the
@@ -777,6 +788,7 @@ def forces_for_state_h2(
     total_force = _add_many(
         thrust_force,
         aero.drag_force_n,
+        fin_drag_force,
         body_normal_force_vector,
         fixed_lifting_surface_force_vector,
         control_force,
@@ -785,6 +797,7 @@ def forces_for_state_h2(
     non_gravity = _add_many(
         thrust_force,
         aero.drag_force_n,
+        fin_drag_force,
         body_normal_force_vector,
         fixed_lifting_surface_force_vector,
         control_force,
@@ -1039,6 +1052,7 @@ def forces_for_state_h2(
         aero=aero,
         thrust_force_n=thrust_force,
         drag_force_n=aero.drag_force_n,
+        fin_drag_force_n=fin_drag_force,
         natural_lift_force_n=body_normal_force_vector,
         fixed_lifting_surface_force_n=fixed_lifting_surface_force_vector,
         control_force_n=control_force,

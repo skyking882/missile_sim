@@ -243,7 +243,8 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     if plant_model == LEGACY_CRITICAL_DAMPED_PLANT:
         assumptions.append(
             "body CN-alpha translation: natural lift uses CN_alpha=2 /rad; "
-            "this is a shared candidate slope, not a datamine CyK"
+            "this is a shared candidate slope, not a datamine CyK; "
+            "the coefficient is capped at max_cy_at_aoa"
         )
         assumptions.append(
             "candidate fin translation: a_fin = finsLatAccel*(delta/finsAoa)*(q/q_base); "
@@ -571,7 +572,8 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "cx_vs_aoa": cx_aoa,
             "normal_force_model": normal_force_model,
             "cn_alpha_per_rad": cn_alpha_per_rad,
-            "normal_force_cap_enabled": False,
+            "normal_force_cap_enabled": plant_model == LEGACY_CRITICAL_DAMPED_PLANT,
+            "cx_vs_fin_delta": float(defaults.get("cx_vs_fin_delta", 0.0)),
             "cy_k": cn_alpha_per_rad,
             "max_cy_at_aoa": max_cy,
             "max_cy_interpretation": str(layer_aero["max_cy_interpretation"]),

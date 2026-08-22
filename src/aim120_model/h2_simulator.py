@@ -180,6 +180,7 @@ class H2Simulator:
             "mass_kg": float(state.mass),
             "thrust_n": float(diagnostics.propulsion.thrust_n),
             "drag_n": float(norm(diagnostics.drag_force_n)),
+            "fin_drag_n": float(norm(diagnostics.fin_drag_force_n)),
             "mach": float(diagnostics.aero.mach),
             "dynamic_pressure_pa": float(diagnostics.aero.dynamic_pressure_pa),
             "body_normal_dynamic_pressure_pa": float(

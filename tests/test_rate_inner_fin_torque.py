@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import math
 from dataclasses import replace
@@ -57,6 +58,8 @@ def test_fin_torque_adapter_enables_body_cn_alpha() -> None:
     assert "path_g_scales_with_wing_area_multiplier" not in config["aerodynamics"]
     assert config["control"]["base_indicated_speed_mode"] == "fin_authority_q"
     assert config["control"]["base_indicated_speed_ratio_max"] == 4.0
+    assert config["aerodynamics"]["normal_force_cap_enabled"] is True
+    assert config["aerodynamics"]["cx_vs_fin_delta"] == 0.0
     assert abs(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"] - math.degrees(0.268941)) < 1e-4
     assert _uses_quaternion_candidate(config) is True
 
@@ -76,6 +79,44 @@ def test_legacy_fin_torque_initial_state_carries_quaternion() -> None:
     assert state.orientation_quaternion is not None
     expected = quaternion_from_pitch_yaw(state.pitch, state.yaw)
     assert max(abs(a - b) for a, b in zip(state.orientation_quaternion, expected)) < 1e-12
+
+
+def test_body_cn_alpha_is_capped_at_max_cy() -> None:
+    config = _profile_config("cn_pl12")
+    state = SimState(
+        (0.0, 3000.0, 0.0), (400.0, 0.0, 0.0), 0.8, 0.0, 0.0, 0.0, 198.0,
+    )
+    diagnostics = forces_for_state_h2(
+        state, 0.0, config, PiecewisePropulsion.from_config(config), powered=False
+    )
+    max_cy = float(config["aerodynamics"]["max_cy_at_aoa"])
+    uncapped = config["aerodynamics"]["cn_alpha_per_rad"] * diagnostics.aero.pitch_alpha_rad
+    assert uncapped > max_cy
+    assert abs(diagnostics.aero.lift_coefficient_pitch - max_cy) < 1e-9
+
+
+def test_fin_delta_drag_defaults_off_and_adds_axial_drag_when_enabled() -> None:
+    config = _profile_config("cn_pl12")
+    limit = math.radians(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
+    state = SimState(
+        (0.0, 3000.0, 0.0), (400.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 198.0,
+        actual_pitch_fin_angle_rad=limit,
+    )
+    propulsion = PiecewisePropulsion.from_config(config)
+    off = forces_for_state_h2(state, 0.0, config, propulsion, powered=False)
+    assert max(abs(value) for value in off.fin_drag_force_n) == 0.0
+    enabled = copy.deepcopy(config)
+    enabled["aerodynamics"]["cx_vs_fin_delta"] = 2.0
+    on = forces_for_state_h2(state, 0.0, enabled, propulsion, powered=False)
+    assert on.fin_drag_force_n[0] < 0.0
+    assert abs(on.drag_force_n[0] - off.drag_force_n[0]) < 1e-9
+    assert on.axial_specific_force_g < off.axial_specific_force_g
+    straight = SimState(
+        (0.0, 3000.0, 0.0), (400.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 198.0,
+    )
+    straight_on = forces_for_state_h2(straight, 0.0, enabled, propulsion, powered=False)
+    straight_off = forces_for_state_h2(straight, 0.0, config, propulsion, powered=False)
+    assert max(abs(a - b) for a, b in zip(straight_on.total_force_n, straight_off.total_force_n)) < 1e-9
 
 
 def test_body_cn_alpha_adds_path_g_at_aoa() -> None:
