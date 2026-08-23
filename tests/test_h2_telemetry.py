@@ -141,7 +141,7 @@ def test_thin_plate_normal_force_uses_two_pi_slope_without_imputed_cap():
     ) < 1e-12
 
 
-def test_fin_torque_plant_body_rate_reduces_tail_effective_incidence():
+def test_fin_torque_plant_spring_is_delta_minus_alpha_with_critical_damping():
     config = copy.deepcopy(CONFIG)
     config["aerodynamics"]["natural_lift_enabled"] = False
     config["control"]["plant_semantics"] = "fin_torque_body_aoa"
@@ -164,8 +164,14 @@ def test_fin_torque_plant_body_rate_reduces_tail_effective_incidence():
 
     expected_rate_incidence = rotating.pitch_rate * config["aerodynamics"]["distance_cm_to_stabilizer_m"] / 300.0
     assert abs(rotating_diagnostics.pitch_tail_rate_incidence_rad - expected_rate_incidence) < 1e-12
-    assert rotating_diagnostics.pitch_tail_effective_incidence_rad < still_diagnostics.pitch_tail_effective_incidence_rad
-    assert rotating_diagnostics.pitch_fin_moment_equivalent_g < still_diagnostics.pitch_fin_moment_equivalent_g
+    assert abs(
+        rotating_diagnostics.pitch_tail_effective_incidence_rad
+        - still_diagnostics.pitch_tail_effective_incidence_rad
+    ) < 1e-12
+    assert abs(
+        rotating_diagnostics.pitch_fin_moment_equivalent_g
+        - still_diagnostics.pitch_fin_moment_equivalent_g
+    ) < 1e-12
     inertia_per_mass = config["geometry"]["length_m"] ** 2 / 12.0
     fin_limit = math.radians(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
     expected_stiffness = (
@@ -175,14 +181,10 @@ def test_fin_torque_plant_body_rate_reduces_tail_effective_incidence():
         / (inertia_per_mass * fin_limit)
     )
     expected_frequency = math.sqrt(expected_stiffness)
-    expected_tail_damping = (
-        expected_stiffness * config["aerodynamics"]["distance_cm_to_stabilizer_m"] / 300.0
-    )
     assert abs(rotating_diagnostics.pitch_natural_frequency_rad_s - expected_frequency) < 1e-12
-    assert abs(rotating_diagnostics.pitch_tail_rate_damping_per_s - expected_tail_damping) < 1e-12
+    assert rotating_diagnostics.pitch_tail_rate_damping_per_s == 0.0
     assert abs(
-        rotating_diagnostics.pitch_residual_rate_damping_per_s
-        - (2.0 * expected_frequency - expected_tail_damping)
+        rotating_diagnostics.pitch_residual_rate_damping_per_s - 2.0 * expected_frequency
     ) < 1e-12
 
 

@@ -51,6 +51,7 @@ def _interpolate_state(a: SimState, b: SimState, fraction: float) -> SimState:
         "yaw_requested_fin_command", "measured_pitch_normal_g", "measured_yaw_normal_g",
         "commanded_pitch_rate_rad_s", "commanded_yaw_rate_rad_s",
         "pitch_rate_error_rad_s", "yaw_rate_error_rad_s",
+        "pitch_path_close_integral_g_s", "yaw_path_close_integral_g_s",
     )
     values = {
         name: getattr(a, name) + fraction * (getattr(b, name) - getattr(a, name))
@@ -300,6 +301,8 @@ class H2Simulator:
             "commanded_yaw_rate_rad_s": float(state.commanded_yaw_rate_rad_s),
             "pitch_rate_error_rad_s": float(state.pitch_rate_error_rad_s),
             "yaw_rate_error_rad_s": float(state.yaw_rate_error_rad_s),
+            "pitch_path_close_integral_g_s": float(state.pitch_path_close_integral_g_s),
+            "yaw_path_close_integral_g_s": float(state.yaw_path_close_integral_g_s),
             "body_reference_area_m2": float(diagnostics.body_reference_area_m2),
             "body_reference_length_m": float(diagnostics.body_reference_length_m),
             "body_cp_cg_arm_over_diameter": float(diagnostics.body_cp_cg_arm_over_diameter),

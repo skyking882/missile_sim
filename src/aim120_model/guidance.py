@@ -162,7 +162,18 @@ def guidance_command(
             desired_pitch = deg_to_rad(guidance_cfg["lofting_elevation_deg"])
             pitch_error = desired_pitch - float(state.pitch)
             loft_g = guidance_cfg["angle_to_acceleration_multiplier"] * pitch_error
-            loft = (0.0, g_to_mps2(loft_g, config["atmosphere"]["gravity_mps2"]), 0.0)
+            gravity_mps2 = float(config["atmosphere"]["gravity_mps2"])
+            # Profile loft: cap the implied pitch rate at omega_max.  Frozen
+            # H1/H2 configs omit loft_omega_max_deg_s and keep the uncapped
+            # vertical-G command.
+            omega_max_deg_s = guidance_cfg.get("loft_omega_max_deg_s")
+            if omega_max_deg_s is not None:
+                speed = max(norm(state.velocity), 50.0)
+                omega_cmd = loft_g * gravity_mps2 / speed
+                omega_max = deg_to_rad(float(omega_max_deg_s))
+                if abs(omega_cmd) > omega_max > 0.0:
+                    loft_g = math.copysign(omega_max * speed / gravity_mps2, loft_g)
+            loft = (0.0, g_to_mps2(loft_g, gravity_mps2), 0.0)
     commanded = add_vectors(pn, loft)
     v_hat = normalize(state.velocity, fallback=body_axes_for_state(state).forward)
     commanded = sub(commanded, scale(v_hat, dot(commanded, v_hat)))

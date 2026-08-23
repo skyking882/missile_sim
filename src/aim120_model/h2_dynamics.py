@@ -27,7 +27,7 @@ from .aerodynamics import (
 from .control import base_indicated_speed_schedule
 from .drag_models import area_basis
 from .dynamics import SimState, state_is_finite
-from .math3d import Vector, add, cross, dot, is_finite_vector, norm, normalize, scale, sub
+from .math3d import Vector, add, cross, dot, is_finite_vector, limit_unit_disk, norm, normalize, scale, sub
 from .propulsion import PiecewisePropulsion, PropulsionSample
 
 
@@ -273,11 +273,7 @@ def _add_many(*vectors: Vector) -> Vector:
 def _limit_unit_disk(pitch_value: float, yaw_value: float) -> tuple[float, float]:
     """Limit combined pitch/yaw authority without granting sqrt(2) more load."""
 
-    magnitude = math.hypot(pitch_value, yaw_value)
-    if magnitude <= 1.0 or magnitude <= 1e-12:
-        return pitch_value, yaw_value
-    scale_factor = 1.0 / magnitude
-    return pitch_value * scale_factor, yaw_value * scale_factor
+    return limit_unit_disk(pitch_value, yaw_value)
 
 
 def _allocate_empirical_authority_disk(
@@ -286,7 +282,7 @@ def _allocate_empirical_authority_disk(
 ) -> tuple[float, float]:
     """Radially allocate empirical fin authority; this is not a stall model."""
 
-    return _limit_unit_disk(pitch_demand, yaw_demand)
+    return limit_unit_disk(pitch_demand, yaw_demand)
 
 
 def _body_angular_velocity_inertial(state: SimState, axes: BodyAxes) -> Vector:
@@ -482,6 +478,12 @@ def forces_for_state_h2(
     yaw_body_aoa_force_g = (
         dot(body_normal_force_vector, aero.flow_normal_yaw) / (gravity * mass)
     )
+    if legacy_fin_torque_plant and config["aerodynamics"].get("path_g_from_alpha"):
+        # L_total is finsLatAccel*(q/q_base)*(alpha/finsAoa)*m*g.  Do not also
+        # add the CN_alpha body force or alpha is counted twice.
+        body_normal_force_vector = (0.0, 0.0, 0.0)
+        pitch_body_aoa_force_g = 0.0
+        yaw_body_aoa_force_g = 0.0
     fixed_lifting_surface_multiplier = 0.0
     body_normal_force_area_slope = 0.0
     fixed_lifting_surface_area_slope = 0.0
@@ -655,18 +657,15 @@ def forces_for_state_h2(
             pitch_authority_reference = float(empirical_authority["pitch_incidence_reference_rad"])
             yaw_authority_reference = float(empirical_authority["yaw_incidence_reference_rad"])
         else:
-            # Legacy v12 stores an unsigned arm and is intentionally unchanged.
+            # Spec §5: I ω̇ = K(δ-α)-Cω.  Rate incidence ω·Δ/V is a diagnostic
+            # only; it does not enter the weathervane spring.
             pitch_tail_rate_incidence = state.pitch_rate * arm / speed_for_rate
             yaw_tail_rate_incidence = state.yaw_rate * arm / speed_for_rate
             pitch_tail_effective_incidence = (
-                state.actual_pitch_fin_angle_rad
-                - aero.pitch_alpha_rad
-                - pitch_tail_rate_incidence
+                state.actual_pitch_fin_angle_rad - aero.pitch_alpha_rad
             )
             yaw_tail_effective_incidence = (
-                state.actual_yaw_fin_angle_rad
-                - aero.yaw_alpha_rad
-                - yaw_tail_rate_incidence
+                state.actual_yaw_fin_angle_rad - aero.yaw_alpha_rad
             )
             pitch_authority_reference = pitch_fin_limit
             yaw_authority_reference = yaw_fin_limit
@@ -751,23 +750,35 @@ def forces_for_state_h2(
                 state.actual_pitch_fin_angle_rad / pitch_authority_reference,
                 state.actual_yaw_fin_angle_rad / yaw_authority_reference,
             )
-            # Translation uses commanded fin angle.  Path G is
-            # finsLatAccel*(δ/finsAoa)*(arm*length) so AAM-4's long tail
-            # out-pulls Derby.  loadFactorMax later radially caps the
-            # composite lateral specific force; this moment channel is
-            # left unscaled.
+            pitch_alpha_fraction, yaw_alpha_fraction = _limit_unit_disk(
+                aero.pitch_alpha_rad / pitch_authority_reference,
+                aero.yaw_alpha_rad / yaw_authority_reference,
+            )
+            # Moments stay on K(δ-α).  Path G is
+            # finsLatAccel*(q/q_base)*(alpha/finsAoa) so total lift follows
+            # angle of attack, not fin deflection or arm*length.
+            # loadFactorMax later radially caps F_N only; this moment
+            # channel is left unscaled.
             pitch_fin_moment_equivalent_g = scheduled_fins_g * pitch_moment_fraction
             yaw_fin_moment_equivalent_g = scheduled_fins_g * yaw_moment_fraction
-            share = float(config["aerodynamics"].get("fin_translation_share", 1.0))
-            path_g_scale = share
-            if config["aerodynamics"].get("path_g_scales_with_arm_times_length"):
-                path_g_scale *= arm * max(float(config["geometry"]["length_m"]), 1e-9)
-            pitch_fin_translation_equivalent_g = (
-                scheduled_fins_g * pitch_delta_fraction * path_g_scale
-            )
-            yaw_fin_translation_equivalent_g = (
-                scheduled_fins_g * yaw_delta_fraction * path_g_scale
-            )
+            if config["aerodynamics"].get("path_g_from_alpha"):
+                pitch_fin_translation_equivalent_g = (
+                    scheduled_fins_g * pitch_alpha_fraction
+                )
+                yaw_fin_translation_equivalent_g = (
+                    scheduled_fins_g * yaw_alpha_fraction
+                )
+            else:
+                share = float(config["aerodynamics"].get("fin_translation_share", 1.0))
+                path_g_scale = share
+                if config["aerodynamics"].get("path_g_scales_with_arm_times_length"):
+                    path_g_scale *= arm * max(float(config["geometry"]["length_m"]), 1e-9)
+                pitch_fin_translation_equivalent_g = (
+                    scheduled_fins_g * pitch_delta_fraction * path_g_scale
+                )
+                yaw_fin_translation_equivalent_g = (
+                    scheduled_fins_g * yaw_delta_fraction * path_g_scale
+                )
             pitch_tail_force_n = pitch_fin_translation_equivalent_g * gravity * mass
             yaw_tail_force_n = yaw_fin_translation_equivalent_g * gravity * mass
             pitch_tail_moment_nm = pitch_fin_moment_equivalent_g * gravity * mass * arm
@@ -793,6 +804,24 @@ def forces_for_state_h2(
                 state.actual_yaw_acceleration_g * gravity * mass,
             ),
         )
+    if legacy_fin_torque_plant:
+        # Spec §4: s_cap = min(1, n_max g / |F_N/m|) applies to packed lift
+        # only.  Drag along -v̂ and thrust along f̂ are not scaled.
+        load_factor_max_g = config.get("performance", {}).get("load_factor_max_g")
+        if load_factor_max_g is None:
+            load_factor_max_g = config.get("guidance", {}).get("maximum_lateral_acceleration_g")
+        if load_factor_max_g is not None:
+            cap = max(float(load_factor_max_g), 0.0)
+            if cap > 0.0:
+                packed_lift_n = norm(control_force)
+                cap_n = cap * gravity * mass
+                if packed_lift_n > cap_n:
+                    load_scale = cap_n / packed_lift_n
+                    control_force = scale(control_force, load_scale)
+                    pitch_fin_translation_equivalent_g *= load_scale
+                    yaw_fin_translation_equivalent_g *= load_scale
+                    pitch_tail_force_n *= load_scale
+                    yaw_tail_force_n *= load_scale
     gravity_force = (0.0, -mass * gravity, 0.0)
     non_gravity = _add_many(
         thrust_force,
@@ -802,31 +831,6 @@ def forces_for_state_h2(
         fixed_lifting_surface_force_vector,
         control_force,
     )
-    if legacy_fin_torque_plant:
-        load_factor_max_g = config.get("performance", {}).get("load_factor_max_g")
-        if load_factor_max_g is None:
-            load_factor_max_g = config.get("guidance", {}).get("maximum_lateral_acceleration_g")
-        if load_factor_max_g is not None:
-            cap = max(float(load_factor_max_g), 0.0)
-            if cap > 0.0:
-                g_lat = math.hypot(
-                    dot(non_gravity, axes.up) / (gravity * mass),
-                    dot(non_gravity, axes.right) / (gravity * mass),
-                )
-                if g_lat > cap:
-                    load_scale = cap / g_lat
-                    lateral = _add_many(
-                        scale(axes.up, dot(non_gravity, axes.up)),
-                        scale(axes.right, dot(non_gravity, axes.right)),
-                    )
-                    non_gravity = _add_many(sub(non_gravity, lateral), scale(lateral, load_scale))
-                    body_normal_force_vector = scale(body_normal_force_vector, load_scale)
-                    fixed_lifting_surface_force_vector = scale(
-                        fixed_lifting_surface_force_vector, load_scale
-                    )
-                    control_force = scale(control_force, load_scale)
-                    pitch_body_aoa_force_g *= load_scale
-                    yaw_body_aoa_force_g *= load_scale
     total_force = _add_many(non_gravity, gravity_force)
     specific_force = scale(non_gravity, 1.0 / mass)
     acceleration = scale(total_force, 1.0 / mass)
@@ -939,19 +943,13 @@ def forces_for_state_h2(
         )
         pitch_natural_frequency = math.sqrt(pitch_stiffness_s2)
         yaw_natural_frequency = math.sqrt(yaw_stiffness_s2)
-        # The local-tail-flow term already contributes Cq = omega_n^2*r/V
-        # in the linear region.  Supply only the unresolved remainder needed
-        # for a critically damped closure; this adds no per-missile parameter.
-        pitch_tail_rate_damping = pitch_stiffness_s2 * arm_magnitude / speed_for_rate
-        yaw_tail_rate_damping = yaw_stiffness_s2 * arm_magnitude / speed_for_rate
-        pitch_residual_rate_damping = max(
-            0.0,
-            2.0 * pitch_natural_frequency - pitch_tail_rate_damping,
-        )
-        yaw_residual_rate_damping = max(
-            0.0,
-            2.0 * yaw_natural_frequency - yaw_tail_rate_damping,
-        )
+        # Spec §5: C = 2 ζ √(K I) with ζ=1, so C/I = 2 ω_n.  The spring
+        # no longer includes ω·Δ/V, so this is the full critical-damping
+        # term rather than a remainder.
+        pitch_tail_rate_damping = 0.0
+        yaw_tail_rate_damping = 0.0
+        pitch_residual_rate_damping = 2.0 * pitch_natural_frequency
+        yaw_residual_rate_damping = 2.0 * yaw_natural_frequency
         pitch_damping = pitch_residual_rate_damping
         yaw_damping = yaw_residual_rate_damping
     elif body_cm_tail_plant:

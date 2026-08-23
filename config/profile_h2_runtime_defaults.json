@@ -1,20 +1,23 @@
 {
   "schema_version": 2,
-  "runtime_name": "profile_h2_fin_torque_aoa_v11",
+  "runtime_name": "profile_h2_fin_torque_aoa_v12",
   "enable_supported_profiles": true,
   "plant_model": "critical_damped_v12",
   "acceleration_outer_rate_inner": true,
   "body_rate_inner_loop_time_constant_s": 0.04,
   "path_rate_time_constant_s": 0.35,
+  "path_close_integral_gain_per_s": 0.0,
+  "path_close_integral_limit_g_s": 20.0,
   "rate_error_for_full_fin_rad_s": 0.35,
   "fin_force_q_scaling": true,
   "fin_force_q_ratio_max": 4.0,
   "shared_base_indicated_speed_kmh": 1800.0,
   "cx_vs_fin_delta": 0.0,
+  "drag_shape_mode": "interpolated_cx_1943_x1_10",
   "legacy_body_lift": {
     "enabled": true,
     "cn_alpha_per_rad": 2.0,
-    "fin_translation_share": 1.0,
+    "fin_translation_share": 0.935,
     "stall_cap_enabled": true
   },
   "body_cm_candidate": {
@@ -35,5 +38,5 @@
     "cm_alpha_dot": 0.0,
     "body_rate_inner_loop_time_constant_s": 0.1
   },
-  "boundary": "Experimental true-difference H2 layer: path G = fin_translation_share*finsLatAccel*(delta/finsAoa)*(q/q_base)*(arm*length) plus body CN_alpha, then loadFactorMax radially caps fin+body+fixed-lift lateral specific force so actual G cannot exceed the card; moments unscaled; reqAccelMax radially caps the gravity-compensated specific-force command; distFromCmToStab on tail moment/bandwidth and on path G via arm*length; q/q_base scales fin force with missing baseIndSpeed using shared 1800 km/h; q ratio capped at fin_force_q_ratio_max; optional cx_vs_fin_delta fin-delta drag default 0; scaled_h1_shape_supersonic_decay is opt-in and unused; CdA from datamine CxK*area with no AIM-120A 0.30 drag scale; global gameparams CxAoA=9; no imputed CyK; not an end-to-end validation or game-solver reproduction."
+  "boundary": "H2 spec plant: packed lift F_N = m g A η_q disk(α/α_max), loadFactorMax caps F_N only; I=m L^2/12, I ω̇ = K(δ-α)-Cω with K=N'Δ, C=2√(KI), ζ=1; outer ω_cmd = (f_meas+ĝ)g/V+(f_c-f_meas)g/(V τ_p), inner δ_cmd=sat((ω_cmd-ω)/ω_ref) α_max on the paired disk, τ_p=ω_ref=0.35, no path-close integral; CdA0 = S_w·CxK·C_et(M) interpolated 1943-law*1.10, CdA_α = S_d·CxAoA·min(α,1.2)^2 with S_d=πd²/4 and no Mach shape, optional CdA_δ default 0; missing baseIndSpeed uses shared 1800 km/h, η_q capped at 4; reqAccelMax caps the gravity-compensated specific-force command. Not an end-to-end validation or game-solver reproduction."
 }

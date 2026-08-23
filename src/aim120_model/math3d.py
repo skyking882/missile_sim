@@ -59,6 +59,15 @@ def clamp_norm(a: Vector, maximum: float, epsilon: float = 1e-12) -> Vector:
     return scale(a, maximum / length)
 
 
+def limit_unit_disk(pitch_value: float, yaw_value: float) -> tuple[float, float]:
+    """Retract a pitch/yaw pair onto the unit disk; no-op inside the disk."""
+
+    magnitude = math.hypot(pitch_value, yaw_value)
+    if magnitude <= 1.0 or magnitude <= 1e-12:
+        return pitch_value, yaw_value
+    return pitch_value / magnitude, yaw_value / magnitude
+
+
 def lerp(a: Vector, b: Vector, fraction: float) -> Vector:
     return add(a, scale(sub(b, a), fraction))
 

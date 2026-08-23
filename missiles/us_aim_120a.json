@@ -241,8 +241,9 @@
     "lock_range_m": 20000.0,
     "lofting_enabled": true,
     "lofting_elevation_deg": 22.5,
-    "loft_exit_distance_m": null,
-    "loft_exit_time_to_go_s": null,
+    "loft_exit_distance_m": 22000.0,
+    "loft_exit_time_to_go_s": 16.0,
+    "loft_omega_max_deg_s": 12.0,
     "flight_time_gain_table": null,
     "proximity_radius_m": 12.0,
     "seeker_type": "radar",
@@ -283,14 +284,19 @@
         "notes": "直接读取 loft 仰角；未声明时使用 0 度占位。"
       },
       "loft_exit_distance_m": {
-        "kind": "assumed",
+        "kind": "calibrated",
         "source_field": null,
-        "notes": "datamine 未提供与此字段语义一致的退出距离。"
+        "notes": "22.5° loft 下按游戏 35 km 迎头弹道拟合：距目标大于 22000 m 且 tgo 大于 16 s 时保持 loft。"
       },
       "loft_exit_time_to_go_s": {
-        "kind": "assumed",
+        "kind": "calibrated",
         "source_field": null,
-        "notes": "datamine 未提供与此字段语义一致的剩余时间门槛。"
+        "notes": "相对共享默认 18 s 下调到 16 s，与 22 km 距离门一起在约 11.4 s 退出，顶点约 9180 m。"
+      },
+      "loft_omega_max_deg_s": {
+        "kind": "calibrated",
+        "source_field": null,
+        "notes": "loft 隐含俯仰速率上限 12 °/s；该发上几乎不先于 G 指令饱和。"
       },
       "flight_time_gain_table": {
         "kind": "assumed",

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .aerodynamics import body_axes_for_state
-from .math3d import clamp
+from .math3d import clamp, limit_unit_disk
 
 
 BASE_INDICATED_SPEED_MODES = {
@@ -200,6 +200,8 @@ def update_control_feedback(
             "commanded_yaw_rate_rad_s": 0.0,
             "pitch_rate_error_rad_s": 0.0,
             "yaw_rate_error_rad_s": 0.0,
+            "pitch_path_close_integral_g_s": 0.0,
+            "yaw_path_close_integral_g_s": 0.0,
         }
 
     control_cfg = config["control"]
@@ -231,6 +233,7 @@ def update_control_feedback(
         if not math.isfinite(error_scale) or error_scale <= 0.0:
             raise ValueError("control.pid_error_scale must be finite and positive")
     updates: dict[str, float] = {}
+    pending_fins: dict[str, tuple[float, float, str, str, str]] = {}
     output_semantics = str(control_cfg.get("pid_output_semantics", "normalized_fin_command"))
     rate_inner_plant = output_semantics == "body_rate_command_rad_s"
     plant_semantics = str(control_cfg.get("plant_semantics", "direct_fin_g"))
@@ -326,23 +329,29 @@ def update_control_feedback(
             rate_command = scheduled_output
             if plant_semantics == "fin_torque_body_aoa":
                 # Measured G holds the current path rate; G error closes over
-                # path_rate_time_constant_s.  Raw PID is not applied.
+                # path_rate_time_constant_s with an optional dedicated integral.
+                # Raw datamine accelControl P/I/D is not applied to q_cmd.
                 speed = math.sqrt(sum(float(value) * float(value) for value in state.velocity))
                 gravity = float(config["atmosphere"]["gravity_mps2"])
                 measured_g = float(getattr(state, f"measured_{axis}_normal_g", 0.0))
-                path_tau = float(
-                    control_cfg["candidate_rate_inner_loop"].get(
-                        "path_rate_time_constant_s", 0.35
-                    )
-                )
+                rate_loop = control_cfg["candidate_rate_inner_loop"]
+                path_tau = float(rate_loop.get("path_rate_time_constant_s", 0.35))
+                close_ki = float(rate_loop.get("path_close_integral_gain_per_s", 0.0))
+                close_i_limit = float(rate_loop.get("path_close_integral_limit_g_s", 20.0))
+                close_integral_name = f"{axis}_path_close_integral_g_s"
+                stored_close_integral = float(getattr(state, close_integral_name, 0.0))
                 axes = body_axes_for_state(state)
                 normal_axis = axes.up if axis == "pitch" else axes.right
                 gravity_along_axis_g = -normal_axis[1]
                 hold_rate = (measured_g + gravity_along_axis_g) * gravity / max(speed, 50.0)
-                close_rate = (command - measured_g) * gravity / max(speed, 50.0) / max(path_tau, 1e-3)
-                # Raw accelControl P/I/D is not in (rad/s)/g.  Adding it here
-                # lets the PL-12's larger P request more rate than R-77 and
-                # hides finsLatAccel / finsAoa.  Keep the outer loop kinematic.
+                error_g = command - measured_g
+                # Use the stored integral this step so the first sample stays
+                # the kinematic P close; then accumulate after the inner loop.
+                close_rate = (
+                    (error_g / max(path_tau, 1e-3) + close_ki * stored_close_integral)
+                    * gravity
+                    / max(speed, 50.0)
+                )
                 rate_command = hold_rate + close_rate
             requested_fin_angle, rate_error = _candidate_rate_inner_fin_angle(
                 state,
@@ -357,6 +366,25 @@ def update_control_feedback(
             desired_fin_angle = requested_fin_angle * authority
             updates[f"commanded_{axis}_rate_rad_s"] = rate_command
             updates[f"{axis}_rate_error_rad_s"] = rate_error
+            if plant_semantics == "fin_torque_body_aoa":
+                next_close_integral = 0.0
+                if close_ki > 0.0:
+                    next_close_integral = stored_close_integral
+                    saturated = abs(requested_fin_angle) >= 0.99 * maximum_fin_angle
+                    pushing_fin = error_g * requested_fin_angle > 0.0
+                    load_cap = config.get("performance", {}).get("load_factor_max_g")
+                    at_load_cap = (
+                        load_cap is not None
+                        and abs(measured_g) >= 0.98 * float(load_cap)
+                        and error_g * measured_g > 0.0
+                    )
+                    if not ((saturated and pushing_fin) or at_load_cap):
+                        next_close_integral = clamp(
+                            stored_close_integral + error_g * dt,
+                            -max(close_i_limit, 0.0),
+                            max(close_i_limit, 0.0),
+                        )
+                updates[f"{axis}_path_close_integral_g_s"] = next_close_integral
         elif output_semantics == "fin_angle_rad":
             # Raw accelControl P/I/D output requests a physical fin angle.
             # finsAoa is the only actuator-angle clamp; it must not also act as
@@ -382,9 +410,36 @@ def update_control_feedback(
             updates[f"{axis}_rate_error_rad_s"] = 0.0
         else:
             raise ValueError(f"unknown pid_output_semantics: {output_semantics}")
-        actuator_alpha = min(1.0, dt / (max(control_cfg["actuator_time_constant_s"], 1e-9) + dt))
+        updates[integral_name] = integral
+        updates[previous_name] = error
+        updates[derivative_name] = derivative
+        updates[f"{axis}_pid_output"] = output
+        updates[f"{axis}_requested_fin_command"] = requested_fin
+        updates.setdefault(f"{axis}_path_close_integral_g_s", 0.0)
+        pending_fins[axis] = (
+            requested_fin,
+            maximum_fin_angle,
+            fin_angle_name,
+            fin_name,
+            actual_name,
+        )
+    if plant_semantics == "fin_torque_body_aoa" and "pitch" in pending_fins and "yaw" in pending_fins:
+        pitch_fraction, yaw_fraction = limit_unit_disk(
+            pending_fins["pitch"][0],
+            pending_fins["yaw"][0],
+        )
+        pending_fins["pitch"] = (pitch_fraction,) + pending_fins["pitch"][1:]
+        pending_fins["yaw"] = (yaw_fraction,) + pending_fins["yaw"][1:]
+        updates["pitch_requested_fin_command"] = pitch_fraction
+        updates["yaw_requested_fin_command"] = yaw_fraction
+    actuator_alpha = min(1.0, dt / (max(control_cfg["actuator_time_constant_s"], 1e-9) + dt))
+    for axis, job in pending_fins.items():
+        requested_fin, maximum_fin_angle, fin_angle_name, fin_name, actual_name = job
+        desired_fin_angle = requested_fin * authority * maximum_fin_angle
         previous_fin_angle = float(getattr(state, fin_angle_name))
-        actual_fin_angle = previous_fin_angle + actuator_alpha * (desired_fin_angle - previous_fin_angle)
+        actual_fin_angle = previous_fin_angle + actuator_alpha * (
+            desired_fin_angle - previous_fin_angle
+        )
         fin = clamp(actual_fin_angle / maximum_fin_angle, -1.0, 1.0)
         if plant_semantics in {
             "fin_torque_body_aoa",
@@ -404,14 +459,9 @@ def update_control_feedback(
             )
         else:
             raise ValueError(f"unknown plant_semantics: {plant_semantics}")
-        updates[integral_name] = integral
-        updates[previous_name] = error
-        updates[derivative_name] = derivative
         updates[actual_name] = actual
         updates[fin_angle_name] = actual_fin_angle
         updates[fin_name] = fin
-        updates[f"{axis}_pid_output"] = output
-        updates[f"{axis}_requested_fin_command"] = requested_fin
     return updates
 
 

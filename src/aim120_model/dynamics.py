@@ -49,6 +49,8 @@ class SimState:
     commanded_yaw_rate_rad_s: float = 0.0
     pitch_rate_error_rad_s: float = 0.0
     yaw_rate_error_rad_s: float = 0.0
+    pitch_path_close_integral_g_s: float = 0.0
+    yaw_path_close_integral_g_s: float = 0.0
     orientation_quaternion: tuple[float, float, float, float] | None = None
 
 
@@ -279,6 +281,8 @@ def state_is_finite(state: SimState) -> bool:
                 state.commanded_yaw_rate_rad_s,
                 state.pitch_rate_error_rad_s,
                 state.yaw_rate_error_rad_s,
+                state.pitch_path_close_integral_g_s,
+                state.yaw_path_close_integral_g_s,
             )
         )
         and (

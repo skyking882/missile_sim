@@ -16,6 +16,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from .drag_models import CX_1943_X1_10_TABLE, INTERPOLATED_CX_1943_X1_10
+
 
 SUPPORTED_MODEL_TYPES = {
     "dynamics": {"h2_reduced_order"},
@@ -63,9 +65,9 @@ UNIVERSAL_H2_LAYER: dict[str, Any] = {
     },
     "drag_model": {
         # AIM-120A H2 fitted 0.2995 is frozen in configs/aim120a_h2.yaml only.
-        # Profile missiles use datamine CxK * area with no shared scale.
+        # Profile missiles use datamine CxK * interpolated 1943*1.10 Cx(M).
         "effective_drag_scale": 1.0,
-        "shape_mode": "scaled_h1_shape",
+        "shape_mode": INTERPOLATED_CX_1943_X1_10,
         "alpha_drag_scale": 1.0,
         "alpha_drag_cap_rad": 1.2,
     },
@@ -256,36 +258,35 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     )
     if plant_model == LEGACY_CRITICAL_DAMPED_PLANT:
         assumptions.append(
-            "body CN-alpha translation: natural lift uses CN_alpha=2 /rad; "
-            "this is a shared candidate slope, not a datamine CyK; "
-            "the coefficient is capped at max_cy_at_aoa"
+            "body CN-alpha is not added to path G; packed lift "
+            "F_N = m g A η_q disk(α/α_max) with A=finsLatAccel"
         )
         assumptions.append(
-            "candidate fin translation: a_fin = fin_translation_share*finsLatAccel*(delta/finsAoa)*(q/q_base)*(arm*length); "
-            "distFromCmToStab still sets tail moment/bandwidth and also scales path G via arm*length. "
+            "candidate path G: a_lat/g = finsLatAccel*(q/q_base)*(alpha/finsAoa) on the unit disk; "
+            "fin deflection still sets tail moment/bandwidth via distFromCmToStab. "
             "finsAoaHor/Ver is treated as radians. "
             "reqAccelMax radially caps the gravity-compensated specific-force command. "
-            "loadFactorMax radially caps fin+body+fixed-lift lateral specific force; moments are not scaled. "
+            "loadFactorMax radially caps F_N only; drag and thrust are not scaled. "
             "baseIndSpeed q/q_base scales fin force when fin_force_q_scaling is on; "
             "missing profile baseIndSpeed uses shared 1800 km/h and does not fall back to none"
         )
         assumptions.append(
-            "candidate fin moment still uses the stored distFromCmToStab value as metres on local tail "
-            "incidence (delta - alpha - body_rate*arm/V); restoring saturates on the unit disk"
+            "candidate rotation: I=m L^2/12, I ω̇ = K(δ-α)-Cω with K=N'Δ, "
+            "C=2√(K I), ζ=1; distFromCmToStab is the static margin Δ; "
+            "no ω·Δ/V in the weathervane spring"
         )
         assumptions.append(
-            "the remaining rate damping is derived from the same instantaneous fin stiffness to close the attitude "
-            "response at critical damping, with no per-profile damping parameter"
+            "CdA_α = (πd²/4)·CxAoA·min(α, 1.2)² with no wingAreaMult and no Mach shape; "
+            "CdA0 = S_w·CxK·C_et(M); optional CdA_δ default 0"
         )
         if bool(defaults.get("acceleration_outer_rate_inner", False)):
             assumptions.append(
-                "candidate controller: body rate is commanded from kinematic normal accel "
-                "(specific force plus gravity along the body normal) plus G-error closing over "
-                "path_rate_time_constant_s; command and measurement are both specific force. "
+                "candidate controller: ω_cmd = (f_meas+ĝ) g/V + (f_c-f_meas) g/(V τ_p); "
+                "δ_cmd = sat((ω_cmd-ω)/ω_ref)·α_max on the paired disk. "
+                "τ_p and ω_ref default 0.35; path-close integral defaults to 0. "
                 "raw accelControl P/I/D is not added to q_cmd because those "
                 "datamine gains are not (rad/s)/g and are not applied to q_cmd; "
-                "pitch_pid_output telemetry is zeroed. The inner loop maps rate error onto a shared fraction "
-                "of each profile's finsAoa so finsLatAccel, arm and fin limit stay visible"
+                "pitch_pid_output telemetry is zeroed"
             )
     elif plant_model == BODY_CM_TAIL_FORCE_PLANT:
         assumptions.append(
@@ -359,6 +360,18 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     if loft_exit_tgo is None:
         loft_exit_tgo = float(layer_guidance["loft_exit_time_to_go_s"])
         assumptions.append(f"guidance.loft_exit_time_to_go_s missing -> {loft_exit_tgo:g}")
+    loft_omega_raw = guidance.get("loft_omega_max_deg_s")
+    if loft_omega_raw is None:
+        loft_omega_raw = defaults.get("loft_omega_max_deg_s")
+    loft_omega_max_deg_s = (
+        None
+        if loft_omega_raw is None
+        else _positive_finite(loft_omega_raw, "loft_omega_max_deg_s")
+    )
+    if loft_omega_max_deg_s is not None and guidance.get("loft_omega_max_deg_s") is None:
+        assumptions.append(
+            f"guidance.loft_omega_max_deg_s missing -> shared default {loft_omega_max_deg_s:g}"
+        )
     flight_time_gain_table = _gain_table(
         guidance.get("flight_time_gain_table"),
         layer_guidance["flight_time_gain_table"],
@@ -399,13 +412,13 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         )
         stall_cap_enabled = bool(body_lift.get("stall_cap_enabled", True))
         normal_force_model = "body_cn_linear"
-        release_version = "profile-adapter-v23-shared-baseind-1800"
-        force_geometry_version = "fin_delta_g_loadfactormax_cap_v11_quat"
+        release_version = "profile-adapter-v27-h2-spec"
+        force_geometry_version = "h2_spec_packed_lift_cm_np_v13"
         plant_semantics = "fin_torque_body_aoa"
         fin_arm_as_length_fraction = False
         legacy_rate_inner = bool(defaults.get("acceleration_outer_rate_inner", False))
         if legacy_rate_inner:
-            control_model_version = "raw_pid_accel_outer_rate_inner_fin_torque_v13"
+            control_model_version = "spec_g_outer_rate_inner_v15"
             rate_loop_time_constant_s = _positive_finite(
                 defaults.get("body_rate_inner_loop_time_constant_s", 0.1),
                 "body_rate_inner_loop_time_constant_s",
@@ -561,9 +574,11 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         f"aerodynamics.lift_area_scale normalized by geometry.wing_area_multiplier -> {lift_area_scale:.9g}"
     )
     effective_drag_scale = float(aero["drag_scale"]) * float(layer_drag["effective_drag_scale"])
+    shape_mode = str(defaults.get("drag_shape_mode", layer_drag["shape_mode"]))
     assumptions.append(
-        "profile CdA uses datamine CxK and reference area; the AIM-120A fitted "
-        f"0.2995 scale is not applied (effective_drag_scale={effective_drag_scale:.9g})"
+        "profile CdA0 = CxK * S_w * interpolated 1943-law*1.10 Cx(M); "
+        "the AIM-120A fitted 0.2995 scale is not applied "
+        f"(effective_drag_scale={effective_drag_scale:.9g}, shape_mode={shape_mode})"
     )
     load_factor_max_raw = performance.get("load_factor_max_g")
     if load_factor_max_raw is None:
@@ -618,7 +633,8 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "max_cy_at_aoa": max_cy,
             "max_cy_interpretation": str(layer_aero["max_cy_interpretation"]),
             "fins_lateral_acceleration_g": fins_g,
-            "path_g_scales_with_arm_times_length": plant_model == LEGACY_CRITICAL_DAMPED_PLANT,
+            "path_g_from_alpha": plant_model == LEGACY_CRITICAL_DAMPED_PLANT,
+            "path_g_scales_with_arm_times_length": False,
             "distance_cm_to_stabilizer_m": float(aero["fin_moment_arm_m"]),
             **(
                 {"fin_arm_as_length_fraction": True}
@@ -634,12 +650,26 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "mach_lift": _mach_settings(aero["mach_lift_correction"], layer_aero["mach_lift"], assumptions, "aerodynamics.mach_lift_correction"),
         },
         "drag_model": {
-            "shape_mode": str(layer_drag["shape_mode"]),
+            "shape_mode": shape_mode,
             "drag_scale": effective_drag_scale,
             "area_basis_mode": str(geometry["reference_area_mode"]),
             "alpha_drag_scale": float(layer_drag["alpha_drag_scale"]),
             "alpha_drag_cap_rad": float(layer_drag["alpha_drag_cap_rad"]),
+            "alpha_drag_area_basis_mode": (
+                "caliber_area"
+                if shape_mode == INTERPOLATED_CX_1943_X1_10
+                else str(geometry["reference_area_mode"])
+            ),
+            "alpha_drag_mach_shape": shape_mode != INTERPOLATED_CX_1943_X1_10,
             "lift_area_scale": lift_area_scale,
+            **(
+                {
+                    "cx_vs_mach": [list(knot) for knot in CX_1943_X1_10_TABLE],
+                    "cx_vs_mach_source": "1943_law_x1_10_linear_interpolation",
+                }
+                if shape_mode == INTERPOLATED_CX_1943_X1_10
+                else {}
+            ),
         },
         "propulsion": {"stages": stages, "unpowered_variant": "zero_force_zero_mass_loss"},
         "performance": {
@@ -663,6 +693,11 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "lofting_elevation_deg": float(guidance["lofting_elevation_deg"]),
             "loft_exit_distance_m": float(loft_exit_distance),
             "loft_exit_time_to_go_s": float(loft_exit_tgo),
+            **(
+                {"loft_omega_max_deg_s": loft_omega_max_deg_s}
+                if loft_omega_max_deg_s is not None
+                else {}
+            ),
             "target_elevation_deg": float(layer_guidance["target_elevation_deg"]),
             "omega_max_deg_s": float(layer_guidance["omega_max_deg_s"]),
             "angle_to_acceleration_multiplier": float(layer_guidance["angle_to_acceleration_multiplier"]),
@@ -809,13 +844,28 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         if path_tau_raw is None:
             path_tau_raw = defaults.get("path_rate_time_constant_s", 0.35)
             assumptions.append(
-                "control.path_rate_time_constant_s missing -> shared default 0.35"
+                "control.path_rate_time_constant_s missing -> shared default "
+                f"{float(path_tau_raw):g}"
             )
         omega_ref_raw = control.get("rate_error_for_full_fin_rad_s")
         if omega_ref_raw is None:
             omega_ref_raw = defaults.get("rate_error_for_full_fin_rad_s", 0.35)
             assumptions.append(
-                "control.rate_error_for_full_fin_rad_s missing -> shared default 0.35"
+                "control.rate_error_for_full_fin_rad_s missing -> shared default "
+                f"{float(omega_ref_raw):g}"
+            )
+        close_ki_raw = control.get("path_close_integral_gain_per_s")
+        if close_ki_raw is None:
+            close_ki_raw = defaults.get("path_close_integral_gain_per_s", 0.0)
+            assumptions.append(
+                "control.path_close_integral_gain_per_s missing -> shared default "
+                f"{float(close_ki_raw):g}"
+            )
+        close_i_limit_raw = control.get("path_close_integral_limit_g_s")
+        if close_i_limit_raw is None:
+            close_i_limit_raw = defaults.get("path_close_integral_limit_g_s", 20.0)
+            assumptions.append(
+                "control.path_close_integral_limit_g_s missing -> shared default 20"
             )
         config["control"]["candidate_rate_inner_loop"] = {
             "time_constant_s": rate_loop_time_constant_s,
@@ -826,6 +876,14 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "rate_error_for_full_fin_rad_s": _positive_finite(
                 omega_ref_raw,
                 "rate_error_for_full_fin_rad_s",
+            ),
+            "path_close_integral_gain_per_s": _nonnegative_finite(
+                close_ki_raw,
+                "path_close_integral_gain_per_s",
+            ),
+            "path_close_integral_limit_g_s": _positive_finite(
+                close_i_limit_raw,
+                "path_close_integral_limit_g_s",
             ),
             "outer_pid_output_semantics": "body_rate_command_rad_s",
             "inner_loop_semantics": (

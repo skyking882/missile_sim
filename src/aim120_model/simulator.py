@@ -34,6 +34,7 @@ def _interpolate_state(a: SimState, b: SimState, fraction: float) -> SimState:
         "pitch_error_derivative", "yaw_error_derivative", "actual_pitch_acceleration_g",
         "actual_yaw_acceleration_g", "actual_pitch_fin_angle_rad", "actual_yaw_fin_angle_rad",
         "pitch_fin_command", "yaw_fin_command",
+        "pitch_path_close_integral_g_s", "yaw_path_close_integral_g_s",
     )
     values = {name: getattr(a, name) + fraction * (getattr(b, name) - getattr(a, name)) for name in scalar_names}
     return SimState(

@@ -234,6 +234,7 @@
         "lofting_elevation_deg": {"type": "number", "minimum": -90, "maximum": 90},
         "loft_exit_distance_m": {"type": ["number", "null"], "minimum": 0},
         "loft_exit_time_to_go_s": {"type": ["number", "null"], "minimum": 0},
+        "loft_omega_max_deg_s": {"type": ["number", "null"], "exclusiveMinimum": 0},
         "flight_time_gain_table": {
           "type": ["array", "null"],
           "minItems": 1,
@@ -277,6 +278,8 @@
         "base_indicated_speed_kmh": {"type": ["number", "null"], "exclusiveMinimum": 0},
         "path_rate_time_constant_s": {"type": ["number", "null"], "exclusiveMinimum": 0},
         "rate_error_for_full_fin_rad_s": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "path_close_integral_gain_per_s": {"type": ["number", "null"], "minimum": 0},
+        "path_close_integral_limit_g_s": {"type": ["number", "null"], "exclusiveMinimum": 0},
         "fin_command_limit": {"type": "number", "minimum": 0},
         "actuator_time_constant_s": {"type": ["number", "null"], "minimum": 0},
         "max_pitch_yaw_rate_deg_s": {"type": ["number", "null"], "minimum": 0},
@@ -447,7 +450,7 @@
       "additionalProperties": false,
       "required": ["kind", "source_field", "notes"],
       "properties": {
-        "kind": {"enum": ["datamine", "identified", "assumed", "derived"]},
+        "kind": {"enum": ["datamine", "identified", "assumed", "derived", "calibrated"]},
         "source_field": {"type": ["string", "null"]},
         "notes": {"type": "string", "minLength": 1}
       }

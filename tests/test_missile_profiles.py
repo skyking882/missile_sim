@@ -116,8 +116,8 @@ def test_gui_runtime_opens_supported_profiles_and_keeps_unsupported_guidance_loc
     assert aim["runnable"] is True
     assert pl15["runnable"] is True
     assert pl15["status"] == "Experimental"
-    assert aim["runtime_adapter"] == "profile_h2_fin_torque_aoa_v11"
-    assert pl15["runtime_adapter"] == "profile_h2_fin_torque_aoa_v11"
+    assert aim["runtime_adapter"] == "profile_h2_fin_torque_aoa_v12"
+    assert pl15["runtime_adapter"] == "profile_h2_fin_torque_aoa_v12"
     assert pl15["runtime_assumption_count"] > 0
     assert fireflash["runnable"] is False
     assert fireflash["status"] == "Unsupported physics"

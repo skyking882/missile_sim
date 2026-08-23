@@ -218,7 +218,7 @@ def test_all_supported_profiles_are_runnable_through_universal_adapter() -> None
     assert sum(not item["runnable"] for item in public) == 4
     pl12 = next(profile for profile in profiles if profile.get("missile_id") == "cn_pl12")
     result = simulate(pl12, _scenario())
-    assert result["model"]["runtime_adapter"] == "profile_h2_fin_torque_aoa_v11"
+    assert result["model"]["runtime_adapter"] == "profile_h2_fin_torque_aoa_v12"
     assert result["model"]["runtime_assumptions"]
     assert result["missile"]["status"] == "experimental"
 
@@ -232,8 +232,8 @@ def test_fin_torque_layer_preserves_aim120a_aim120b_kinematic_equivalence() -> N
 
     config_a = copy.deepcopy(aim120a["_model_config"])
     config_b = copy.deepcopy(aim120b["_model_config"])
-    assert config_a.pop("model_label") == "us_aim_120a_profile_h2_fin_torque_aoa_v11"
-    assert config_b.pop("model_label") == "us_aim_120b_profile_h2_fin_torque_aoa_v11"
+    assert config_a.pop("model_label") == "us_aim_120a_profile_h2_fin_torque_aoa_v12"
+    assert config_b.pop("model_label") == "us_aim_120b_profile_h2_fin_torque_aoa_v12"
     sensor_model_a = config_a["guidance"].pop("sensor_model")
     sensor_model_b = config_b["guidance"].pop("sensor_model")
     assert sensor_model_a["active_radar"] is True

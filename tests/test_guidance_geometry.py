@@ -62,6 +62,24 @@ def test_pn_acceleration_is_transverse_and_bounded_by_guidance_layer():
     assert norm(output.commanded_acceleration_mps2) <= CONFIG["guidance"]["maximum_lateral_acceleration_g"] * CONFIG["atmosphere"]["gravity_mps2"] + 1e-9
 
 
+def test_loft_omega_max_caps_pitch_rate_command():
+    config = copy.deepcopy(CONFIG)
+    config["guidance"]["lofting_enabled"] = True
+    config["guidance"]["lofting_elevation_deg"] = 20.0
+    config["guidance"]["loft_exit_distance_m"] = 1000.0
+    config["guidance"]["loft_exit_time_to_go_s"] = 1.0
+    config["guidance"]["angle_to_acceleration_multiplier"] = 20.0
+    config["control"] = {"plant_semantics": "fin_torque_body_aoa"}
+    state = make_state()
+    target = TargetState((30000.0, 3000.0, 0.0), (-300.0, 0.0, 0.0))
+    uncapped = guidance_command(state, target, 0.0, config, True)
+    config["guidance"]["loft_omega_max_deg_s"] = 3.0
+    capped = guidance_command(state, target, 0.0, config, True)
+    assert uncapped.loft_active is True
+    assert capped.loft_active is True
+    assert abs(capped.loft_acceleration_mps2[1]) < abs(uncapped.loft_acceleration_mps2[1])
+
+
 def test_frozen_h2_controller_command_stays_kinematic_without_gravity_term():
     config = copy.deepcopy(CONFIG)
     config["guidance"]["lofting_enabled"] = False
