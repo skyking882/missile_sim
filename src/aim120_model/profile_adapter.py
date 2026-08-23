@@ -90,6 +90,7 @@ UNIVERSAL_H2_LAYER: dict[str, Any] = {
             "lock_delay_s": 0.8,
             "blend_time_s": 0.5,
             "speed_floor_mps": 200.0,
+            "fin_error_ref_rad": 0.15,
         },
     },
     "control": {
@@ -384,11 +385,21 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             ),
             "midcourse_lead_turn.speed_floor_mps",
         ),
+        "fin_error_ref_rad": _positive_finite(
+            midcourse_lead_turn_runtime.get(
+                "fin_error_ref_rad", midcourse_lead_turn_defaults["fin_error_ref_rad"]
+            ),
+            "midcourse_lead_turn.fin_error_ref_rad",
+        ),
     }
     assumptions.append(
         "midcourse PIP lead-turn is a declared candidate (no datamine field identified); "
         "IOG+DL→TRK phase structure and near-α_max effort observed in three 2026-08 "
         "replays; τ_turn/lock/blend calibrated to those replays"
+    )
+    assumptions.append(
+        "IOG phase drives fin directly (bypasses accelControl PID, tracking-mode integrator "
+        "for bumpless handover); candidate structure, two independent symptoms"
     )
 
     profile_cx_aoa = aero["cx_vs_aoa"].get("coefficient_per_rad2")

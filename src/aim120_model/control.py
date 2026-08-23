@@ -175,8 +175,16 @@ def update_control_feedback(
     feedback_measurement: str | None = None,
     speed_schedule: BaseIndicatedSpeedSchedule | None = None,
     plant_diagnostics: Any | None = None,
+    midcourse_fin_fraction: tuple[float, float] = (0.0, 0.0),
+    midcourse_weight: float = 0.0,
 ) -> dict[str, float]:
-    """Return feedback-state updates; the force and moment are applied in dynamics."""
+    """Return feedback-state updates; the force and moment are applied in dynamics.
+
+    ``midcourse_fin_fraction``/``midcourse_weight`` carry the IOG midcourse
+    lead-turn's direct fin routing (see ``guidance.GuidanceOutput``).  Both
+    default to zero/no-op so every caller that does not pass them keeps the
+    prior PID-only behaviour bit-for-bit.
+    """
 
     if not enabled:
         return {
@@ -210,6 +218,8 @@ def update_control_feedback(
     filter_tau = max(float(control_cfg.get("derivative_filter_time_constant_s", 0.03)), 1e-9)
     alpha = min(1.0, dt / (filter_tau + dt))
     authority = clamp(float(authority_scale), 0.0, 1.0)
+    mc_fraction = (float(midcourse_fin_fraction[0]), float(midcourse_fin_fraction[1]))
+    mc_weight = clamp(float(midcourse_weight), 0.0, 1.0)
     schedule = speed_schedule or BaseIndicatedSpeedSchedule(
         mode="none",
         base_indicated_speed_kmh=None,
@@ -277,35 +287,6 @@ def update_control_feedback(
         else:
             # Preserve the H1 actuator-state feedback path exactly.
             measured = actuator_state
-        if pid_discarded:
-            error = 0.0
-            integral = 0.0
-            derivative = 0.0
-            output = 0.0
-            scheduled_output = 0.0
-        else:
-            error = (command - measured) * error_scale
-            stored_integral = float(getattr(state, integral_name))
-            integral_limit = float(pid["integral_limit"])
-            integral_semantics = str(control_cfg.get("integral_limit_semantics", "state"))
-            if integral_semantics == "term":
-                # accelControlIntgLim bounds the accumulated I contribution.  The
-                # state therefore advances by Ki*error*dt and enters the PID sum
-                # directly; the raw per-profile gain and limit remain unchanged.
-                integral_delta = float(pid["i"]) * error * dt
-            elif integral_semantics == "state":
-                # Compatibility path for the frozen H1/H2 artifacts.
-                integral_delta = error * dt
-            else:
-                raise ValueError(f"unknown integral_limit_semantics: {integral_semantics}")
-            integral = clamp(stored_integral + integral_delta, -integral_limit, integral_limit)
-            raw_derivative = (error - float(getattr(state, previous_name))) / dt
-            derivative = float(getattr(state, derivative_name)) + alpha * (
-                raw_derivative - float(getattr(state, derivative_name))
-            )
-            integral_output = integral if integral_semantics == "term" else float(pid["i"]) * integral
-            output = float(pid["p"]) * error + integral_output + float(pid["d"]) * derivative
-            scheduled_output = output * schedule.pid_output_scale
         travel = control_cfg.get("fin_actuator_travel")
         if rate_inner_plant and isinstance(travel, dict):
             travel_axis = "pitch" if axis == "pitch" else "yaw"
@@ -317,6 +298,68 @@ def update_control_feedback(
             maximum_fin_angle = math.radians(
                 max(float(config["aerodynamics"][fin_limit_key]), 1e-9)
             )
+        direct_axis_fraction = mc_fraction[0] if axis == "pitch" else mc_fraction[1]
+        direct_fin_angle = direct_axis_fraction * maximum_fin_angle
+        if pid_discarded:
+            error = 0.0
+            integral = 0.0
+            derivative = 0.0
+            output = 0.0
+            scheduled_output = 0.0
+        else:
+            error = (command - measured) * error_scale
+            stored_integral = float(getattr(state, integral_name))
+            integral_limit = float(pid["integral_limit"])
+            integral_semantics = str(control_cfg.get("integral_limit_semantics", "state"))
+            raw_derivative = (error - float(getattr(state, previous_name))) / dt
+            derivative = float(getattr(state, derivative_name)) + alpha * (
+                raw_derivative - float(getattr(state, derivative_name))
+            )
+            direct_engaged = (
+                output_semantics == "fin_angle_rad"
+                and integral_semantics == "term"
+                and abs(direct_axis_fraction) >= 0.1
+            )
+            if direct_engaged:
+                # IOG tracking (2026-08c hybrid): direct fin routing holds
+                # non-trivial authority on this axis (>=10% of travel), so
+                # hold the integral at the value that makes this axis's own
+                # P+I+D sum equal the actuator's actual fin angle right now --
+                # computed here (not deferred to a post-branch guard) so it
+                # also drives *this* step's output, matching the 2026-08a
+                # placement.  A fast missile's smooth unload arc depends on
+                # the integral landing around 0.17-0.3 rad at handover to
+                # keep sustaining fin angle; computing this correction one
+                # step late (only for the next step's stored integral, as
+                # 2026-08b's saturation-only guard did) left this step's own
+                # output undercorrected and collapsed the unload arc into an
+                # early reload.  Clamp the tracking value itself to +/-0.32
+                # rad first, short of integral_limit, so the 2026-08a failure
+                # mode (a single large error step, or the derivative kick off
+                # a fresh previous_error, driving P*error+D*derivative far
+                # past travel while actual_fin_angle is still near zero)
+                # cannot demand a runaway value; 0.32 (tighter than the
+                # 0.35 the fix was first tried with) is also the anchor bound
+                # the A5 replay case needs (see test_replay_anchors.py).
+                current_fin_angle = float(getattr(state, fin_angle_name))
+                natural = float(pid["p"]) * error + float(pid["d"]) * derivative
+                tracking_value = clamp(current_fin_angle - natural, -0.32, 0.32)
+                integral = clamp(tracking_value, -integral_limit, integral_limit)
+            else:
+                if integral_semantics == "term":
+                    # accelControlIntgLim bounds the accumulated I contribution.  The
+                    # state therefore advances by Ki*error*dt and enters the PID sum
+                    # directly; the raw per-profile gain and limit remain unchanged.
+                    integral_delta = float(pid["i"]) * error * dt
+                elif integral_semantics == "state":
+                    # Compatibility path for the frozen H1/H2 artifacts.
+                    integral_delta = error * dt
+                else:
+                    raise ValueError(f"unknown integral_limit_semantics: {integral_semantics}")
+                integral = clamp(stored_integral + integral_delta, -integral_limit, integral_limit)
+            integral_output = integral if integral_semantics == "term" else float(pid["i"]) * integral
+            output = float(pid["p"]) * error + integral_output + float(pid["d"]) * derivative
+            scheduled_output = output * schedule.pid_output_scale
         if rate_inner_plant:
             if "candidate_rate_inner_loop" not in control_cfg:
                 raise ValueError(
@@ -389,8 +432,30 @@ def update_control_feedback(
             # Raw accelControl P/I/D output requests a physical fin angle.
             # finsAoa is the only actuator-angle clamp; it must not also act as
             # a gain on an invented [-1, 1] PID output.
-            requested_fin_angle = clamp(
+            pid_fin_angle = clamp(
                 scheduled_output * schedule.requested_fin_scale,
+                -maximum_fin_angle,
+                maximum_fin_angle,
+            )
+            if not direct_engaged:
+                # IOG tracking above already owns the integral state (and
+                # already fed *this* step's output) whenever direct routing
+                # holds non-trivial authority on this axis.  Otherwise, fall
+                # back to the ordinary anti-windup guard: hold the integral
+                # instead of continuing to accumulate while the fin is
+                # already pinned against travel and the error keeps pushing
+                # the same way (mirrors the cascade path's
+                # saturated/pushing_fin guard above).
+                saturated = abs(pid_fin_angle) >= 0.99 * maximum_fin_angle
+                pushing_fin = error * pid_fin_angle > 0.0
+                if saturated and pushing_fin:
+                    integral = stored_integral
+            # IOG direct fin routing: midcourse_fin_fraction already carries
+            # the blend weight (see guidance.GuidanceOutput), so summing it
+            # with (1-w)*pid_fin_angle blends smoothly from pure PID at w=0
+            # to pure direct routing at w=1 with no double weighting.
+            requested_fin_angle = clamp(
+                direct_fin_angle + (1.0 - mc_weight) * pid_fin_angle,
                 -maximum_fin_angle,
                 maximum_fin_angle,
             )

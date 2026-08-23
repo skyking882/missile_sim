@@ -375,6 +375,77 @@ def test_default_raw_pid_drives_fin_angle() -> None:
     assert updates["commanded_pitch_rate_rad_s"] == 0.0
 
 
+def test_midcourse_tracking_mode_bounds_integral_during_lead_turn() -> None:
+    # Reproduces the shape of the fixed bug: a large (~30 g) command error
+    # held for well over a second while the IOG lead-turn (midcourse_weight=1,
+    # midcourse_fin_fraction=1.0 so pitch is authority-gated "engaged") drives
+    # the fin.  Before this guard, raw Ki*error*dt accumulation would wind
+    # pitch_pid_integral up past 1.5x fin travel over this window; IOG
+    # tracking mode (2026-08c) holds it to actual_fin_angle-P*e-D*deriv,
+    # explicitly clamped to +/-0.35 rad so a derivative kick off the very
+    # first (previous_error=0) step cannot demand a runaway value -- 0.35 is
+    # therefore this axis's deliberate ceiling here, not an incidental bound.
+    config = _config()
+    state = SimState(
+        (0.0, 3000.0, 0.0), (400.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 147.87,
+        measured_pitch_normal_g=0.0,
+    )
+    for _ in range(60):
+        updates = update_control_feedback(
+            state,
+            (30.0, 0.0),
+            config,
+            0.02,
+            enabled=True,
+            midcourse_fin_fraction=(1.0, 0.0),
+            midcourse_weight=1.0,
+        )
+        state = replace(state, **updates)
+        assert abs(state.pitch_pid_integral) <= 0.35 + 1e-9
+        assert abs(state.yaw_pid_integral) <= 0.35 + 1e-9
+
+
+def test_midcourse_full_weight_routes_fin_directly_ignoring_pid() -> None:
+    config = _config()
+    state = SimState(
+        (0.0, 3000.0, 0.0), (400.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 147.87,
+        measured_pitch_normal_g=0.0,
+    )
+    fraction = (0.4, -0.3)
+    # Two wildly different commanded-acceleration errors -- the raw PID would
+    # disagree sharply on what it wants -- but at midcourse_weight=1.0 the
+    # requested fin fraction must come from midcourse_fin_fraction alone.
+    low_error = update_control_feedback(
+        state, (0.0, 0.0), config, 0.02, enabled=True,
+        midcourse_fin_fraction=fraction, midcourse_weight=1.0,
+    )
+    high_error = update_control_feedback(
+        state, (35.0, -35.0), config, 0.02, enabled=True,
+        midcourse_fin_fraction=fraction, midcourse_weight=1.0,
+    )
+    for updates in (low_error, high_error):
+        assert abs(updates["pitch_requested_fin_command"] - fraction[0]) < 1e-9
+        assert abs(updates["yaw_requested_fin_command"] - fraction[1]) < 1e-9
+
+
+def test_midcourse_disabled_matches_plain_pid_fin_angle_bit_for_bit() -> None:
+    config = _config()
+    state = SimState(
+        (0.0, 3000.0, 0.0), (400.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 147.87,
+        measured_pitch_normal_g=0.0,
+    )
+    without_midcourse_args = update_control_feedback(
+        state, (10.0, -5.0), config, 0.02, enabled=True,
+    )
+    with_explicit_zero_weight = update_control_feedback(
+        state, (10.0, -5.0), config, 0.02, enabled=True,
+        midcourse_fin_fraction=(0.0, 0.0), midcourse_weight=0.0,
+    )
+    assert without_midcourse_args == with_explicit_zero_weight
+    assert with_explicit_zero_weight["pitch_pid_output"] != 0.0
+    assert with_explicit_zero_weight["actual_pitch_fin_angle_rad"] != 0.0
+
+
 def test_legacy_rate_inner_discards_pid_state() -> None:
     config = _config(acceleration_outer_rate_inner=True)
     state = SimState(
@@ -715,32 +786,42 @@ def test_off_axis_envelope_with_raw_pid_autopilot() -> None:
     # much of that miss for all four missiles by saturating each one's own
     # reqAccelMax from t=0 instead of waiting on PN's LOS rate to build up;
     # Derby now edges out R-77 for the highest G doing it.
-    for shot in (pl12_80, aam4_80, derby_80, r77_80):
-        assert shot["summary"]["termination_event"] != "proximity_fuse"
-    assert 60.0 < pl12_80["summary"]["minimum_distance_m"] < 140.0
+    # IOG direct fin routing + authority-gated anti-windup (2026-08b) removes
+    # the accelControl PID's own lag/windup from that lead-turn window: the
+    # fin reaches its travel limit immediately instead of chasing a
+    # P/I/D-filtered target, so PL-12 and Derby now close the remaining few
+    # dozen metres to fuse at 80 deg where they used to just miss; AAM-4
+    # (least fin authority) and R-77 still run out the clock, R-77 a little
+    # further out than before.
+    assert pl12_80["summary"]["termination_event"] == "proximity_fuse"
+    assert pl12_80["summary"]["minimum_distance_m"] < 15.0
+    assert aam4_80["summary"]["termination_event"] != "proximity_fuse"
     assert 400.0 < aam4_80["summary"]["minimum_distance_m"] < 750.0
-    assert 15.0 < derby_80["summary"]["minimum_distance_m"] < 45.0
-    assert 30.0 < r77_80["summary"]["minimum_distance_m"] < 80.0
-    assert 30.0 < r77_80["summary"]["maximum_trajectory_normal_g"] < 45.0
+    assert derby_80["summary"]["termination_event"] == "proximity_fuse"
+    assert derby_80["summary"]["minimum_distance_m"] < 15.0
+    assert r77_80["summary"]["termination_event"] != "proximity_fuse"
+    assert 40.0 < r77_80["summary"]["minimum_distance_m"] < 100.0
+    assert 25.0 < r77_80["summary"]["maximum_trajectory_normal_g"] < 45.0
 
     scenario_90 = _off_axis_scenario(90.0)
     pl12_90 = simulate(indexed["cn_pl12"], scenario_90)
     aam4_90 = simulate(indexed["jp_aam4"], scenario_90)
     derby_90 = simulate(indexed["il_derby"], scenario_90)
     r77_90 = simulate(indexed["su_r_77"], scenario_90)
-    # 90 deg: none fuse, as before this change -- the lead-turn saturates
-    # every missile's own acceleration cap immediately (heading error alone is
-    # 90 deg, dwarfing PN) but 8 km/1200 km/h still is not enough room to
-    # close the rest of the way by proximity fuse.  It still cuts every miss
-    # distance roughly 10-90x versus packed-lift alone: PL-12/Derby/R-77 land
-    # in the tens of metres and AAM-4, with the least fin authority of the
-    # four, is the one still missing by more than a kilometre.  R-77 keeps
-    # pulling the most G.
+    # 90 deg: the lead-turn saturates every missile's own acceleration cap
+    # immediately (heading error alone is 90 deg, dwarfing PN) but 8 km/
+    # 1200 km/h is still not enough room for any of the four to close the
+    # rest of the way by proximity fuse.  Derby comes closest (tens of
+    # metres, same as before this change) without quite reaching the fuse
+    # radius.  It still cuts every miss distance roughly 3-90x versus
+    # packed-lift alone: PL-12/Derby/R-77 land within a few hundred metres or
+    # less and AAM-4, with the least fin authority of the four, is the one
+    # still missing by more than a kilometre.
     for shot in (pl12_90, aam4_90, derby_90, r77_90):
         assert shot["summary"]["termination_event"] != "proximity_fuse"
-    assert 60.0 < pl12_90["summary"]["minimum_distance_m"] < 140.0
+    assert 200.0 < pl12_90["summary"]["minimum_distance_m"] < 500.0
     assert 950.0 < aam4_90["summary"]["minimum_distance_m"] < 1400.0
-    assert 20.0 < derby_90["summary"]["minimum_distance_m"] < 55.0
+    assert 10.0 < derby_90["summary"]["minimum_distance_m"] < 30.0
     assert 40.0 < r77_90["summary"]["minimum_distance_m"] < 100.0
 
 

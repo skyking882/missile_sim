@@ -545,6 +545,8 @@ class H2Simulator:
                 feedback_measurement=self.config["control"].get("feedback_measurement", "physical_normal_g"),
                 speed_schedule=speed_schedule,
                 plant_diagnostics=pre_control_diagnostics,
+                midcourse_fin_fraction=guidance.midcourse_fin_fraction,
+                midcourse_weight=guidance.midcourse_weight,
             )
             state_for_step = replace(state, **feedback)
             next_state = rk4_step_h2(

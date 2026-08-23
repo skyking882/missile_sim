@@ -23,7 +23,8 @@
     "turn_time_constant_s": 0.8,
     "lock_delay_s": 0.8,
     "blend_time_s": 0.5,
-    "speed_floor_mps": 200.0
+    "speed_floor_mps": 200.0,
+    "fin_error_ref_rad": 0.15
   },
   "legacy_body_lift": {
     "enabled": true,

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .aerodynamics import body_axes_for_state, cg_wind_normal_basis
-from .math3d import Vector, clamp, clamp_norm, cross, dot, norm, normalize, scale, sub
+from .math3d import Vector, clamp, clamp_norm, cross, dot, limit_unit_disk, norm, normalize, scale, sub
 from .target import TargetState
 from .tracking import TrackMode, TrackSolution
 from .units import deg_to_rad, g_to_mps2, mps2_to_g
@@ -35,6 +35,7 @@ class GuidanceOutput:
     midcourse_weight: float
     heading_error_rad: float
     pip_time_to_go_s: float
+    midcourse_fin_fraction: tuple[float, float]
 
 
 def interpolate_table(x: float, table: list[list[float]]) -> float:
@@ -178,13 +179,30 @@ def midcourse_lead_turn_acceleration(
     missile_velocity: Vector,
     v_hat: Vector,
     midcourse_cfg: dict[str, Any],
-) -> tuple[Vector, float, float]:
-    """Return (acceleration, heading_error_rad, pip_time_to_go_s) for the launch lead-turn candidate.
+    loft_active: bool = False,
+    loft_elevation_rad: float = 0.0,
+) -> tuple[Vector, float, float, Vector]:
+    """Return (acceleration, heading_error_rad, pip_time_to_go_s, e_hat) for the launch lead-turn candidate.
 
     Solves for the predicted intercept point (PIP), then commands a lateral
     acceleration proportional to missile speed and heading error over a turn
     time constant.  Not itself clamped; the caller blends it with PN/loft and
     lets the existing perp-to-v projection and reqAccelMax clamp apply once.
+    ``e_hat`` (the unit direction toward the PIP, normal to v_hat) is also
+    returned so the caller can derive a direct fin-fraction command from the
+    same geometry instead of only the accelerometer-shaped acceleration.
+
+    While the loft program is active the IOG target is not the raw PIP
+    bearing: a level target's PIP sits at (near) constant altitude, so once
+    loft has climbed the missile above it the raw PIP pitch goes *negative*
+    (the target now looks "below"), and the unmodified lead-turn would
+    command pitching down to chase it -- fighting the climb.  d_hat's pitch
+    is floored at the missile's own current pitch (never asked to point
+    below where the missile already is, so there is no downward fight) and
+    capped at loft_elevation_rad (so this never *adds* its own independent
+    climb demand on top of loft's dedicated pitch_error term once the
+    airframe is still short of the loft target -- loft alone owns getting
+    there).  The PIP's own horizontal azimuth is kept unchanged either way.
     """
 
     turn_time_constant_s = float(midcourse_cfg.get("turn_time_constant_s", 0.5))
@@ -194,11 +212,25 @@ def midcourse_lead_turn_acceleration(
     pip_time_to_go_s = solve_pip_time_to_go_s(relative_position, track_velocity, v_bar)
     pip_position = add_vectors(track_position, scale(track_velocity, pip_time_to_go_s))
     d_hat = normalize(sub(pip_position, missile_position), fallback=v_hat)
+    if loft_active:
+        horizontal_hat = normalize((d_hat[0], 0.0, d_hat[2]))
+        pip_pitch_rad = math.asin(clamp(d_hat[1], -1.0, 1.0))
+        current_pitch_rad = math.asin(clamp(v_hat[1], -1.0, 1.0))
+        target_pitch_rad = clamp(
+            max(pip_pitch_rad, current_pitch_rad),
+            -0.5 * math.pi,
+            max(loft_elevation_rad, current_pitch_rad),
+        )
+        d_hat = (
+            horizontal_hat[0] * math.cos(target_pitch_rad),
+            math.sin(target_pitch_rad),
+            horizontal_hat[2] * math.cos(target_pitch_rad),
+        )
     heading_error_rad = math.acos(clamp(dot(d_hat, v_hat), -1.0, 1.0))
     perpendicular = sub(d_hat, scale(v_hat, dot(d_hat, v_hat)))
     e_hat = normalize(perpendicular, fallback=(0.0, 0.0, 0.0))
     acceleration = scale(e_hat, missile_speed * heading_error_rad / turn_time_constant_s)
-    return acceleration, heading_error_rad, pip_time_to_go_s
+    return acceleration, heading_error_rad, pip_time_to_go_s, e_hat
 
 
 def guidance_command(
@@ -256,6 +288,7 @@ def guidance_command(
             midcourse_weight=0.0,
             heading_error_rad=0.0,
             pip_time_to_go_s=0.0,
+            midcourse_fin_fraction=(0.0, 0.0),
         )
     pn_raw, closing, los_rate = pn_acceleration(
         relative_position,
@@ -269,27 +302,16 @@ def guidance_command(
     effective_gain = flight_gain * hit_gain
     pn = scale(pn_raw, effective_gain)
     v_hat = normalize(state.velocity, fallback=body_axes_for_state(state).forward)
-    midcourse_cfg = guidance_cfg.get("midcourse") or {}
-    midcourse_accel, heading_error_rad, pip_time_to_go_s = midcourse_lead_turn_acceleration(
-        relative_position,
-        track.position,
-        track.velocity,
-        state.position,
-        state.velocity,
-        v_hat,
-        midcourse_cfg,
-    )
-    midcourse_weight = midcourse_blend_weight(time_s, midcourse_cfg)
-    midcourse_active = enabled and bool(midcourse_cfg.get("enabled", False))
     loft_active = False
     loft = (0.0, 0.0, 0.0)
+    loft_elevation_rad = 0.0
     if enabled and guidance_cfg.get("lofting_enabled", False):
         exit_distance = float(guidance_cfg.get("loft_exit_distance_m", guidance_cfg["lock_range_m"]))
         exit_tgo = float(guidance_cfg.get("loft_exit_time_to_go_s", 0.0))
         if range_m > exit_distance and time_to_go > exit_tgo:
             loft_active = True
-            desired_pitch = deg_to_rad(guidance_cfg["lofting_elevation_deg"])
-            pitch_error = desired_pitch - float(state.pitch)
+            loft_elevation_rad = deg_to_rad(guidance_cfg["lofting_elevation_deg"])
+            pitch_error = loft_elevation_rad - float(state.pitch)
             loft_g = guidance_cfg["angle_to_acceleration_multiplier"] * pitch_error
             gravity_mps2 = float(config["atmosphere"]["gravity_mps2"])
             # Profile loft: cap the implied pitch rate at omega_max.  Frozen
@@ -303,6 +325,20 @@ def guidance_command(
                 if abs(omega_cmd) > omega_max > 0.0:
                     loft_g = math.copysign(omega_max * speed / gravity_mps2, loft_g)
             loft = (0.0, g_to_mps2(loft_g, gravity_mps2), 0.0)
+    midcourse_cfg = guidance_cfg.get("midcourse") or {}
+    midcourse_accel, heading_error_rad, pip_time_to_go_s, midcourse_e_hat = midcourse_lead_turn_acceleration(
+        relative_position,
+        track.position,
+        track.velocity,
+        state.position,
+        state.velocity,
+        v_hat,
+        midcourse_cfg,
+        loft_active=loft_active,
+        loft_elevation_rad=loft_elevation_rad,
+    )
+    midcourse_weight = midcourse_blend_weight(time_s, midcourse_cfg)
+    midcourse_active = enabled and bool(midcourse_cfg.get("enabled", False))
     midcourse_command = scale(midcourse_accel, midcourse_weight) if midcourse_active else (0.0, 0.0, 0.0)
     commanded = add_vectors(add_vectors(pn, loft), midcourse_command)
     commanded = sub(commanded, scale(v_hat, dot(commanded, v_hat)))
@@ -320,6 +356,22 @@ def guidance_command(
         pip_time_to_go_s = 0.0
         midcourse_weight = 0.0
     axes = body_axes_for_state(state)
+    if midcourse_active and midcourse_weight > 0.0:
+        # Direct IOG fin routing: same PIP lead-turn geometry as the
+        # acceleration term above, projected onto the body pitch/yaw axes and
+        # scaled by how far the heading error sits past fin_error_ref_rad.
+        # Not itself disk-limited by reqAccelMax; it is a fin-travel fraction,
+        # not a specific-force command.
+        fin_error_ref_rad = float(midcourse_cfg.get("fin_error_ref_rad", 0.15))
+        pitch_fin_direction = dot(midcourse_e_hat, axes.up)
+        yaw_fin_direction = dot(midcourse_e_hat, axes.right)
+        fin_error_magnitude = clamp(heading_error_rad / max(fin_error_ref_rad, 1e-9), 0.0, 1.0)
+        midcourse_fin_fraction = limit_unit_disk(
+            pitch_fin_direction * fin_error_magnitude * midcourse_weight,
+            yaw_fin_direction * fin_error_magnitude * midcourse_weight,
+        )
+    else:
+        midcourse_fin_fraction = (0.0, 0.0)
     gravity_mps2 = float(config["atmosphere"]["gravity_mps2"])
     gravity_vector = (0.0, -gravity_mps2, 0.0)
     body_pitch_g = mps2_to_g(dot(commanded, axes.up), gravity_mps2)
@@ -384,6 +436,7 @@ def guidance_command(
         midcourse_weight=midcourse_weight,
         heading_error_rad=heading_error_rad,
         pip_time_to_go_s=pip_time_to_go_s,
+        midcourse_fin_fraction=midcourse_fin_fraction,
     )
 
 
