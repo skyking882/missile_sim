@@ -612,6 +612,20 @@ def forces_for_state_h2(
         fins_g = float(config["aerodynamics"]["fins_lateral_acceleration_g"])
         speed_schedule = base_indicated_speed_schedule(aero.dynamic_pressure_pa, config)
         scheduled_fins_g = fins_g * speed_schedule.fin_force_scale
+        if legacy_fin_torque_plant:
+            # 2026-08 three-flight joint replay fit (PL-12 fast/slow launch +
+            # R-77, 59 frames total; T*sin(alpha)/(m*g) removed from the
+            # displayed G before fitting): the G/alpha slope is a pure line
+            # through the origin in eta_q, R^2=0.97-0.998, with no elbow and
+            # no saturation across eta_q in [0.55, 1.7].  k =
+            # packed_lift_slope_scale * finsLatAccel/finsAoa, where
+            # packed_lift_slope_scale = 0.58 is the fitted 1.08-1.17
+            # g/deg/eta slope divided by each missile's A/alpha_max (which
+            # cluster at 0.56-0.59).  scheduled_fins_g is shared by the
+            # alpha-keyed translation force below and the
+            # pitch/yaw_stiffness_s2 spring, so force and moment keep one
+            # lift slope.
+            scheduled_fins_g *= float(config["aerodynamics"].get("packed_lift_slope_scale", 1.0))
         if body_cm_tail_plant:
             pitch_fin_limit = float(config["control"]["fin_actuator_travel"]["pitch_limit_rad"])
             yaw_fin_limit = float(config["control"]["fin_actuator_travel"]["yaw_limit_rad"])

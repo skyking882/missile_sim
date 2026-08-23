@@ -304,8 +304,8 @@ def test_heading_minus20_case_keeps_aim120a_intercept_under_rate_inner() -> None
 
     for missile_id in ("us_aim_120a", "cn_pl12", "su_r_77"):
         config = indexed[missile_id]["_model_config"]["control"]
-        assert config["pid_output_semantics"] == "body_rate_command_rad_s"
-        assert "candidate_rate_inner_loop" in config
+        assert config["pid_output_semantics"] == "fin_angle_rad"
+        assert "candidate_rate_inner_loop" not in config
     assert results["us_aim_120a"]["summary"]["minimum_distance_m"] < 200.0
 
 

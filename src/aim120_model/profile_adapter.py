@@ -82,6 +82,15 @@ UNIVERSAL_H2_LAYER: dict[str, Any] = {
         "angle_to_acceleration_multiplier": 20.0,
         "flight_time_gain_table": [[0.0, 1.0]],
         "time_to_hit_gain_table": [[10.0, 1.0], [25.0, 0.8], [50.0, 0.5]],
+        "time_to_go_mode": "closing_or_relative_speed",
+        "time_to_go_relative_speed_weight": 1.0,
+        "midcourse_lead_turn": {
+            "enabled": True,
+            "turn_time_constant_s": 0.5,
+            "lock_delay_s": 0.8,
+            "blend_time_s": 0.5,
+            "speed_floor_mps": 200.0,
+        },
     },
     "control": {
         "limit_angle_of_attack_enabled": False,
@@ -262,7 +271,11 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "F_N = m g A η_q disk(α/α_max) with A=finsLatAccel"
         )
         assumptions.append(
-            "candidate path G: a_lat/g = finsLatAccel*(q/q_base)*(alpha/finsAoa) on the unit disk; "
+            "candidate path G: a_lat/g = packed_lift_slope_scale*finsLatAccel*(q/q_base)*(alpha/finsAoa) "
+            "on the unit disk; packed lift slope = 0.58*finsLatAccel*eta_q/finsAoa (three-flight replay "
+            "joint fit 2026-08, R^2>=0.97, thrust-lateral component identified in displayed G; no slope "
+            "saturation observed to eta=1.7; loadFactorMax retained only as untested output cap; "
+            "per-missile vs global scaling of the 0.58 factor pending AAM-4 data). "
             "fin deflection still sets tail moment/bandwidth via distFromCmToStab. "
             "finsAoaHor/Ver is treated as radians. "
             "reqAccelMax radially caps the gravity-compensated specific-force command. "
@@ -281,13 +294,26 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         )
         if bool(defaults.get("acceleration_outer_rate_inner", False)):
             assumptions.append(
-                "candidate controller: ω_cmd = (f_meas+ĝ) g/V + (f_c-f_meas) g/(V τ_p); "
+                "opt-in cascade: ω_cmd = (f_meas+ĝ) g/V + (f_c-f_meas) g/(V τ_p); "
                 "δ_cmd = sat((ω_cmd-ω)/ω_ref)·α_max on the paired disk. "
-                "τ_p and ω_ref default 0.35; path-close integral defaults to 0. "
-                "raw accelControl P/I/D is not added to q_cmd because those "
-                "datamine gains are not (rad/s)/g and are not applied to q_cmd; "
-                "pitch_pid_output telemetry is zeroed"
+                "raw accelControl P/I/D is not added to q_cmd"
             )
+        else:
+            assumptions.append(
+                "default autopilot: datamine accelControl P/I/D output is a fin angle "
+                "in radians, error in g, clamped to finsAoa on the paired disk; "
+                "plant still maps δ→α→G. This is not the shared G-outer/rate-inner cascade"
+            )
+        assumptions.append(
+            "pid_error_units=mps2 was tried and rejected: ×g0 turns the P-term into "
+            "a bang-bang relay (PL-12 linear band ±2.1 g) and a ~5 Hz limit cycle; "
+            "faster actuators made it worse and 4× smaller dt did not change it"
+        )
+        assumptions.append(
+            "timeToHitGain uses t_go = R / max(Vc, κ|V_rel|) with κ=1 so a beam "
+            "geometry cannot inflate t_go and then get chopped by the datamine table; "
+            "the table itself is unchanged datamine truth. Head-on is R/Vc"
+        )
     elif plant_model == BODY_CM_TAIL_FORCE_PLANT:
         assumptions.append(
             "candidate body model: circular Sref, CN_alpha_body=2 rad^-1, lref=caliber, "
@@ -327,6 +353,43 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "generalized candidate has no force station, x_W/k_W, distFromCmToStab, "
             "or finsLatAccel force-to-moment conversion"
         )
+
+    midcourse_lead_turn_defaults = layer_guidance["midcourse_lead_turn"]
+    midcourse_lead_turn_runtime = defaults.get("midcourse_lead_turn") or {}
+    midcourse_lead_turn = {
+        "enabled": bool(
+            midcourse_lead_turn_runtime.get("enabled", midcourse_lead_turn_defaults["enabled"])
+        ),
+        "turn_time_constant_s": _positive_finite(
+            midcourse_lead_turn_runtime.get(
+                "turn_time_constant_s", midcourse_lead_turn_defaults["turn_time_constant_s"]
+            ),
+            "midcourse_lead_turn.turn_time_constant_s",
+        ),
+        "lock_delay_s": _nonnegative_finite(
+            midcourse_lead_turn_runtime.get(
+                "lock_delay_s", midcourse_lead_turn_defaults["lock_delay_s"]
+            ),
+            "midcourse_lead_turn.lock_delay_s",
+        ),
+        "blend_time_s": _positive_finite(
+            midcourse_lead_turn_runtime.get(
+                "blend_time_s", midcourse_lead_turn_defaults["blend_time_s"]
+            ),
+            "midcourse_lead_turn.blend_time_s",
+        ),
+        "speed_floor_mps": _positive_finite(
+            midcourse_lead_turn_runtime.get(
+                "speed_floor_mps", midcourse_lead_turn_defaults["speed_floor_mps"]
+            ),
+            "midcourse_lead_turn.speed_floor_mps",
+        ),
+    }
+    assumptions.append(
+        "midcourse PIP lead-turn is a declared candidate (no datamine field identified); "
+        "IOG+DL→TRK phase structure and near-α_max effort observed in three 2026-08 "
+        "replays; τ_turn/lock/blend calibrated to those replays"
+    )
 
     profile_cx_aoa = aero["cx_vs_aoa"].get("coefficient_per_rad2")
     if profile_cx_aoa is None:
@@ -398,6 +461,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     fin_arm_as_length_fraction = False
     fin_translation_share = 1.0
     stall_cap_enabled = False
+    packed_lift_slope_scale = 1.0
     if plant_model == LEGACY_CRITICAL_DAMPED_PLANT:
         runtime_name = legacy_runtime_name
         body_lift = defaults.get("legacy_body_lift") or {}
@@ -411,8 +475,12 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "legacy_body_lift.fin_translation_share",
         )
         stall_cap_enabled = bool(body_lift.get("stall_cap_enabled", True))
+        packed_lift_slope_scale = _positive_finite(
+            defaults.get("packed_lift_slope_scale", 0.58),
+            "packed_lift_slope_scale",
+        )
         normal_force_model = "body_cn_linear"
-        release_version = "profile-adapter-v27-h2-spec"
+        release_version = "profile-adapter-v28-tgo"
         force_geometry_version = "h2_spec_packed_lift_cm_np_v13"
         plant_semantics = "fin_torque_body_aoa"
         fin_arm_as_length_fraction = False
@@ -628,6 +696,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
                 plant_model == LEGACY_CRITICAL_DAMPED_PLANT and stall_cap_enabled
             ),
             "fin_translation_share": fin_translation_share,
+            "packed_lift_slope_scale": packed_lift_slope_scale,
             "cx_vs_fin_delta": float(defaults.get("cx_vs_fin_delta", 0.0)),
             "cy_k": cn_alpha_per_rad,
             "max_cy_at_aoa": max_cy,
@@ -703,6 +772,17 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "angle_to_acceleration_multiplier": float(layer_guidance["angle_to_acceleration_multiplier"]),
             "flight_time_gain_table": flight_time_gain_table,
             "time_to_hit_gain_table": copy.deepcopy(layer_guidance["time_to_hit_gain_table"]),
+            "time_to_go_mode": str(
+                defaults.get("time_to_go_mode", layer_guidance["time_to_go_mode"])
+            ),
+            "time_to_go_relative_speed_weight": _nonnegative_finite(
+                defaults.get(
+                    "time_to_go_relative_speed_weight",
+                    layer_guidance["time_to_go_relative_speed_weight"],
+                ),
+                "time_to_go_relative_speed_weight",
+            ),
+            "midcourse": midcourse_lead_turn,
         },
         "control": {
             "limit_angle_of_attack_enabled": bool(layer_control["limit_angle_of_attack_enabled"]),
@@ -728,6 +808,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
                 if plant_model == LEGACY_CRITICAL_DAMPED_PLANT and not legacy_rate_inner
                 else "body_rate_command_rad_s"
             ),
+            "pid_error_units": "g",
             "pid_error_scale": 1.0,
             "base_indicated_speed_kmh": base_indicated_speed,
             "base_indicated_speed_mode": (

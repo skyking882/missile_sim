@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .aerodynamics import body_axes_for_state, cg_wind_normal_basis
-from .math3d import Vector, clamp_norm, cross, dot, norm, normalize, scale, sub
+from .math3d import Vector, clamp, clamp_norm, cross, dot, norm, normalize, scale, sub
 from .target import TargetState
 from .tracking import TrackMode, TrackSolution
 from .units import deg_to_rad, g_to_mps2, mps2_to_g
@@ -32,6 +32,9 @@ class GuidanceOutput:
     time_to_go_s: float
     loft_active: bool
     within_lock_range: bool
+    midcourse_weight: float
+    heading_error_rad: float
+    pip_time_to_go_s: float
 
 
 def interpolate_table(x: float, table: list[list[float]]) -> float:
@@ -54,6 +57,8 @@ def interpolate_table(x: float, table: list[list[float]]) -> float:
 NEAR_RANGE_M = 1.0e-6
 NEAR_CLOSING_MPS = 1.0e-6
 NEAR_LOS_RATE = 1.0e-8
+TIME_TO_GO_CLOSING_SPEED = "closing_speed"
+TIME_TO_GO_CLOSING_OR_RELATIVE_SPEED = "closing_or_relative_speed"
 
 
 def _flush_tiny(value: float, floor: float) -> float:
@@ -86,6 +91,114 @@ def pn_acceleration(
         return (0.0, 0.0, 0.0), _flush_tiny(closing, NEAR_CLOSING_MPS), los_rate
     acceleration = scale(cross(los_rate, v_hat), pn_gain * closing)
     return acceleration, closing, los_rate
+
+
+def estimate_time_to_go_s(
+    range_m: float,
+    closing_mps: float,
+    relative_velocity: Vector,
+    config: dict[str, Any],
+) -> float:
+    """Return t_go used by timeToHitGain and loft exit.
+
+    Frozen H1/H2 keep R/Vc.  Profile H2 floors the divisor at κ|V_rel| so a
+    beam shot cannot inflate t_go and then get chopped by the gain table.
+    Head-on is unchanged because |V_rel| ≈ Vc.
+    """
+
+    mode = str(config.get("guidance", {}).get("time_to_go_mode", TIME_TO_GO_CLOSING_SPEED))
+    if mode == TIME_TO_GO_CLOSING_OR_RELATIVE_SPEED:
+        kappa = float(config["guidance"].get("time_to_go_relative_speed_weight", 1.0))
+        if not math.isfinite(kappa) or kappa < 0.0:
+            raise ValueError("guidance.time_to_go_relative_speed_weight must be finite and >= 0")
+        divisor = max(float(closing_mps), kappa * norm(relative_velocity))
+    elif mode == TIME_TO_GO_CLOSING_SPEED:
+        divisor = float(closing_mps)
+    else:
+        raise ValueError(f"unknown time_to_go_mode: {mode}")
+    if divisor <= NEAR_CLOSING_MPS:
+        return 0.0
+    return float(range_m) / divisor
+
+
+def solve_pip_time_to_go_s(
+    relative_position: Vector,
+    target_velocity: Vector,
+    missile_speed_mps: float,
+) -> float:
+    """Solve the collision triangle |R + V_t t| = V_bar t for the smallest positive root.
+
+    ``missile_speed_mps`` is the caller's already speed-floored V_bar; it sets
+    the quadratic's leading coefficient and, via ``max(V_bar, 1)``, the
+    fallback divisor used when the triangle has no positive root (the target
+    outruns the assumed missile speed along the current geometry).
+    """
+
+    v_bar = float(missile_speed_mps)
+    fallback = norm(relative_position) / max(v_bar, 1.0)
+    a = dot(target_velocity, target_velocity) - v_bar * v_bar
+    b = 2.0 * dot(relative_position, target_velocity)
+    c = dot(relative_position, relative_position)
+    roots: list[float] = []
+    if abs(a) <= 1.0e-9:
+        if abs(b) > 1.0e-9:
+            roots.append(-c / b)
+    else:
+        discriminant = b * b - 4.0 * a * c
+        if discriminant >= 0.0:
+            sqrt_discriminant = math.sqrt(discriminant)
+            roots.append((-b + sqrt_discriminant) / (2.0 * a))
+            roots.append((-b - sqrt_discriminant) / (2.0 * a))
+    positive_roots = [root for root in roots if root > 0.0]
+    return min(positive_roots) if positive_roots else fallback
+
+
+def midcourse_blend_weight(time_s: float, midcourse_cfg: dict[str, Any]) -> float:
+    """Return w(t): 1 before lock_delay_s, linear down to 0 across blend_time_s.
+
+    PN stays on the whole flight (it is small early); this weight only keeps
+    the lead-turn term from double-counting once PN has taken over.
+    """
+
+    lock_delay_s = float(midcourse_cfg.get("lock_delay_s", 0.8))
+    blend_time_s = float(midcourse_cfg.get("blend_time_s", 0.5))
+    if time_s < lock_delay_s:
+        return 1.0
+    if blend_time_s <= 0.0:
+        return 0.0
+    fraction = (time_s - lock_delay_s) / blend_time_s
+    return 0.0 if fraction >= 1.0 else 1.0 - fraction
+
+
+def midcourse_lead_turn_acceleration(
+    relative_position: Vector,
+    track_position: Vector,
+    track_velocity: Vector,
+    missile_position: Vector,
+    missile_velocity: Vector,
+    v_hat: Vector,
+    midcourse_cfg: dict[str, Any],
+) -> tuple[Vector, float, float]:
+    """Return (acceleration, heading_error_rad, pip_time_to_go_s) for the launch lead-turn candidate.
+
+    Solves for the predicted intercept point (PIP), then commands a lateral
+    acceleration proportional to missile speed and heading error over a turn
+    time constant.  Not itself clamped; the caller blends it with PN/loft and
+    lets the existing perp-to-v projection and reqAccelMax clamp apply once.
+    """
+
+    turn_time_constant_s = float(midcourse_cfg.get("turn_time_constant_s", 0.5))
+    speed_floor_mps = float(midcourse_cfg.get("speed_floor_mps", 200.0))
+    missile_speed = norm(missile_velocity)
+    v_bar = max(missile_speed, speed_floor_mps)
+    pip_time_to_go_s = solve_pip_time_to_go_s(relative_position, track_velocity, v_bar)
+    pip_position = add_vectors(track_position, scale(track_velocity, pip_time_to_go_s))
+    d_hat = normalize(sub(pip_position, missile_position), fallback=v_hat)
+    heading_error_rad = math.acos(clamp(dot(d_hat, v_hat), -1.0, 1.0))
+    perpendicular = sub(d_hat, scale(v_hat, dot(d_hat, v_hat)))
+    e_hat = normalize(perpendicular, fallback=(0.0, 0.0, 0.0))
+    acceleration = scale(e_hat, missile_speed * heading_error_rad / turn_time_constant_s)
+    return acceleration, heading_error_rad, pip_time_to_go_s
 
 
 def guidance_command(
@@ -140,6 +253,9 @@ def guidance_command(
             time_to_go_s=0.0,
             loft_active=False,
             within_lock_range=False,
+            midcourse_weight=0.0,
+            heading_error_rad=0.0,
+            pip_time_to_go_s=0.0,
         )
     pn_raw, closing, los_rate = pn_acceleration(
         relative_position,
@@ -148,10 +264,23 @@ def guidance_command(
         guidance_cfg["pn_gain"],
     )
     flight_gain = interpolate_table(time_s, guidance_cfg["flight_time_gain_table"])
-    time_to_go = range_m / closing if closing > NEAR_CLOSING_MPS else 0.0
+    time_to_go = estimate_time_to_go_s(range_m, closing, relative_velocity, config)
     hit_gain = interpolate_table(time_to_go, guidance_cfg["time_to_hit_gain_table"])
     effective_gain = flight_gain * hit_gain
     pn = scale(pn_raw, effective_gain)
+    v_hat = normalize(state.velocity, fallback=body_axes_for_state(state).forward)
+    midcourse_cfg = guidance_cfg.get("midcourse") or {}
+    midcourse_accel, heading_error_rad, pip_time_to_go_s = midcourse_lead_turn_acceleration(
+        relative_position,
+        track.position,
+        track.velocity,
+        state.position,
+        state.velocity,
+        v_hat,
+        midcourse_cfg,
+    )
+    midcourse_weight = midcourse_blend_weight(time_s, midcourse_cfg)
+    midcourse_active = enabled and bool(midcourse_cfg.get("enabled", False))
     loft_active = False
     loft = (0.0, 0.0, 0.0)
     if enabled and guidance_cfg.get("lofting_enabled", False):
@@ -174,8 +303,8 @@ def guidance_command(
                 if abs(omega_cmd) > omega_max > 0.0:
                     loft_g = math.copysign(omega_max * speed / gravity_mps2, loft_g)
             loft = (0.0, g_to_mps2(loft_g, gravity_mps2), 0.0)
-    commanded = add_vectors(pn, loft)
-    v_hat = normalize(state.velocity, fallback=body_axes_for_state(state).forward)
+    midcourse_command = scale(midcourse_accel, midcourse_weight) if midcourse_active else (0.0, 0.0, 0.0)
+    commanded = add_vectors(add_vectors(pn, loft), midcourse_command)
     commanded = sub(commanded, scale(v_hat, dot(commanded, v_hat)))
     max_accel = g_to_mps2(
         guidance_cfg["maximum_lateral_acceleration_g"],
@@ -187,6 +316,9 @@ def guidance_command(
         pn = (0.0, 0.0, 0.0)
         loft = (0.0, 0.0, 0.0)
         loft_active = False
+        heading_error_rad = 0.0
+        pip_time_to_go_s = 0.0
+        midcourse_weight = 0.0
     axes = body_axes_for_state(state)
     gravity_mps2 = float(config["atmosphere"]["gravity_mps2"])
     gravity_vector = (0.0, -gravity_mps2, 0.0)
@@ -249,6 +381,9 @@ def guidance_command(
         time_to_go_s=time_to_go,
         loft_active=loft_active,
         within_lock_range=range_m <= guidance_cfg["lock_range_m"],
+        midcourse_weight=midcourse_weight,
+        heading_error_rad=heading_error_rad,
+        pip_time_to_go_s=pip_time_to_go_s,
     )
 
 

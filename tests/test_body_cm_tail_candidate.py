@@ -113,18 +113,9 @@ def test_candidate_adapter_is_selectable_without_changing_frozen_control_inputs(
     assert legacy["runtime_adapter"] == "profile_h2_fin_torque_aoa_v12"
     assert legacy["model_label"] == "us_aim_120a_profile_h2_fin_torque_aoa_v12"
     assert candidate["control"]["pid_error_scale"] == 1.0
-    assert legacy["control"]["pid_output_semantics"] == "body_rate_command_rad_s"
+    assert legacy["control"]["pid_output_semantics"] == "fin_angle_rad"
     assert candidate["control"]["pid_output_semantics"] == "body_rate_command_rad_s"
-    assert legacy["control"]["candidate_rate_inner_loop"] == {
-        "time_constant_s": 0.04,
-        "path_rate_time_constant_s": 0.35,
-        "rate_error_for_full_fin_rad_s": 0.35,
-        "path_close_integral_gain_per_s": 0.0,
-        "path_close_integral_limit_g_s": 20.0,
-        "outer_pid_output_semantics": "body_rate_command_rad_s",
-        "inner_loop_semantics": "proportional_rate_error_to_profile_fin_fraction_shared_omega_ref",
-        "source": "shared_unsupported_candidate_assumption",
-    }
+    assert "candidate_rate_inner_loop" not in legacy["control"]
     assert candidate["control"]["candidate_rate_inner_loop"] == {
         "time_constant_s": 0.1,
         "outer_pid_output_semantics": "body_rate_command_rad_s",

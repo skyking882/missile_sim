@@ -3,7 +3,7 @@
   "runtime_name": "profile_h2_fin_torque_aoa_v12",
   "enable_supported_profiles": true,
   "plant_model": "critical_damped_v12",
-  "acceleration_outer_rate_inner": true,
+  "acceleration_outer_rate_inner": false,
   "body_rate_inner_loop_time_constant_s": 0.04,
   "path_rate_time_constant_s": 0.35,
   "path_close_integral_gain_per_s": 0.0,
@@ -11,9 +11,20 @@
   "rate_error_for_full_fin_rad_s": 0.35,
   "fin_force_q_scaling": true,
   "fin_force_q_ratio_max": 4.0,
+  "packed_lift_slope_scale": 0.58,
   "shared_base_indicated_speed_kmh": 1800.0,
   "cx_vs_fin_delta": 0.0,
   "drag_shape_mode": "interpolated_cx_1943_x1_10",
+  "pid_error_units": "g",
+  "time_to_go_mode": "closing_or_relative_speed",
+  "time_to_go_relative_speed_weight": 1.0,
+  "midcourse_lead_turn": {
+    "enabled": true,
+    "turn_time_constant_s": 0.8,
+    "lock_delay_s": 0.8,
+    "blend_time_s": 0.5,
+    "speed_floor_mps": 200.0
+  },
   "legacy_body_lift": {
     "enabled": true,
     "cn_alpha_per_rad": 2.0,
@@ -38,5 +49,5 @@
     "cm_alpha_dot": 0.0,
     "body_rate_inner_loop_time_constant_s": 0.1
   },
-  "boundary": "H2 spec plant: packed lift F_N = m g A η_q disk(α/α_max), loadFactorMax caps F_N only; I=m L^2/12, I ω̇ = K(δ-α)-Cω with K=N'Δ, C=2√(KI), ζ=1; outer ω_cmd = (f_meas+ĝ)g/V+(f_c-f_meas)g/(V τ_p), inner δ_cmd=sat((ω_cmd-ω)/ω_ref) α_max on the paired disk, τ_p=ω_ref=0.35, no path-close integral; CdA0 = S_w·CxK·C_et(M) interpolated 1943-law*1.10, CdA_α = S_d·CxAoA·min(α,1.2)^2 with S_d=πd²/4 and no Mach shape, optional CdA_δ default 0; missing baseIndSpeed uses shared 1800 km/h, η_q capped at 4; reqAccelMax caps the gravity-compensated specific-force command. Not an end-to-end validation or game-solver reproduction."
+  "boundary": "H2 spec plant: packed lift slope = 0.58·finsLatAccel·η_q/finsAoa, linear in η_q with no elbow or saturation observed from η=0.55 to 1.7 (three-flight PL-12 fast/slow-launch + R-77 replay joint fit 2026-08, 59 frames, R²=0.97–0.998, thrust-lateral component T·sinα/(m·g) removed from the displayed G before fitting); loadFactorMax is retained only as an untested F_N output cap, not a slope elbow; I=m L^2/12, I ω̇ = K(δ-α)-Cω with K=N'Δ, C=2√(KI), ζ=1. Default autopilot is datamine accelControl PID → fin angle (v12) with error in g (pid_error_scale=1). pid_error_units=mps2 was tested and rejected: ×g0 makes a bang-bang relay and a ~5 Hz G limit cycle; faster actuators made it worse and 4× smaller dt did not change it. timeToHitGain t_go = R/max(Vc, |V_rel|) so beam shots cannot inflate t_go. The shared G-outer/rate-inner cascade remains an opt-in candidate. CdA0 = S_w·CxK·C_et(M) interpolated 1943-law*1.10, CdA_α = S_d·CxAoA·min(α,1.2)^2 with S_d=πd²/4 and no Mach shape, optional CdA_δ default 0; missing baseIndSpeed uses shared 1800 km/h, η_q capped at 4; reqAccelMax caps the gravity-compensated specific-force command. Midcourse PIP lead-turn (IOG+DL→TRK launch heading catch-up) is a declared candidate absent from the datamine; τ_turn=0.8 s (fit within the declared 0.3-0.8 s range to the PL-12 30° slow-launch replay; lock_delay_s=0.8, blend_time_s=0.5 kept at the declared default) and the term self-fades as heading error closes. Not an end-to-end validation or game-solver reproduction."
 }

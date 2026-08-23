@@ -68,6 +68,13 @@ def test_fin_torque_plant_uses_delta_for_translation_and_incidence_for_moment():
     fins_g = float(config["aerodynamics"]["fins_lateral_acceleration_g"])
     fin_limit = math.radians(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
     delta = 0.1
+    # 2026-08 three-flight replay fit (PL-12 fast/slow + R-77, 59 frames):
+    # packed lift slope is packed_lift_slope_scale*finsLatAccel with no
+    # loadFactorMax elbow.  This frozen config declares no
+    # aerodynamics.packed_lift_slope_scale, so the h2_dynamics.py default of
+    # 1.0 applies and the slope stays unscaled.
+    assert "packed_lift_slope_scale" not in config["aerodynamics"]
+    effective_fins_g = fins_g
 
     fin_only = SimState(
         (0.0, 3000.0, 0.0),
@@ -76,7 +83,7 @@ def test_fin_torque_plant_uses_delta_for_translation_and_incidence_for_moment():
         actual_pitch_fin_angle_rad=delta,
     )
     fin_only_diagnostics = forces_for_state_h2(fin_only, 0.0, config, propulsion, powered=False)
-    expected_g = fins_g * delta / fin_limit
+    expected_g = effective_fins_g * delta / fin_limit
     assert abs(fin_only_diagnostics.trajectory_pitch_normal_acceleration_g - expected_g) < 1e-6
     assert fin_only_diagnostics.pitch_angular_acceleration_rad_s2 > 0.0
     assert fin_only_diagnostics.pitch_fin_moment_equivalent_g > 0.0
@@ -174,8 +181,15 @@ def test_fin_torque_plant_spring_is_delta_minus_alpha_with_critical_damping():
     ) < 1e-12
     inertia_per_mass = config["geometry"]["length_m"] ** 2 / 12.0
     fin_limit = math.radians(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
+    # 2026-08 three-flight replay fit: force and moment still share one lift
+    # slope (scheduled_fins_g), but that slope is now
+    # packed_lift_slope_scale*finsLatAccel with no loadFactorMax elbow.  This
+    # frozen config declares no aerodynamics.packed_lift_slope_scale, so it
+    # stays unscaled.
+    assert "packed_lift_slope_scale" not in config["aerodynamics"]
+    effective_fins_g = float(config["aerodynamics"]["fins_lateral_acceleration_g"])
     expected_stiffness = (
-        config["aerodynamics"]["fins_lateral_acceleration_g"]
+        effective_fins_g
         * config["atmosphere"]["gravity_mps2"]
         * config["aerodynamics"]["distance_cm_to_stabilizer_m"]
         / (inertia_per_mass * fin_limit)

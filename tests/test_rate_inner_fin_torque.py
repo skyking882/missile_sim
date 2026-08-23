@@ -14,6 +14,7 @@ from aim120_model.h2_dynamics import _uses_quaternion_candidate, forces_for_stat
 from aim120_model.h2_simulator import H2Simulator
 from aim120_model.target import TargetState
 from aim120_model.profile_adapter import (
+    BODY_CM_TAIL_FORCE_PLANT,
     LEGACY_CRITICAL_DAMPED_PLANT,
     build_h2_candidate_config,
 )
@@ -50,16 +51,19 @@ def test_fin_torque_adapter_enables_body_cn_alpha() -> None:
     config = _config()
     assert config["force_geometry_version"] == "h2_spec_packed_lift_cm_np_v13"
     assert config["runtime_adapter"] == "profile_h2_fin_torque_aoa_v12"
-    assert config["release_version"] == "profile-adapter-v27-h2-spec"
+    assert config["release_version"] == "profile-adapter-v28-tgo"
+    assert config["control"]["pid_error_units"] == "g"
+    assert config["control"]["pid_error_scale"] == 1.0
+    assert config["guidance"]["time_to_go_mode"] == "closing_or_relative_speed"
+    assert config["guidance"]["time_to_go_relative_speed_weight"] == 1.0
     assert config["drag_model"]["shape_mode"] == "interpolated_cx_1943_x1_10"
     assert config["drag_model"]["alpha_drag_area_basis_mode"] == "caliber_area"
     assert config["drag_model"]["alpha_drag_mach_shape"] is False
     assert config["performance"]["load_factor_max_g"] == 35.0
     assert config["aerodynamics"]["path_g_from_alpha"] is True
     assert config["aerodynamics"]["path_g_scales_with_arm_times_length"] is False
-    assert config["control"]["candidate_rate_inner_loop"]["path_rate_time_constant_s"] == 0.35
-    assert config["control"]["candidate_rate_inner_loop"]["path_close_integral_gain_per_s"] == 0.0
-    assert config["control"]["candidate_rate_inner_loop"]["rate_error_for_full_fin_rad_s"] == 0.35
+    assert config["control"]["pid_output_semantics"] == "fin_angle_rad"
+    assert "candidate_rate_inner_loop" not in config["control"]
     assert not config["aerodynamics"].get("fin_arm_as_length_fraction")
     assert "path_g_scales_with_wing_area_multiplier" not in config["aerodynamics"]
     assert config["control"]["base_indicated_speed_mode"] == "fin_authority_q"
@@ -178,7 +182,11 @@ def test_path_g_follows_alpha_over_fins_aoa() -> None:
     )
     scale = base_indicated_speed_schedule(diagnostics.aero.dynamic_pressure_pa, config).fin_force_scale
     fins_g = float(config["aerodynamics"]["fins_lateral_acceleration_g"])
-    expected = fins_g * scale * (diagnostics.aero.pitch_alpha_rad / limit)
+    # 2026-08 three-flight replay fit: packed lift slope is
+    # packed_lift_slope_scale*finsLatAccel (0.58), pure linear in eta_q/alpha
+    # with no loadFactorMax elbow.
+    slope_scale = float(config["aerodynamics"]["packed_lift_slope_scale"])
+    expected = slope_scale * fins_g * scale * (diagnostics.aero.pitch_alpha_rad / limit)
     assert diagnostics.aero.pitch_alpha_rad > 0.0
     assert abs(diagnostics.pitch_body_aoa_force_g) < 0.05
     assert abs(diagnostics.trajectory_pitch_normal_acceleration_g - expected) < 0.15
@@ -189,8 +197,14 @@ def test_path_g_scales_with_dynamic_pressure_ratio() -> None:
     assert config["control"]["base_indicated_speed_mode"] == "fin_authority_q"
     limit = math.radians(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
     fins_g = float(config["aerodynamics"]["fins_lateral_acceleration_g"])
+    load_cap = float(config["performance"]["load_factor_max_g"])
+    slope_scale = float(config["aerodynamics"]["packed_lift_slope_scale"])
     fraction = 0.5
-    g0 = fins_g * fraction
+    # 2026-08 three-flight replay fit: the G/alpha slope is
+    # slope_scale*finsLatAccel*eta_q/finsAoa with no elbow, so g0 tracks the
+    # scaled slope at eta_q=1.0 directly rather than a loadFactorMax-capped
+    # authority.
+    g0 = slope_scale * fins_g * fraction
     v_base = float(config["control"]["base_indicated_speed_kmh"]) / 3.6
     propulsion = PiecewisePropulsion.from_config(config)
 
@@ -202,24 +216,31 @@ def test_path_g_scales_with_dynamic_pressure_ratio() -> None:
         )
         return forces_for_state_h2(state, 0.0, config, propulsion, powered=False)
 
-    at_base = _at_alpha(v_base, 0.0)
+    quarter_speed = _at_alpha(0.25 * v_base, 0.0)
     half_speed = _at_alpha(0.5 * v_base, 0.0)
+    at_base = _at_alpha(v_base, 0.0)
     twice_speed = _at_alpha(2.0 * v_base, 0.0)
     over_cap = _at_alpha(3.0 * v_base, 0.0)
     high = _at_alpha(v_base, 12000.0)
     assert abs(at_base.trajectory_pitch_normal_acceleration_g - g0) < 0.2
     assert abs(at_base.aero.dynamic_pressure_pa / half_speed.aero.dynamic_pressure_pa - 4.0) < 1e-6
+    # Quadratic q scaling holds with no elbow anywhere below the loadFactorMax
+    # radial s_cap; quarter/half (eta 0.0625/0.25) stay well under it.
     assert abs(
-        at_base.trajectory_pitch_normal_acceleration_g
-        / half_speed.trajectory_pitch_normal_acceleration_g
+        half_speed.trajectory_pitch_normal_acceleration_g
+        / quarter_speed.trajectory_pitch_normal_acceleration_g
         - 4.0
     ) < 0.1
-    load_cap = float(config["performance"]["load_factor_max_g"])
     assert twice_speed.trajectory_lateral_load_g <= load_cap + 1e-6
     assert over_cap.trajectory_lateral_load_g <= load_cap + 1e-6
-    assert twice_speed.trajectory_pitch_normal_acceleration_g <= load_cap + 0.3
-    assert over_cap.trajectory_pitch_normal_acceleration_g <= load_cap + 0.3
-    assert 4.0 * g0 > load_cap
+    # base_indicated_speed_ratio_max=4.0 caps eta_q itself at twice_speed and
+    # beyond (2**2=4, 3**2=9 -> clipped to 4), and slope_scale*fins_g*eta_q*
+    # fraction = 0.58*41.4036*4.0*0.5 = 48.0 there exceeds loadFactorMax, so
+    # the downstream loadFactorMax radial s_cap -- not a slope elbow -- pins
+    # both twice_speed and over_cap to load_cap exactly.
+    assert abs(twice_speed.trajectory_pitch_normal_acceleration_g - load_cap) < 0.05
+    assert abs(over_cap.trajectory_pitch_normal_acceleration_g - load_cap) < 0.05
+    assert slope_scale * fins_g * 4.0 * fraction > load_cap
     assert high.trajectory_pitch_normal_acceleration_g < at_base.trajectory_pitch_normal_acceleration_g * 0.5
 
 
@@ -237,7 +258,10 @@ def test_plant_path_g_is_not_clamped_to_req_accel_max() -> None:
     scale = base_indicated_speed_schedule(
         diagnostics.aero.dynamic_pressure_pa, config
     ).fin_force_scale
-    expected = fins_g * scale * (diagnostics.aero.pitch_alpha_rad / limit)
+    # 2026-08 three-flight replay fit: packed lift slope is
+    # packed_lift_slope_scale*finsLatAccel (0.58), pure linear with no elbow.
+    slope_scale = float(config["aerodynamics"]["packed_lift_slope_scale"])
+    expected = slope_scale * fins_g * scale * (diagnostics.aero.pitch_alpha_rad / limit)
     assert abs(diagnostics.trajectory_pitch_normal_acceleration_g - expected) < 0.2
     assert abs(diagnostics.trajectory_pitch_normal_acceleration_g - req_accel_max) > 1.0
     assert diagnostics.trajectory_lateral_load_g <= float(config["performance"]["load_factor_max_g"]) + 1e-6
@@ -295,9 +319,23 @@ def test_path_g_at_equal_alpha_fraction_follows_fins_lat_accel_not_arm() -> None
     pl12_scale = base_indicated_speed_schedule(pl12_diag.aero.dynamic_pressure_pa, pl12).fin_force_scale
     aam4_scale = base_indicated_speed_schedule(aam4_diag.aero.dynamic_pressure_pa, aam4).fin_force_scale
     derby_scale = base_indicated_speed_schedule(derby_diag.aero.dynamic_pressure_pa, derby).fin_force_scale
-    assert abs(pl12_diag.trajectory_pitch_normal_acceleration_g - 41.4036 * fraction * pl12_scale) < 0.3
-    assert abs(aam4_diag.trajectory_pitch_normal_acceleration_g - 32.1114 * fraction * aam4_scale) < 0.3
-    assert abs(derby_diag.trajectory_pitch_normal_acceleration_g - 46.7469 * fraction * derby_scale) < 0.3
+    # 2026-08 three-flight replay fit: packed lift slope is
+    # packed_lift_slope_scale*finsLatAccel (0.58), pure linear with no elbow.
+    pl12_slope_scale = float(pl12["aerodynamics"]["packed_lift_slope_scale"])
+    aam4_slope_scale = float(aam4["aerodynamics"]["packed_lift_slope_scale"])
+    derby_slope_scale = float(derby["aerodynamics"]["packed_lift_slope_scale"])
+    assert abs(
+        pl12_diag.trajectory_pitch_normal_acceleration_g
+        - pl12_slope_scale * 41.4036 * fraction * pl12_scale
+    ) < 0.3
+    assert abs(
+        aam4_diag.trajectory_pitch_normal_acceleration_g
+        - aam4_slope_scale * 32.1114 * fraction * aam4_scale
+    ) < 0.3
+    assert abs(
+        derby_diag.trajectory_pitch_normal_acceleration_g
+        - derby_slope_scale * 46.7469 * fraction * derby_scale
+    ) < 0.3
     assert derby_diag.trajectory_pitch_normal_acceleration_g > pl12_diag.trajectory_pitch_normal_acceleration_g
     assert pl12_diag.trajectory_pitch_normal_acceleration_g > aam4_diag.trajectory_pitch_normal_acceleration_g
     assert abs(aam4_diag.pitch_angular_acceleration_rad_s2) > abs(pl12_diag.pitch_angular_acceleration_rad_s2)
@@ -312,10 +350,33 @@ def test_runtime_flag_selects_rate_inner_without_changing_raw_pid() -> None:
     assert disabled["control"]["pid_output_semantics"] == "fin_angle_rad"
     assert "candidate_rate_inner_loop" not in disabled["control"]
     assert enabled["control_model_version"] == "spec_g_outer_rate_inner_v15"
+    assert disabled["control_model_version"] == (
+        "raw_pid_fin_angle_tail_force_moment_body_cn_derived_critical_damping_v12"
+    )
+
+
+def test_default_raw_pid_drives_fin_angle() -> None:
+    config = _config()
+    assert config["control"]["pid_output_semantics"] == "fin_angle_rad"
+    state = SimState(
+        (0.0, 3000.0, 0.0),
+        (400.0, 0.0, 0.0),
+        0.0, 0.0, 0.0, 0.0, 147.87,
+        measured_pitch_normal_g=0.0,
+    )
+    diagnostics = forces_for_state_h2(
+        state, 0.0, config, PiecewisePropulsion.from_config(config), powered=False
+    )
+    updates = update_control_feedback(
+        state, (10.0, 0.0), config, 0.02, enabled=True, plant_diagnostics=diagnostics
+    )
+    assert updates["pitch_pid_output"] != 0.0
+    assert updates["actual_pitch_fin_angle_rad"] != 0.0
+    assert updates["commanded_pitch_rate_rad_s"] == 0.0
 
 
 def test_legacy_rate_inner_discards_pid_state() -> None:
-    config = _config()
+    config = _config(acceleration_outer_rate_inner=True)
     state = SimState(
         (0.0, 3000.0, 0.0),
         (400.0, 0.0, 0.0),
@@ -338,7 +399,7 @@ def test_legacy_rate_inner_discards_pid_state() -> None:
     assert errors == []
     indexed = {profile["missile_id"]: profile for profile in profiles}
     result = simulate(indexed["us_aim_120a"], _off_axis_scenario(10.0, time_s=1.0))
-    assert result["samples"][0]["pid_output_applied"] is False
+    assert result["samples"][0]["pid_output_applied"] is True
 
 
 def test_profile_can_override_rate_loop_time_constants() -> None:
@@ -347,7 +408,9 @@ def test_profile_can_override_rate_loop_time_constants() -> None:
     profile["control"]["rate_error_for_full_fin_rad_s"] = 0.2
     profile["control"]["path_close_integral_gain_per_s"] = 2.0
     profile["control"]["path_close_integral_limit_g_s"] = 8.0
-    config, assumptions = build_h2_candidate_config(profile, _defaults())
+    config, assumptions = build_h2_candidate_config(
+        profile, _defaults(acceleration_outer_rate_inner=True)
+    )
     loop = config["control"]["candidate_rate_inner_loop"]
     assert loop["path_rate_time_constant_s"] == 0.5
     assert loop["rate_error_for_full_fin_rad_s"] == 0.2
@@ -358,7 +421,7 @@ def test_profile_can_override_rate_loop_time_constants() -> None:
     assert all("path_close_integral_gain_per_s missing" not in item for item in assumptions)
     missing, missing_assumptions = build_h2_candidate_config(
         json.loads((ROOT / "missiles" / "us_aim_120a.json").read_text(encoding="utf-8")),
-        _defaults(),
+        _defaults(acceleration_outer_rate_inner=True),
     )
     assert missing["control"]["candidate_rate_inner_loop"]["path_rate_time_constant_s"] == 0.35
     assert missing["control"]["candidate_rate_inner_loop"]["path_close_integral_gain_per_s"] == 0.0
@@ -367,7 +430,7 @@ def test_profile_can_override_rate_loop_time_constants() -> None:
 
 
 def _pitch_close_step(command_g: float, ki: float, stored_integral: float = 0.0) -> dict[str, float]:
-    config = _config()
+    config = _config(acceleration_outer_rate_inner=True)
     config["control"]["candidate_rate_inner_loop"]["path_close_integral_gain_per_s"] = ki
     state = SimState(
         (0.0, 3000.0, 0.0),
@@ -386,7 +449,7 @@ def _pitch_close_step(command_g: float, ki: float, stored_integral: float = 0.0)
 
 def test_path_close_integral_adds_to_rate_after_first_step() -> None:
     gravity = 9.80665
-    path_tau = _config()["control"]["candidate_rate_inner_loop"]["path_rate_time_constant_s"]
+    path_tau = _config(acceleration_outer_rate_inner=True)["control"]["candidate_rate_inner_loop"]["path_rate_time_constant_s"]
     hold_rate = (0.0 - 1.0) * gravity / 400.0
     close_p = 2.0 * gravity / 400.0 / path_tau
     first = _pitch_close_step(2.0, ki=2.0)
@@ -406,7 +469,7 @@ def test_path_close_integral_freezes_when_fins_saturated() -> None:
 
 
 def test_fin_torque_rate_inner_uses_g_error_to_command_body_rate() -> None:
-    config = _config()
+    config = _config(acceleration_outer_rate_inner=True)
     config["control"]["pid"].update({"p": 0.0, "i": 0.0, "d": 0.0})
     state = SimState(
         (0.0, 3000.0, 0.0),
@@ -514,7 +577,7 @@ def test_level_glide_specific_force_hold_bounds_altitude_drop() -> None:
 
 
 def test_opposing_body_rate_reduces_fin_demand() -> None:
-    config = _config()
+    config = _config(acceleration_outer_rate_inner=True)
     base = SimState(
         (0.0, 3000.0, 0.0),
         (400.0, 0.0, 0.0),
@@ -580,18 +643,20 @@ def _heading_at(samples: list[dict], time_s: float) -> float:
     return abs(_heading_deg(samples[-1]) - origin)
 
 
-def test_rate_inner_lets_r77_out_turn_pl12_at_90_deg_off_axis() -> None:
+def test_raw_pid_r77_catches_heading_faster_than_pl12_at_90_deg() -> None:
     profiles, errors = scan_library(ROOT / "missiles", ROOT)
     assert errors == []
     indexed = {profile["missile_id"]: profile for profile in profiles}
     scenario = _off_axis_scenario(90.0, time_s=20.0)
     pl12 = simulate(indexed["cn_pl12"], scenario)
     r77 = simulate(indexed["su_r_77"], scenario)
-    pl12_g = max(float(sample["trajectory_lateral_load_g"]) for sample in pl12["samples"])
-    r77_g = max(float(sample["trajectory_lateral_load_g"]) for sample in r77["samples"])
-    # Path G follows finsLatAccel, not arm.  R-77 still out-loads PL-12 and
-    # the longer R-77 arm shows up as a faster heading catch at 1 s.
-    assert r77_g > pl12_g
+    # Default v12 PID → δ.  PL-12 P=0.0181 is hotter than R-77 P=0.0076, but at
+    # 90 deg the midcourse PIP lead-turn (heading error alone is 90 deg, dwarfing
+    # PN) saturates both missiles' commanded acceleration at their own
+    # reqAccelMax from t=0, so raw-PID hotness no longer has headroom to set the
+    # early pace.  R-77's higher reqAccelMax/finsLatAccel (50 g/53.6 vs 38 g/41.4)
+    # wins the race once both are pinned at their own ceiling.
+    assert indexed["cn_pl12"]["control"]["pid"]["p"] > indexed["su_r_77"]["control"]["pid"]["p"]
     assert _heading_at(r77["samples"], 1.0) > _heading_at(pl12["samples"], 1.0)
 
 
@@ -617,12 +682,20 @@ def test_statshark_8km_40deg_straight_x_both_fuse_with_q_scale() -> None:
     }
     pl12 = simulate(indexed["cn_pl12"], scenario)["summary"]
     r77 = simulate(indexed["su_r_77"], scenario)["summary"]
-    # Straight 40 deg still fuses after restoring q/q_base on fin force.
-    assert r77["termination_event"] == "proximity_fuse"
+    # 2026-08 three-flight replay fit softens every missile's packed-lift
+    # slope by packed_lift_slope_scale=0.58 with no compensating per-missile
+    # retune (it is a single global knob), which had left R-77 passing within
+    # ~11 m of the fuse radius instead of fusing.  The midcourse PIP lead-turn
+    # (also a 2026-08 replay candidate) recovers that gap: it saturates R-77's
+    # early turn well before PN would take over, so both missiles now close to
+    # the proximity fuse on this shot.
     assert pl12["termination_event"] == "proximity_fuse"
+    assert pl12["minimum_distance_m"] < 15.0
+    assert r77["termination_event"] == "proximity_fuse"
+    assert r77["minimum_distance_m"] < 15.0
 
 
-def test_off_axis_envelope_follows_packed_lift_and_r77_reaches_90_deg() -> None:
+def test_off_axis_envelope_with_raw_pid_autopilot() -> None:
     profiles, errors = scan_library(ROOT / "missiles", ROOT)
     assert errors == []
     indexed = {profile["missile_id"]: profile for profile in profiles}
@@ -631,25 +704,44 @@ def test_off_axis_envelope_follows_packed_lift_and_r77_reaches_90_deg() -> None:
     aam4_80 = simulate(indexed["jp_aam4"], scenario_80)
     derby_80 = simulate(indexed["il_derby"], scenario_80)
     r77_80 = simulate(indexed["su_r_77"], scenario_80)
-    # Packed lift follows finsLatAccel, so Derby out-turns AAM-4 on heading.
-    # Spec τ_p=0.35 without a path-close integral is slower than the previous
-    # calibrated D-loop; 80/90 deg 8 km now only fuses for R-77.
-    assert r77_80["summary"]["termination_event"] == "proximity_fuse"
-    assert aam4_80["summary"]["termination_event"] != "proximity_fuse"
-    assert derby_80["summary"]["termination_event"] != "proximity_fuse"
-    assert pl12_80["summary"]["termination_event"] != "proximity_fuse"
-    assert _heading_at(derby_80["samples"], 1.0) > _heading_at(aam4_80["samples"], 1.0)
-    assert _heading_at(r77_80["samples"], 1.0) > _heading_at(pl12_80["samples"], 1.0)
+    # t_go = R/max(Vc,|V_rel|) stops the timeToHitGain death spiral.
+    # Error stays in g: mps2 was a bang-bang relay and is rejected.
+    # 2026-08 three-flight replay fit: packed_lift_slope_scale=0.58 softens
+    # every missile's packed-lift slope uniformly (a single global knob, not
+    # a per-missile retune), so the 80 deg / 8 km shot that used to fuse for
+    # PL-12/AAM-4 misses for all four on packed-lift alone; none reach
+    # proximity_fuse and the scenario runs out the clock instead.  The
+    # midcourse PIP lead-turn (also a 2026-08 replay candidate) then recovers
+    # much of that miss for all four missiles by saturating each one's own
+    # reqAccelMax from t=0 instead of waiting on PN's LOS rate to build up;
+    # Derby now edges out R-77 for the highest G doing it.
+    for shot in (pl12_80, aam4_80, derby_80, r77_80):
+        assert shot["summary"]["termination_event"] != "proximity_fuse"
+    assert 60.0 < pl12_80["summary"]["minimum_distance_m"] < 140.0
+    assert 400.0 < aam4_80["summary"]["minimum_distance_m"] < 750.0
+    assert 15.0 < derby_80["summary"]["minimum_distance_m"] < 45.0
+    assert 30.0 < r77_80["summary"]["minimum_distance_m"] < 80.0
+    assert 30.0 < r77_80["summary"]["maximum_trajectory_normal_g"] < 45.0
 
     scenario_90 = _off_axis_scenario(90.0)
     pl12_90 = simulate(indexed["cn_pl12"], scenario_90)
     aam4_90 = simulate(indexed["jp_aam4"], scenario_90)
     derby_90 = simulate(indexed["il_derby"], scenario_90)
     r77_90 = simulate(indexed["su_r_77"], scenario_90)
-    assert r77_90["summary"]["termination_event"] == "proximity_fuse"
-    assert aam4_90["summary"]["termination_event"] != "proximity_fuse"
-    assert derby_90["summary"]["termination_event"] != "proximity_fuse"
-    assert pl12_90["summary"]["termination_event"] != "proximity_fuse"
+    # 90 deg: none fuse, as before this change -- the lead-turn saturates
+    # every missile's own acceleration cap immediately (heading error alone is
+    # 90 deg, dwarfing PN) but 8 km/1200 km/h still is not enough room to
+    # close the rest of the way by proximity fuse.  It still cuts every miss
+    # distance roughly 10-90x versus packed-lift alone: PL-12/Derby/R-77 land
+    # in the tens of metres and AAM-4, with the least fin authority of the
+    # four, is the one still missing by more than a kilometre.  R-77 keeps
+    # pulling the most G.
+    for shot in (pl12_90, aam4_90, derby_90, r77_90):
+        assert shot["summary"]["termination_event"] != "proximity_fuse"
+    assert 60.0 < pl12_90["summary"]["minimum_distance_m"] < 140.0
+    assert 950.0 < aam4_90["summary"]["minimum_distance_m"] < 1400.0
+    assert 20.0 < derby_90["summary"]["minimum_distance_m"] < 55.0
+    assert 40.0 < r77_90["summary"]["minimum_distance_m"] < 100.0
 
 
 def test_pl12_spec_identities_at_q_base() -> None:
@@ -678,11 +770,20 @@ def test_pl12_spec_identities_at_q_base() -> None:
     diagnostics = forces_for_state_h2(
         state, 0.0, config, PiecewisePropulsion.from_config(config), powered=False
     )
+    # 2026-08 three-flight replay fit: the G/alpha slope is pure linear in
+    # eta_q with no loadFactorMax elbow, so at q_base (eta_q=1.0) the spring
+    # (and full-alpha G) uses packed_lift_slope_scale*finsLatAccel =
+    # 0.58*41.4036 ~= 24.0, not a loadFactorMax-capped 38.0.
+    load_factor_max_g = float(config["performance"]["load_factor_max_g"])
+    slope_scale = float(config["aerodynamics"]["packed_lift_slope_scale"])
+    effective_fins_g = slope_scale * fins_g
+    assert abs(effective_fins_g - 24.014088) < 1e-6
+    assert effective_fins_g < load_factor_max_g
     expected_wn = math.sqrt(
-        fins_g * gravity * arm / ((length * length / 12.0) * alpha_max)
+        effective_fins_g * gravity * arm / ((length * length / 12.0) * alpha_max)
     )
     assert abs(diagnostics.pitch_natural_frequency_rad_s - expected_wn) < 0.15
-    assert abs(expected_wn - 10.0) < 0.3
+    assert abs(expected_wn - 7.65) < 0.05
     assert abs(diagnostics.pitch_residual_rate_damping_per_s - 2.0 * expected_wn) < 0.3
     assert diagnostics.pitch_tail_rate_damping_per_s == 0.0
 
@@ -715,3 +816,129 @@ def test_weathervane_spring_uses_delta_minus_alpha_not_rate_incidence() -> None:
     ) / (float(config["geometry"]["length_m"]) ** 2 / 12.0)
     damping = rotating_diag.pitch_residual_rate_damping_per_s * rotating.pitch_rate
     assert abs(rotating_diag.pitch_angular_acceleration_rad_s2 - (spring - damping)) < 1e-6
+
+
+def test_legacy_authority_is_linear_with_no_elbow_and_load_factor_max_still_caps_output() -> None:
+    """2026-08 three-flight joint replay fit (PL-12 fast/slow launch + R-77,
+    59 frames total, R^2=0.97-0.998; T*sin(alpha)/(m*g) removed from the
+    displayed G before fitting): the G/alpha slope is
+    packed_lift_slope_scale*finsLatAccel*eta_q/finsAoa, a pure line through
+    the origin in eta_q with no elbow observed from eta_q=0.55 to 1.7.  The
+    old loadFactorMax slope saturation is gone; loadFactorMax now only
+    radially caps the packed-lift *output* force (F_N), and
+    body_cm_tail_force_moment never reads packed_lift_slope_scale at all.
+    """
+    config = _profile_config("cn_pl12")
+    limit = math.radians(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"])
+    fins_g = float(config["aerodynamics"]["fins_lateral_acceleration_g"])
+    load_cap = float(config["performance"]["load_factor_max_g"])
+    slope_scale = float(config["aerodynamics"]["packed_lift_slope_scale"])
+    assert abs(slope_scale - 0.58) < 1e-9
+    v_base = float(config["control"]["base_indicated_speed_kmh"]) / 3.6
+    propulsion = PiecewisePropulsion.from_config(config)
+    # A moderate commanded fraction keeps the alpha/delta unit-disk and the
+    # loadFactorMax radial s_cap (tested separately in part (c)) from also
+    # engaging, so (a)/(b) isolate the slope itself.
+    fraction = 0.4
+
+    def _slope(eta_q: float) -> float:
+        speed = v_base * math.sqrt(eta_q)
+        state = SimState(
+            (0.0, 0.0, 0.0), (speed, 0.0, 0.0), fraction * limit, 0.0, 0.0, 0.0, 198.0,
+        )
+        diagnostics = forces_for_state_h2(state, 0.0, config, propulsion, powered=False)
+        return diagnostics.trajectory_pitch_normal_acceleration_g / fraction
+
+    # (a) The slope is slope_scale*finsLatAccel*eta_q/finsAoa and grows
+    # linearly with eta_q: eta=0.6 and eta=1.5 must each match the
+    # closed-form slope, and their ratio must equal 1.5/0.6 exactly.
+    low_eta, high_eta = 0.6, 1.5
+    slope_low = _slope(low_eta)
+    slope_high = _slope(high_eta)
+    assert abs(slope_low - slope_scale * fins_g * low_eta) < 0.05
+    assert abs(slope_high - slope_scale * fins_g * high_eta) < 0.05
+    assert abs(slope_high / slope_low - high_eta / low_eta) < 0.01
+
+    # (b) No elbow: eta=1.2 keeps tracking the closed-form linear slope
+    # (slope_scale*fins_g*1.2 ~= 28.8) rather than being truncated at
+    # loadFactorMax=38, which is where the retired saturating model would
+    # have pinned any eta_q above 38/41.4036 ~= 0.918.
+    mid_eta = 1.2
+    slope_mid = _slope(mid_eta)
+    assert abs(slope_mid - slope_scale * fins_g * mid_eta) < 0.05
+    assert abs(slope_mid - load_cap) > 1.0
+
+    # (c) loadFactorMax still radially caps the packed-lift *output* force,
+    # independent of the slope.  Push eta_q and the commanded fraction high
+    # enough that the unsaturated slope blows well past load_cap, and
+    # confirm the trajectory G is pinned exactly at load_cap rather than at
+    # the unsaturated value.
+    over_cap_eta = 4.0
+    over_cap_fraction = 0.9
+    speed = v_base * math.sqrt(over_cap_eta)
+    over_cap_state = SimState(
+        (0.0, 0.0, 0.0), (speed, 0.0, 0.0), over_cap_fraction * limit, 0.0, 0.0, 0.0, 198.0,
+    )
+    over_cap_diagnostics = forces_for_state_h2(
+        over_cap_state, 0.0, config, propulsion, powered=False
+    )
+    unsaturated = slope_scale * fins_g * over_cap_eta * over_cap_fraction
+    assert unsaturated > load_cap * 1.5
+    assert abs(over_cap_diagnostics.trajectory_pitch_normal_acceleration_g - load_cap) < 0.1
+    assert over_cap_diagnostics.trajectory_lateral_load_g <= load_cap + 1e-6
+
+    # (d) body_cm_tail_force_moment never reads packed_lift_slope_scale: the
+    # adapter only assigns it inside the legacy-plant branch, so the value
+    # in the emitted config always stays the neutral default (1.0) no matter
+    # what the runtime defaults declare, and runtime forces are bit-identical
+    # between a default (0.58) and a wildly different override.
+    body_cm_config = _profile_config("cn_pl12", plant_model=BODY_CM_TAIL_FORCE_PLANT)
+    body_cm_config_overridden = _profile_config(
+        "cn_pl12", plant_model=BODY_CM_TAIL_FORCE_PLANT, packed_lift_slope_scale=0.05
+    )
+    assert body_cm_config["aerodynamics"]["packed_lift_slope_scale"] == 1.0
+    assert body_cm_config_overridden["aerodynamics"]["packed_lift_slope_scale"] == 1.0
+    body_cm_state = SimState(
+        (0.0, 0.0, 0.0), (400.0, 0.0, 0.0), 0.1, 0.0, 0.0, 0.0, 198.0,
+    )
+    baseline_diagnostics = forces_for_state_h2(
+        body_cm_state, 0.0, body_cm_config, PiecewisePropulsion.from_config(body_cm_config), powered=False
+    )
+    overridden_diagnostics = forces_for_state_h2(
+        body_cm_state,
+        0.0,
+        body_cm_config_overridden,
+        PiecewisePropulsion.from_config(body_cm_config_overridden),
+        powered=False,
+    )
+    assert baseline_diagnostics.pitch_angular_acceleration_rad_s2 != 0.0
+    assert (
+        baseline_diagnostics.pitch_angular_acceleration_rad_s2
+        == overridden_diagnostics.pitch_angular_acceleration_rad_s2
+    )
+    assert (
+        baseline_diagnostics.trajectory_pitch_normal_acceleration_g
+        == overridden_diagnostics.trajectory_pitch_normal_acceleration_g
+    )
+
+    # scheduled_fins_g's independent q/q_base scaling for body_cm (through
+    # the rate-damping term) still holds with no flattening, unaffected by
+    # the legacy-only 0.58 scale.
+    base_kmh0 = float(body_cm_config["control"]["base_indicated_speed_kmh"])
+    body_cm_v_base = base_kmh0 / 3.6
+
+    def _body_cm_damping(eta_q: float) -> float:
+        cfg = copy.deepcopy(body_cm_config)
+        cfg["control"]["base_indicated_speed_kmh"] = base_kmh0 / math.sqrt(eta_q)
+        state = SimState(
+            (0.0, 0.0, 0.0), (body_cm_v_base, 0.0, 0.0), 0.05, 0.0, 0.0, 0.0, 198.0,
+        )
+        diagnostics = forces_for_state_h2(
+            state, 0.0, cfg, PiecewisePropulsion.from_config(cfg), powered=False
+        )
+        return diagnostics.pitch_tail_rate_damping_per_s
+
+    damping_high = _body_cm_damping(4.0)
+    damping_low = _body_cm_damping(2.0)
+    assert damping_low > 0.0
+    assert abs(damping_high / damping_low - 2.0) < 1e-6
