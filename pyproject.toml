@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aim120a-local-model"
-version = "1.0.0"
+version = "1.0.1"
 description = "Standalone auditable Python forward model for AIM-120A-like trajectory simulation"
 requires-python = ">=3.10"
 dependencies = []

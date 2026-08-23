@@ -11,7 +11,8 @@
 | 模型 | `Experimental` 本地候选 |
 | 运行时 | Python 3.10+，核心无第三方运行依赖 |
 | GUI | 本机 `127.0.0.1`，不调用外部 API |
-| 当前冻结基线 | AIM-120A `v1.0.0` |
+| 当前冻结基线 | AIM-120A `v1.0.0`（`configs/aim120a_h2.yaml` / `direct_fin_g`，见 `V1_FREEZE.md`） |
+| 当前 profile 运行时 | `v1.0.1`（见 `UPDATE_V1.0.1.md`） |
 
 ## 快速开始
 

@@ -40,7 +40,7 @@ class GuiServer(ThreadingHTTPServer):
 
 
 class GuiHandler(BaseHTTPRequestHandler):
-    server_version = "MissileGUI/1.0"
+    server_version = "MissileGUI/1.0.1"
 
     def log_message(self, format: str, *args: Any) -> None:
         LOGGER.info("%s - %s", self.client_address[0], format % args)

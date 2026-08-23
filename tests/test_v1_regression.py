@@ -9,8 +9,8 @@ CASES = load_cases(ROOT / "configs" / "aim120a_v1_cases.json")
 
 
 def test_frozen_release_version_is_consistent():
-    assert __version__ == "1.0.0"
-    assert CONFIG["release_version"] == __version__
+    assert __version__ == "1.0.1"
+    assert CONFIG["release_version"] == "1.0.0"
 
 
 def test_frozen_trajectory_regression_cases():
