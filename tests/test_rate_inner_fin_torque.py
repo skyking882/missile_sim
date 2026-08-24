@@ -170,6 +170,19 @@ def test_legacy_body_lift_knob_can_disable_natural_lift() -> None:
     assert config["aerodynamics"]["natural_lift_enabled"] is False
 
 
+def test_profile_hud_g_includes_thrust_normal_to_airspeed() -> None:
+    profiles, errors = scan_library(ROOT / "missiles", ROOT)
+    assert errors == []
+    indexed = {profile["missile_id"]: profile for profile in profiles}
+    result = simulate(indexed["cn_pl12"], _off_axis_scenario(30.0, time_s=1.5))
+    samples = [sample for sample in result["samples"] if float(sample["angle_of_attack_rad"]) > 0.05]
+    assert samples
+    sample = samples[-1]
+    assert sample["actual_overload_g"] == sample["trajectory_lateral_load_g"]
+    assert sample["thrust_n"] > 0.0
+    assert sample["actual_overload_g"] + 1e-9 >= sample["lateral_load_g"]
+
+
 def test_path_g_follows_alpha_over_fins_aoa() -> None:
     config = _profile_config("cn_pl12")
     limit = math.radians(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"])

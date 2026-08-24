@@ -231,7 +231,14 @@ class H2Simulator:
             "trajectory_yaw_normal_acceleration_g": float(diagnostics.trajectory_yaw_normal_acceleration_g),
             "trajectory_lateral_load_g": float(diagnostics.trajectory_lateral_load_g),
             "total_specific_force_g": float(diagnostics.total_specific_force_g),
-            "actual_overload_g": float(diagnostics.lateral_load_g),
+            # Profile plant HUD G is the load perpendicular to airspeed, so
+            # packed lift plus T·sin(α)/(m g).  Frozen H2 keeps body-lateral.
+            "actual_overload_g": float(
+                diagnostics.trajectory_lateral_load_g
+                if str(self.config["control"].get("plant_semantics", ""))
+                == "fin_torque_body_aoa"
+                else diagnostics.lateral_load_g
+            ),
             "drag_power_w": float(diagnostics.drag_power_w),
             "lift_power_w": float(diagnostics.lift_power_w),
             "body_tail_force_power_at_cg_w": float(diagnostics.body_tail_force_power_at_cg_w),

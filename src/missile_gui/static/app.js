@@ -356,7 +356,7 @@ function buildCharts(result) {
     ["#chart-speed", { xLabel: "时间 (s)", yLabel: "速度 (km/h)", zeroY: true, markers: result.markers, datasets: [{ label: "导弹", color: COLORS.missile, points: timeSeries((s) => magnitude(s.velocity_mps) * 3.6) }, { label: "目标", color: COLORS.target, points: timeSeries((s) => magnitude(s.target_velocity_mps) * 3.6) }] }],
     ["#chart-altitude", { xLabel: "时间 (s)", yLabel: "高度 (m)", zeroY: true, markers: result.markers, datasets: [{ label: "导弹", color: COLORS.missile, points: timeSeries((s) => s.position_m[1]) }, { label: "目标", color: COLORS.target, points: timeSeries((s) => s.target_position_m[1]) }] }],
     ["#chart-distance", { xLabel: "时间 (s)", yLabel: "距离目标 (m)", zeroY: true, markers: result.markers, datasets: [{ label: "相对距离", color: COLORS.cyan || COLORS.target, points: timeSeries((s) => s.distance_to_target_m) }] }],
-    ["#chart-g", { xLabel: "时间 (s)", yLabel: "过载 (G)", zeroY: true, markers: result.markers, datasets: [{ label: "指令 G", color: COLORS.missile, points: timeSeries((s) => Math.hypot(...s.commanded_acceleration_g)) }, { label: "实际 G", color: COLORS.actual, points: timeSeries((s) => s.actual_overload_g) }] }]
+    ["#chart-g", { xLabel: "时间 (s)", yLabel: "过载 (G)", zeroY: true, markers: result.markers, datasets: [{ label: "指令 G", color: COLORS.missile, points: timeSeries((s) => Math.hypot(...s.commanded_acceleration_g)) }, { label: "实际 G", color: COLORS.actual, points: timeSeries((s) => s.actual_overload_g ?? s.trajectory_lateral_load_g) }] }]
   ];
   state.charts.push(new Trajectory3D($("#chart-3d"), result));
   for (const [selector, options] of configs) state.charts.push(new CanvasChart($(selector), options));
