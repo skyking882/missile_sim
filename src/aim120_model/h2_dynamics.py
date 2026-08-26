@@ -8,6 +8,7 @@ reduced-order surrogate; it is not a claim about the game's hidden autopilot.
 from __future__ import annotations
 
 import math
+import warnings
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -25,7 +26,7 @@ from .aerodynamics import (
     quaternion_from_pitch_yaw,
 )
 from .control import base_indicated_speed_schedule
-from .drag_models import area_basis
+from .drag_models import area_basis, drag_force_from_cda
 from .dynamics import SimState, state_is_finite
 from .math3d import Vector, add, cross, dot, is_finite_vector, limit_unit_disk, norm, normalize, scale, sub
 from .propulsion import PiecewisePropulsion, PropulsionSample
@@ -612,6 +613,7 @@ def forces_for_state_h2(
         fins_g = float(config["aerodynamics"]["fins_lateral_acceleration_g"])
         speed_schedule = base_indicated_speed_schedule(aero.dynamic_pressure_pa, config)
         scheduled_fins_g = fins_g * speed_schedule.fin_force_scale
+        scheduled_fins_g_force = scheduled_fins_g
         if legacy_fin_torque_plant:
             # 2026-08 three-flight joint replay fit (PL-12 fast/slow launch +
             # R-77, 59 frames total; T*sin(alpha)/(m*g) removed from the
@@ -621,11 +623,61 @@ def forces_for_state_h2(
             # packed_lift_slope_scale * finsLatAccel/finsAoa, where
             # packed_lift_slope_scale = 0.58 is the fitted 1.08-1.17
             # g/deg/eta slope divided by each missile's A/alpha_max (which
-            # cluster at 0.56-0.59).  scheduled_fins_g is shared by the
-            # alpha-keyed translation force below and the
-            # pitch/yaw_stiffness_s2 spring, so force and moment keep one
-            # lift slope.
-            scheduled_fins_g *= float(config["aerodynamics"].get("packed_lift_slope_scale", 1.0))
+            # cluster at 0.56-0.59).  scheduled_fins_g feeds only the moment
+            # channel below (pitch/yaw_fin_moment_equivalent_g and the
+            # pitch/yaw_stiffness_s2 spring): the dataset behind
+            # packed_lift_force_eta_law identifies the force law only, so the
+            # moment keeps this constant fleet-wide slope.
+            packed_lift_slope_scale = float(config["aerodynamics"].get("packed_lift_slope_scale", 1.0))
+            scheduled_fins_g *= packed_lift_slope_scale
+            # 2026-08-24 46-frame R-77-1 level-shot replay fit: unlike the
+            # moment slope above, the FORCE slope (alpha,M,q -> G) is not
+            # fleet-constant -- per-frame k rose 0.45-0.74 over eta 0.35-2.62.
+            # packed_lift_force_eta_law is an optional per-missile override
+            # (absent -> force_k=packed_lift_slope_scale, bit-identical to
+            # before); eta is the same q/q_base ratio fin_force_scale already
+            # carries, and the clamp applies only inside this force_k
+            # evaluation, not to the linear eta factor below.
+            eta_law = config["aerodynamics"].get("packed_lift_force_eta_law")
+            # EXPERIMENTAL (cn20 closed-loop exam, scripts/cn20_closed_loop.py):
+            # packed_lift_fixed_cn replaces the FORCE channel's slope outright
+            # with a fixed-coefficient standard-aero force law instead of the
+            # packed empirical eta-law/slope-scale above.  Per radian of alpha
+            # the aero lateral load is cn_alpha_per_rad*q*S_d/(m*g) (S_d =
+            # caliber circular area, q = true dynamic pressure, m = current
+            # mass); the alpha-disk clamp below is untouched, so the force
+            # plateau becomes cn_alpha_per_rad*q*S_d*alpha_max/(m*g).  Absent
+            # key -> scheduled_fins_g_force is computed exactly as before
+            # (bit-identical).  The moment channel (scheduled_fins_g above) is
+            # not affected by this key at all.
+            fixed_cn = config["aerodynamics"].get("packed_lift_fixed_cn")
+            if fixed_cn is not None:
+                if eta_law:
+                    warnings.warn(
+                        "aerodynamics.packed_lift_fixed_cn and packed_lift_force_eta_law "
+                        "are both present; packed_lift_fixed_cn takes precedence for the "
+                        "force channel and packed_lift_force_eta_law is ignored there",
+                        stacklevel=2,
+                    )
+                alpha_max_rad_for_cn = math.radians(
+                    max(float(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"]), 1e-9)
+                )
+                cn_alpha_per_rad = float(fixed_cn["cn_alpha_per_rad"])
+                s_d = caliber_circular_area(config)
+                cn_slope_g_per_rad = (
+                    cn_alpha_per_rad * aero.dynamic_pressure_pa * s_d / (mass * gravity)
+                )
+                scheduled_fins_g_force = cn_slope_g_per_rad * alpha_max_rad_for_cn
+            elif eta_law:
+                eta_lo, eta_hi = eta_law["eta_clamp"]
+                clamped_eta = min(
+                    max(speed_schedule.dynamic_pressure_ratio, float(eta_lo)), float(eta_hi)
+                )
+                force_k = float(eta_law["coefficient"]) * clamped_eta ** float(eta_law["eta_exponent"])
+                scheduled_fins_g_force = fins_g * speed_schedule.fin_force_scale * force_k
+            else:
+                force_k = packed_lift_slope_scale
+                scheduled_fins_g_force = fins_g * speed_schedule.fin_force_scale * force_k
         if body_cm_tail_plant:
             pitch_fin_limit = float(config["control"]["fin_actuator_travel"]["pitch_limit_rad"])
             yaw_fin_limit = float(config["control"]["fin_actuator_travel"]["yaw_limit_rad"])
@@ -768,19 +820,20 @@ def forces_for_state_h2(
                 aero.pitch_alpha_rad / pitch_authority_reference,
                 aero.yaw_alpha_rad / yaw_authority_reference,
             )
-            # Moments stay on K(δ-α).  Path G is
-            # finsLatAccel*(q/q_base)*(alpha/finsAoa) so total lift follows
-            # angle of attack, not fin deflection or arm*length.
-            # loadFactorMax later radially caps F_N only; this moment
-            # channel is left unscaled.
+            # Moments stay on K(δ-α) using scheduled_fins_g, the constant
+            # fleet-wide slope.  Path G uses scheduled_fins_g_force, which
+            # may carry a per-missile packed_lift_force_eta_law instead of
+            # the constant slope, so total lift follows angle of attack, not
+            # fin deflection or arm*length.  loadFactorMax later radially
+            # caps F_N only; this moment channel is left unscaled.
             pitch_fin_moment_equivalent_g = scheduled_fins_g * pitch_moment_fraction
             yaw_fin_moment_equivalent_g = scheduled_fins_g * yaw_moment_fraction
             if config["aerodynamics"].get("path_g_from_alpha"):
                 pitch_fin_translation_equivalent_g = (
-                    scheduled_fins_g * pitch_alpha_fraction
+                    scheduled_fins_g_force * pitch_alpha_fraction
                 )
                 yaw_fin_translation_equivalent_g = (
-                    scheduled_fins_g * yaw_alpha_fraction
+                    scheduled_fins_g_force * yaw_alpha_fraction
                 )
             else:
                 share = float(config["aerodynamics"].get("fin_translation_share", 1.0))
@@ -788,10 +841,10 @@ def forces_for_state_h2(
                 if config["aerodynamics"].get("path_g_scales_with_arm_times_length"):
                     path_g_scale *= arm * max(float(config["geometry"]["length_m"]), 1e-9)
                 pitch_fin_translation_equivalent_g = (
-                    scheduled_fins_g * pitch_delta_fraction * path_g_scale
+                    scheduled_fins_g_force * pitch_delta_fraction * path_g_scale
                 )
                 yaw_fin_translation_equivalent_g = (
-                    scheduled_fins_g * yaw_delta_fraction * path_g_scale
+                    scheduled_fins_g_force * yaw_delta_fraction * path_g_scale
                 )
             pitch_tail_force_n = pitch_fin_translation_equivalent_g * gravity * mass
             yaw_tail_force_n = yaw_fin_translation_equivalent_g * gravity * mass
@@ -836,10 +889,31 @@ def forces_for_state_h2(
                     yaw_fin_translation_equivalent_g *= load_scale
                     pitch_tail_force_n *= load_scale
                     yaw_tail_force_n *= load_scale
+    # EXPERIMENTAL (cn20 closed-loop exam, scripts/cn20_closed_loop.py):
+    # induced_drag_mode="momentum_tilt" zeroes the shipped cx_vs_aoa alpha^2
+    # induced-drag proxy and instead adds an along-velocity retarding force
+    # D_i = |L_aero|*tan(alpha), where L_aero is the packed channel's aero
+    # lateral force (control_force, taken after the loadFactorMax cap above
+    # so drag matches what the missile actually realizes; thrust is
+    # excluded).  Absent key -> effective_drag_force_n is aero.drag_force_n
+    # unchanged, bit-identical to before.
+    induced_drag_mode = str(config["aerodynamics"].get("induced_drag_mode") or "")
+    effective_drag_force_n = aero.drag_force_n
+    if induced_drag_mode == "momentum_tilt":
+        cda0_only_drag_force_n = drag_force_from_cda(
+            aero.dynamic_pressure_pa, aero.cda0_m2, aero.air_velocity_hat
+        )
+        induced_drag_n = norm(control_force) * math.tan(aero.angle_of_attack_rad)
+        effective_drag_force_n = add(
+            cda0_only_drag_force_n,
+            scale(aero.air_velocity_hat, -induced_drag_n),
+        )
+    elif induced_drag_mode:
+        raise ValueError(f"unknown aerodynamics.induced_drag_mode: {induced_drag_mode!r}")
     gravity_force = (0.0, -mass * gravity, 0.0)
     non_gravity = _add_many(
         thrust_force,
-        aero.drag_force_n,
+        effective_drag_force_n,
         fin_drag_force,
         body_normal_force_vector,
         fixed_lifting_surface_force_vector,
@@ -1089,7 +1163,7 @@ def forces_for_state_h2(
         propulsion=prop,
         aero=aero,
         thrust_force_n=thrust_force,
-        drag_force_n=aero.drag_force_n,
+        drag_force_n=effective_drag_force_n,
         fin_drag_force_n=fin_drag_force,
         natural_lift_force_n=body_normal_force_vector,
         fixed_lifting_surface_force_n=fixed_lifting_surface_force_vector,
@@ -1109,7 +1183,7 @@ def forces_for_state_h2(
         trajectory_yaw_normal_acceleration_g=trajectory_yaw_g,
         trajectory_lateral_load_g=trajectory_lateral_g,
         total_specific_force_g=total_g,
-        drag_power_w=dot(aero.drag_force_n, aero.air_velocity_mps),
+        drag_power_w=dot(effective_drag_force_n, aero.air_velocity_mps),
         lift_power_w=dot(lift_force, aero.air_velocity_mps),
         body_tail_force_power_at_cg_w=dot(lift_force, aero.air_velocity_mps),
         pitch_angular_acceleration_rad_s2=pitch_angular_accel,

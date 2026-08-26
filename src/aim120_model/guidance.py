@@ -155,19 +155,28 @@ def solve_pip_time_to_go_s(
 
 
 def midcourse_blend_weight(time_s: float, midcourse_cfg: dict[str, Any]) -> float:
-    """Return w(t): 1 before lock_delay_s, linear down to 0 across blend_time_s.
+    """Return w(t): 1 before lock_delay_s+hold_time_s, linear down to 0 across blend_time_s.
 
     PN stays on the whole flight (it is small early); this weight only keeps
     the lead-turn term from double-counting once PN has taken over.
+
+    ``hold_time_s`` (default 0.0) extends the full-authority (w=1) plateau
+    past ``lock_delay_s`` before the linear release begins; it replaces the
+    old linear-fade-from-lock_delay_s shape with a hold-then-release shape.
+    hold_time_s=0.0 collapses hold_end_s to lock_delay_s and reproduces the
+    original ramp exactly (bit-identical for every config that does not set
+    hold_time_s).
     """
 
     lock_delay_s = float(midcourse_cfg.get("lock_delay_s", 0.8))
+    hold_time_s = float(midcourse_cfg.get("hold_time_s", 0.0))
     blend_time_s = float(midcourse_cfg.get("blend_time_s", 0.5))
-    if time_s < lock_delay_s:
+    hold_end_s = lock_delay_s + hold_time_s
+    if time_s < hold_end_s:
         return 1.0
     if blend_time_s <= 0.0:
         return 0.0
-    fraction = (time_s - lock_delay_s) / blend_time_s
+    fraction = (time_s - hold_end_s) / blend_time_s
     return 0.0 if fraction >= 1.0 else 1.0 - fraction
 
 

@@ -26,7 +26,7 @@ RECOGNIZED_MODEL_TYPES = {
     "control": {"aerodynamic_fin", "thrust_vector", "jet_vane"},
     "guidance": {"pn", "pn_loft", "beam_riding", "command_guidance"},
 }
-SOURCE_KINDS = {"datamine", "identified", "assumed", "derived", "calibrated"}
+SOURCE_KINDS = {"datamine", "identified", "assumed", "derived", "calibrated", "fitted"}
 ID_PATTERN = re.compile(r"^[a-z0-9]+(?:_[a-z0-9]+)*$")
 FORBIDDEN_CANONICAL_KEYS = {
     "mass",

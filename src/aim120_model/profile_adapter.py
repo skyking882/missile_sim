@@ -88,6 +88,7 @@ UNIVERSAL_H2_LAYER: dict[str, Any] = {
             "enabled": True,
             "turn_time_constant_s": 0.5,
             "lock_delay_s": 0.8,
+            "hold_time_s": 0.0,
             "blend_time_s": 0.5,
             "speed_floor_mps": 200.0,
             "fin_error_ref_rad": 0.15,
@@ -357,41 +358,81 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
 
     midcourse_lead_turn_defaults = layer_guidance["midcourse_lead_turn"]
     midcourse_lead_turn_runtime = defaults.get("midcourse_lead_turn") or {}
+    # Per-missile override: a profile may set guidance.midcourse_lead_turn with
+    # any subset of these fields to override the shared runtime defaults, same
+    # precedence pattern as control.path_rate_time_constant_s (see commit
+    # 08b9eda) -- profile wins, then shared runtime defaults, then the
+    # hardcoded layer fallback.
+    midcourse_lead_turn_profile = guidance.get("midcourse_lead_turn") or {}
     midcourse_lead_turn = {
         "enabled": bool(
-            midcourse_lead_turn_runtime.get("enabled", midcourse_lead_turn_defaults["enabled"])
+            midcourse_lead_turn_profile.get(
+                "enabled",
+                midcourse_lead_turn_runtime.get("enabled", midcourse_lead_turn_defaults["enabled"]),
+            )
         ),
         "turn_time_constant_s": _positive_finite(
-            midcourse_lead_turn_runtime.get(
-                "turn_time_constant_s", midcourse_lead_turn_defaults["turn_time_constant_s"]
+            midcourse_lead_turn_profile.get(
+                "turn_time_constant_s",
+                midcourse_lead_turn_runtime.get(
+                    "turn_time_constant_s", midcourse_lead_turn_defaults["turn_time_constant_s"]
+                ),
             ),
             "midcourse_lead_turn.turn_time_constant_s",
         ),
         "lock_delay_s": _nonnegative_finite(
-            midcourse_lead_turn_runtime.get(
-                "lock_delay_s", midcourse_lead_turn_defaults["lock_delay_s"]
+            midcourse_lead_turn_profile.get(
+                "lock_delay_s",
+                midcourse_lead_turn_runtime.get(
+                    "lock_delay_s", midcourse_lead_turn_defaults["lock_delay_s"]
+                ),
             ),
             "midcourse_lead_turn.lock_delay_s",
         ),
+        "hold_time_s": _nonnegative_finite(
+            midcourse_lead_turn_profile.get(
+                "hold_time_s",
+                midcourse_lead_turn_runtime.get(
+                    "hold_time_s", midcourse_lead_turn_defaults["hold_time_s"]
+                ),
+            ),
+            "midcourse_lead_turn.hold_time_s",
+        ),
         "blend_time_s": _positive_finite(
-            midcourse_lead_turn_runtime.get(
-                "blend_time_s", midcourse_lead_turn_defaults["blend_time_s"]
+            midcourse_lead_turn_profile.get(
+                "blend_time_s",
+                midcourse_lead_turn_runtime.get(
+                    "blend_time_s", midcourse_lead_turn_defaults["blend_time_s"]
+                ),
             ),
             "midcourse_lead_turn.blend_time_s",
         ),
         "speed_floor_mps": _positive_finite(
-            midcourse_lead_turn_runtime.get(
-                "speed_floor_mps", midcourse_lead_turn_defaults["speed_floor_mps"]
+            midcourse_lead_turn_profile.get(
+                "speed_floor_mps",
+                midcourse_lead_turn_runtime.get(
+                    "speed_floor_mps", midcourse_lead_turn_defaults["speed_floor_mps"]
+                ),
             ),
             "midcourse_lead_turn.speed_floor_mps",
         ),
         "fin_error_ref_rad": _positive_finite(
-            midcourse_lead_turn_runtime.get(
-                "fin_error_ref_rad", midcourse_lead_turn_defaults["fin_error_ref_rad"]
+            midcourse_lead_turn_profile.get(
+                "fin_error_ref_rad",
+                midcourse_lead_turn_runtime.get(
+                    "fin_error_ref_rad", midcourse_lead_turn_defaults["fin_error_ref_rad"]
+                ),
             ),
             "midcourse_lead_turn.fin_error_ref_rad",
         ),
     }
+    if midcourse_lead_turn_profile:
+        assumptions.append(
+            "guidance.midcourse_lead_turn overrides launch capture handover fields "
+            f"{sorted(midcourse_lead_turn_profile)} for this profile only; this is "
+            "autopilot handover memory (blend from LOS-locked PIP back to PN), not a "
+            "seeker IOG-duration change"
+        )
     assumptions.append(
         "midcourse PIP lead-turn is a declared candidate (no datamine field identified); "
         "IOG+DL→TRK phase structure and near-α_max effort observed in three 2026-08 "
@@ -473,6 +514,9 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     fin_translation_share = 1.0
     stall_cap_enabled = False
     packed_lift_slope_scale = 1.0
+    packed_lift_force_eta_law: dict[str, Any] | None = None
+    packed_lift_fixed_cn: dict[str, Any] | None = None
+    induced_drag_mode: str | None = None
     if plant_model == LEGACY_CRITICAL_DAMPED_PLANT:
         runtime_name = legacy_runtime_name
         body_lift = defaults.get("legacy_body_lift") or {}
@@ -490,6 +534,68 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             defaults.get("packed_lift_slope_scale", 0.58),
             "packed_lift_slope_scale",
         )
+        raw_eta_law = aero.get("packed_lift_force_eta_law")
+        if raw_eta_law is not None:
+            eta_lo, eta_hi = raw_eta_law["eta_clamp"]
+            packed_lift_force_eta_law = {
+                "coefficient": _positive_finite(
+                    raw_eta_law["coefficient"],
+                    "aerodynamics.packed_lift_force_eta_law.coefficient",
+                ),
+                "eta_exponent": _finite(
+                    raw_eta_law["eta_exponent"],
+                    "aerodynamics.packed_lift_force_eta_law.eta_exponent",
+                ),
+                "eta_clamp": [
+                    _positive_finite(eta_lo, "aerodynamics.packed_lift_force_eta_law.eta_clamp[0]"),
+                    _positive_finite(eta_hi, "aerodynamics.packed_lift_force_eta_law.eta_clamp[1]"),
+                ],
+            }
+            if packed_lift_force_eta_law["eta_clamp"][0] > packed_lift_force_eta_law["eta_clamp"][1]:
+                raise ValueError(
+                    "aerodynamics.packed_lift_force_eta_law.eta_clamp must be [lo, hi] with lo<=hi"
+                )
+            assumptions.append(
+                "aerodynamics.packed_lift_force_eta_law overrides the force-channel packed-lift "
+                "slope (path-normal G) for this profile only; the rotational K(delta-alpha) spring "
+                "and 2*omega_n damping keep packed_lift_slope_scale because the fitted dataset "
+                "identifies the force law only, not the moment law"
+            )
+        raw_fixed_cn = aero.get("packed_lift_fixed_cn")
+        if raw_fixed_cn is not None:
+            packed_lift_fixed_cn = {
+                "cn_alpha_per_rad": _positive_finite(
+                    raw_fixed_cn["cn_alpha_per_rad"],
+                    "aerodynamics.packed_lift_fixed_cn.cn_alpha_per_rad",
+                ),
+            }
+            assumptions.append(
+                "aerodynamics.packed_lift_fixed_cn is an EXPERIMENTAL exam-only override "
+                "(cn20 closed-loop exam) that replaces the force-channel packed-lift slope "
+                "outright with a fixed-coefficient standard-aero force law: aero lateral "
+                "G per radian of alpha = cn_alpha_per_rad*q*S_d/(m*g), S_d=caliber circular "
+                "area, q=true dynamic pressure, m=current mass; the alpha-disk clamp at the "
+                "finsAoa fraction is unchanged, so the plateau becomes "
+                "cn_alpha_per_rad*q*S_d*alpha_max/(m*g). Takes precedence over "
+                "packed_lift_force_eta_law for the force channel when both are present "
+                "(fixed_cn wins). The rotational K(delta-alpha) spring and 2*omega_n "
+                "damping keep packed_lift_slope_scale unaffected -- moment channel untouched"
+            )
+        raw_induced_drag_mode = aero.get("induced_drag_mode")
+        if raw_induced_drag_mode is not None:
+            induced_drag_mode = str(raw_induced_drag_mode)
+            if induced_drag_mode != "momentum_tilt":
+                raise ValueError(
+                    f"unknown aerodynamics.induced_drag_mode: {induced_drag_mode!r}; "
+                    "expected 'momentum_tilt'"
+                )
+            assumptions.append(
+                "aerodynamics.induced_drag_mode='momentum_tilt' is an EXPERIMENTAL exam-only "
+                "override (cn20 closed-loop exam) that zeroes the cx_vs_aoa alpha^2 induced-"
+                "drag proxy and instead adds an along-velocity retarding force D_i = "
+                "|packed aero lateral force|*tan(alpha) (thrust excluded); force channel "
+                "only, moment channel untouched"
+            )
         normal_force_model = "body_cn_linear"
         release_version = "profile-adapter-v28-tgo"
         force_geometry_version = "h2_spec_packed_lift_cm_np_v13"
@@ -708,6 +814,21 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             ),
             "fin_translation_share": fin_translation_share,
             "packed_lift_slope_scale": packed_lift_slope_scale,
+            **(
+                {"packed_lift_force_eta_law": packed_lift_force_eta_law}
+                if packed_lift_force_eta_law is not None
+                else {}
+            ),
+            **(
+                {"packed_lift_fixed_cn": packed_lift_fixed_cn}
+                if packed_lift_fixed_cn is not None
+                else {}
+            ),
+            **(
+                {"induced_drag_mode": induced_drag_mode}
+                if induced_drag_mode is not None
+                else {}
+            ),
             "cx_vs_fin_delta": float(defaults.get("cx_vs_fin_delta", 0.0)),
             "cy_k": cn_alpha_per_rad,
             "max_cy_at_aoa": max_cy,

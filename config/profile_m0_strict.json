@@ -1,0 +1,74 @@
+{
+  "schema_version": 2,
+  "runtime_name": "profile_m0_strict_datamine_only_v1",
+  "enable_supported_profiles": true,
+  "plant_model": "critical_damped_v12",
+  "acceleration_outer_rate_inner": false,
+  "body_rate_inner_loop_time_constant_s": 0.04,
+  "path_rate_time_constant_s": 0.35,
+  "path_close_integral_gain_per_s": 0.0,
+  "path_close_integral_limit_g_s": 20.0,
+  "rate_error_for_full_fin_rad_s": 0.35,
+  "fin_force_q_scaling": true,
+  "fin_force_q_ratio_max": 4.0,
+  "packed_lift_slope_scale": 1.0,
+  "shared_base_indicated_speed_kmh": 1800.0,
+  "cx_vs_fin_delta": 0.0,
+  "drag_shape_mode": "interpolated_cx_1943_x1_10",
+  "pid_error_units": "g",
+  "time_to_go_mode": "closing_or_relative_speed",
+  "time_to_go_relative_speed_weight": 1.0,
+  "midcourse_lead_turn": {
+    "enabled": false,
+    "turn_time_constant_s": 0.8,
+    "lock_delay_s": 0.8,
+    "blend_time_s": 0.5,
+    "speed_floor_mps": 200.0,
+    "fin_error_ref_rad": 0.15
+  },
+  "legacy_body_lift": {
+    "enabled": true,
+    "cn_alpha_per_rad": 2.0,
+    "fin_translation_share": 0.935,
+    "stall_cap_enabled": true
+  },
+  "body_cm_candidate": {
+    "cn_alpha_body_per_rad": 2.0,
+    "cp_cg_arm_over_diameter": 3.0,
+    "body_rate_inner_loop_time_constant_s": 0.1,
+    "tail_alpha_force_multiplier": 1.0,
+    "tail_delta_force_multiplier": 1.0,
+    "fixed_lifting_surface_multiplier": 0.0,
+    "fixed_lifting_surface_station_x_m": 0.0
+  },
+  "generalized_aero_moment_candidate": {
+    "cn_alpha_per_rad": 2.0,
+    "cn_delta_per_rad": -40.0,
+    "cm_alpha_per_rad": -6.0,
+    "cm_delta_per_rad": 18.0,
+    "cm_q": -36.0,
+    "cm_alpha_dot": 0.0,
+    "body_rate_inner_loop_time_constant_s": 0.1
+  },
+  "m0_overrides": {
+    "purpose": "Fields consumed only by scripts/run_m0_scenarios.py, applied to the config dict AFTER build_h2_candidate_config() returns it. These exist because profile_adapter.py has no defaults-level knob for a per-missile profile field (packed_lift_force_eta_law) or for the literal Cx(M) table values (they come from a module constant in drag_models.py, not from this defaults file). Nothing here is read by the normal (non-M0) runtime path, and no shipped code is modified to make this work.",
+    "strip_profile_aerodynamics_keys": [
+      "packed_lift_force_eta_law"
+    ],
+    "strip_profile_aerodynamics_keys_reason": "su_r_77.json and su_r_77_1.json carry aerodynamics.packed_lift_force_eta_law, a single-flight (46-frame R-77-1 level-shot replay) fit with parameter_sources.kind='fitted' in the profile JSON itself. build_h2_candidate_config() copies it verbatim from the profile into config['aerodynamics']['packed_lift_force_eta_law'] with no defaults-level override point, so M0 pops that key from the built config for every missile (a no-op for missiles that never had it, e.g. cn_pl12). With the key gone, h2_dynamics.py's force channel falls back to force_k=packed_lift_slope_scale, i.e. the same constant used by the moment/stiffness channel -- both are 1.0 in M0.",
+    "drag_model_cx_vs_mach": [
+      [0.8, 0.157273],
+      [0.9, 0.19],
+      [1.0, 0.3],
+      [1.1, 0.365455],
+      [1.2, 0.375455],
+      [1.4, 0.36],
+      [1.6, 0.345455],
+      [1.8, 0.325455],
+      [3.5, 0.227273],
+      [4.0, 0.21]
+    ],
+    "drag_model_cx_vs_mach_source": "M0 pure 1943-standard-law drag shape, scale x1.0. The shipped CX_1943_X1_10_TABLE (src/aim120_model/drag_models.py) is fifteen (Mach, Cx) knots; UPDATE_V1.0.1.md section 4's own bracket diagram marks ten of them (M 0.8-1.8 and the extrapolated M 3.5, 4.0) as '1943-law shape x1.10' and the other five (M 1.93, 2.01, 2.29, 2.66, 3.10) as 'DATA' -- PL-12 35 km telemetry-inverted CdA anchors that replaced whatever the shape alone would have given there. This table keeps only the ten shape knots, each divided by the fitted 1.10 global scale (0.173/1.1=0.157273 ... 0.231/1.1=0.21), and drops the five telemetry knots outright rather than merely rescaling them, so M0's curve has no telemetry anchoring left anywhere on it. Linear interpolation (the model's existing, unchanged interpolation rule) bridges the resulting M 1.8 -> M 3.5 gap directly between the two nearest shape knots; that gap is exactly the Mach band the telemetry anchors used to cover, so M0's drag curve is systematically less resolved there than the shipped curve -- see docs/M0_PROVENANCE_AUDIT.md."
+  },
+  "boundary": "M0 strict-provenance variant of profile_h2_fin_torque_aoa_v12, built for a blind train/test split (see docs/M0_PROVENANCE_AUDIT.md for the full parameter-by-parameter classification and docs/M0_RESIDUALS.md for the blind-run residuals). Every REPLAY-FITTED constant identified in the audit is purged or neutralized here; everything else (datamine fields, zero-parameter physics/geometry, the ISA atmosphere standard, and the 1943 standard drag-law shape) is unchanged from profile_h2_runtime_defaults.json. Three changes relative to that file: (1) packed_lift_slope_scale: 0.58 -> 1.0, i.e. F_N = m g0 finsLatAccel eta_q disk(alpha/finsAoa) with NO fitted slope multiplier -- the literal designer reading of finsLatAccel as full lift authority at base indicated speed and full angle of attack, not the three-flight 59-frame replay-fitted 0.58 g/deg/eta joint slope. (2) midcourse_lead_turn.enabled: true -> false, which removes the PIP lead-turn/launch-capture-handover term (a candidate mechanism with no datamine field, whose tau_turn/lock_delay_s/blend_time_s/fin_error_ref_rad were all replay-calibrated) from both the acceleration command and the IOG direct-fin-routing path; because no missile profile sets guidance.midcourse_lead_turn.enabled at the per-profile level (su_r_77/su_r_77_1 only override blend_time_s), this single defaults-level flag also silently defeats their per-missile blend_time_s=1.3 override and the v12 anti-windup 'tracking-mode' branch in control.py (which only ever engages when the direct-fin-routing authority fraction is non-zero) -- so M0 uses only the plain saturated+pushing_fin conditional-integration anti-windup guard, a structural fix with no replay-fitted numeric threshold. (3) via m0_overrides (interpreted by scripts/run_m0_scenarios.py, not by profile_adapter.py itself): the per-missile packed_lift_force_eta_law override (R-77/R-77-1 only, single-flight replay fit) is stripped from the built config, and the interpolated Cx(M) drag table is replaced with the pure 1943-law shape at scale x1.0 (fitted x1.10 global scale removed, five PL-12-35km-telemetry-anchored Mach knots removed outright rather than rescaled). Everything CxK, CxAoA=9 and its no-wingAreaMult area-basis rule, finsLatAccel, finsAoa, loadFactorMax (F_N radial cap only), reqAccelMax (gravity-compensated specific-force cap), baseIndSpeed 1800 km/h fallback and eta_q=min(q/q_base,4) scaling, distFromCmToStab as static margin Delta, accelControl PID gains with pid_error_units=g and v12 fin-angle output semantics, the plain conditional-integration anti-windup guard, actuator tau=0.08s, t_go=R/max(Vc,|Vrel|), thrust/burn/mass staged-propulsion, I=mL^2/12, K=N'Delta, C=2*sqrt(KI) with zeta=1, quaternion attitude kinematics, ISA atmosphere, gravity=9.80665, thrust projected along the body axis, proximity fuse radius, the finsAoa alpha-disk clamp, and the trajectory-normal (flow-normal) display/comparison basis for G are all unchanged datamine/physics/standard-law content, kept exactly as in profile_h2_runtime_defaults.json. M0 is a blind-run configuration: it is expected to disagree with War Thunder replay telemetry wherever the purged mechanisms mattered, and those disagreements are the intended output, not a defect to tune away."
+}

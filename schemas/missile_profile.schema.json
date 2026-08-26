@@ -171,6 +171,20 @@
         },
         "drag_scale": {"type": "number", "exclusiveMinimum": 0},
         "lift_area_scale": {"type": "number", "exclusiveMinimum": 0},
+        "packed_lift_force_eta_law": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "coefficient": {"type": "number", "exclusiveMinimum": 0},
+            "eta_exponent": {"type": "number"},
+            "eta_clamp": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {"type": "number", "exclusiveMinimum": 0}
+            }
+          }
+        },
         "parameter_sources": {"$ref": "#/$defs/source_map"}
       }
     },
@@ -249,6 +263,19 @@
         "guidance_type": {"enum": ["pn", "pn_loft", "beam_riding", "command_guidance"]},
         "seeker_type": {"type": "string", "minLength": 1},
         "sensor_model": {"$ref": "#/$defs/sensor_model"},
+        "midcourse_lead_turn": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "turn_time_constant_s": {"type": "number", "exclusiveMinimum": 0},
+            "lock_delay_s": {"type": "number", "minimum": 0},
+            "hold_time_s": {"type": "number", "minimum": 0},
+            "blend_time_s": {"type": "number", "exclusiveMinimum": 0},
+            "speed_floor_mps": {"type": "number", "exclusiveMinimum": 0},
+            "fin_error_ref_rad": {"type": "number", "exclusiveMinimum": 0}
+          }
+        },
         "parameter_sources": {"$ref": "#/$defs/source_map"}
       }
     },
@@ -450,7 +477,7 @@
       "additionalProperties": false,
       "required": ["kind", "source_field", "notes"],
       "properties": {
-        "kind": {"enum": ["datamine", "identified", "assumed", "derived", "calibrated"]},
+        "kind": {"enum": ["datamine", "identified", "assumed", "derived", "calibrated", "fitted"]},
         "source_field": {"type": ["string", "null"]},
         "notes": {"type": "string", "minLength": 1}
       }

@@ -94,6 +94,11 @@
     },
     "drag_scale": 1.0,
     "lift_area_scale": 1.45,
+    "packed_lift_force_eta_law": {
+      "coefficient": 0.574,
+      "eta_exponent": 0.242,
+      "eta_clamp": [0.35, 2.65]
+    },
     "parameter_sources": {
       "cx_k": {
         "kind": "datamine",
@@ -149,6 +154,11 @@
         "kind": "datamine",
         "source_field": "rocket.wingAreaMult",
         "notes": "直接读取翼面积标度。"
+      },
+      "packed_lift_force_eta_law": {
+        "kind": "fitted",
+        "source_field": null,
+        "notes": "2026-08-24 R-77-1(su_r_77_1)平射回放 46 帧拟合，按同族(R-77/R-77-1 共享气动打包升力)套用于本弹，本弹无独立回放数据：k_force(η)=0.574·clamp(η,0.35,2.65)^0.242，逐帧力斜率由 0.45 升至 0.74（η 0.35→2.62），非常数，力律与力矩律(packed_lift_slope_scale)已拆分。单次飞行候选值，未跨弹验证；该飞行内 Mach 数与 η 高度共线，函数形式究竟是 η 幂律还是 Mach 曲线尚不可分辨，待高空判别性回放收敛。旧 30° R-77 慢速回放数据集拟合的平坦 k≈0.577 与本律在中段 η 存在潜在冲突，待重新分析。"
       }
     }
   },
@@ -225,6 +235,11 @@
     ],
     "proximity_radius_m": 10.0,
     "seeker_type": "radar",
+    "midcourse_lead_turn": {
+      "hold_time_s": 1.4,
+      "blend_time_s": 0.7,
+      "fin_error_ref_rad": 0.03
+    },
     "parameter_sources": {
       "guidance_type": {
         "kind": "derived",
@@ -285,6 +300,21 @@
         "kind": "datamine",
         "source_field": "rocket.guidanceType",
         "notes": "直接读取 seeker 制导类型标签。"
+      },
+      "midcourse_lead_turn.hold_time_s": {
+        "kind": "calibrated",
+        "source_field": "r77_1_level_20260824 alpha timeline",
+        "notes": "同族假设：本弹(su_r_77)没有独立回放数据，此值直接照搬 su_r_77_1.json 对同一字段的三参数联合标定结果（hold_time_s=1.4 s, blend_time_s=0.7 s, fin_error_ref_rad=0.03 rad），依据是 R-77/R-77-1 共享同一气动包/交接机制的既有假设（与 packed_lift_force_eta_law 按族共享的先例一致）。拟合方法、数据源（R-77-1 平射回放 data/replays/r77_1_level_20260824.tsv 的 alpha(t) 时间线）、三个目标 T1-T3 的定义、粗网格/局部细化流程，以及已知局限（网格范围内 T1 迎角平台不可达、T2/T3 通过 hold_time_s 此消彼长、本次选点贴近 T3 而 T2 超出容差 0.30 s）完整记录在 su_r_77_1.json 的同名字段条目，本弹未重新独立标定，也未用本弹自身回放验证。发射捕获交接窗口的语义同样是自动驾驶仪 launch capture handover 记忆时长，不是导引头 IOG 持续时间。lock_delay_s 维持共享默认 0.8 s 不变。"
+      },
+      "midcourse_lead_turn.blend_time_s": {
+        "kind": "calibrated",
+        "source_field": "r77_1_level_20260824 alpha timeline",
+        "notes": "同族假设，照搬 su_r_77_1.json 的三参数联合标定值 0.7 s（此前 2026-08-24 前为仅覆盖 blend_time_s 单参数的旧标定值 1.3 s，已被取代）；完整方法与局限见本弹 midcourse_lead_turn.hold_time_s 条目及 su_r_77_1.json 的同名字段条目。"
+      },
+      "midcourse_lead_turn.fin_error_ref_rad": {
+        "kind": "calibrated",
+        "source_field": "r77_1_level_20260824 alpha timeline",
+        "notes": "同族假设，照搬 su_r_77_1.json 的三参数联合标定值 0.03 rad（此前本弹未覆盖该字段，使用共享默认 0.15 rad）；完整方法与局限见本弹 midcourse_lead_turn.hold_time_s 条目及 su_r_77_1.json 的同名字段条目。"
       }
     },
     "sensor_model": {

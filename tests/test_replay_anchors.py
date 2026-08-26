@@ -33,11 +33,14 @@ reconstruction uncertainty: the replay's target was climbing/maneuvering
 while this anchor scenario assumes straight level flight, so the G(t)
 timeline is not a clean plant anchor.  The per-frame G-alpha-eta relation
 from this same dataset remains valid (it is the basis of the lift law).
-at this speed/altitude rather than a control-loop integrator problem, which
-is out of this file's reach (h2_dynamics.py lift/drag and
-packed_lift_slope_scale are off-limits).  A2 is marked ``xfail(strict=True)``
-so it fails loudly -- prompting removal of the marker -- if a future change
-ever makes it pass.
+RESOLVED 2026-08-24 by the A7 control experiment: against a straight-flying
+target (the 'pl12level' capture) the replay's de-load arc matches the model
+within ~1 g, proving A2's sustained plateau was target-maneuver
+contamination.  A2 stays xfail(strict=True) as a documented contaminated
+reference; it fails loudly -- prompting review -- if a future change ever
+makes it pass.
+
+  A7  level launch vs straight target, cn_pl12       (2026-08-24 control)
 """
 
 from __future__ import annotations
@@ -64,7 +67,11 @@ def _alpha_deg(sample: dict) -> float:
 
 
 def _actual_g(sample: dict) -> float:
-    return float(sample.get("actual_overload_g", 0.0))
+    # Replay-displayed load is trajectory-normal (includes the T*sin(alpha)
+    # component; verified during the 2026-08 three-flight lift fit).  Body-axis
+    # lateral_load_g projects thrust to exactly zero and under-reads boost-phase
+    # G by 3-5 g, so game comparisons must use the trajectory basis.
+    return float(sample.get("trajectory_lateral_load_g", 0.0))
 
 
 def _at_time(samples: list, time_s: float) -> dict:
@@ -112,7 +119,8 @@ def test_a1_35km_head_on_loft_anchor() -> None:
         "guidance command profile + target-course reconstruction uncertainty "
         "(replay target was maneuvering; the plant law itself is verified at the "
         "replay's own operating point: alpha=13.8deg, eta=1.27 -> 24.2g vs 23.5g). "
-        "Not an authority ceiling and not a control-loop integrator problem."
+        "Not an authority ceiling and not a control-loop integrator problem. "
+        "Contamination experimentally confirmed by A7 (straight-target control)."
     ),
 )
 def test_a2_30deg_fast_pl12_anchor() -> None:
@@ -269,3 +277,36 @@ def test_a6_statshark_40deg_double_fuse_anchor() -> None:
     assert pl12["minimum_distance_m"] < 15.0
     assert r77["termination_event"] == "proximity_fuse"
     assert r77["minimum_distance_m"] < 15.0
+
+
+def test_a7_level_straight_target_deload_arc_anchor() -> None:
+    """cn_pl12 level shot vs straight target (2026-08-24 'pl12level', 12 frames).
+
+    The control experiment that resolved the midcourse-command-profile
+    question: against a straight-flying target the replay's de-load arc
+    matches the model's PN decay (this test), proving the sustained-G
+    plateau in the maneuvering-target captures (A2) was target-motion
+    contamination rather than a missing guidance mechanism.  Anchors the
+    de-load arc only; the small mid-course reload (t=4.9-5.8) is
+    phase-sensitive at <3 g and is deliberately not asserted.
+    """
+    indexed = _indexed_profiles()
+    scenario = dict(
+        loft_enabled=True,
+        observation_mode="ideal_truth",
+        target_course_reference="statshark_relative_to_los",
+        launch_speed_kmh=1200, launch_altitude_m=6300,
+        launch_pitch_deg=0, launch_heading_deg=0,
+        target_speed_kmh=1200, target_altitude_m=6300,
+        initial_distance_m=8000, target_azimuth_deg=30,
+        target_heading_deg=0, target_vertical_heading_deg=0,
+        target_constant_turn_g=0, max_simulation_time_s=40.0,
+    )
+    result = simulate(indexed["cn_pl12"], scenario)
+    samples = result["samples"]
+    game_points = {2.9: (8.9, 6.3), 3.4: (5.9, 4.1), 3.9: (3.6, 2.5), 4.4: (1.4, 1.2)}
+    for time_s, (game_g, game_alpha) in game_points.items():
+        sample = _at_time(samples, time_s)
+        assert abs(_actual_g(sample) - game_g) <= 2.5
+        assert abs(_alpha_deg(sample) - game_alpha) <= 1.5
+    assert result["summary"]["termination_event"] == "proximity_fuse"
