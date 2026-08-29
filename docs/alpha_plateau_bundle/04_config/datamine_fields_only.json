@@ -1,0 +1,352 @@
+{
+  "missile_id": "su_r_77_1",
+  "note": "kind == 'datamine' 的字段，即从游戏文件直接读出、未经拟合/假设的量",
+  "fields": [
+    {
+      "path": "propulsion.stages",
+      "value": [
+        {
+          "name": "boost",
+          "duration_s": 7.0,
+          "thrust_n": 24350.0,
+          "mass_lost_kg": 71.0,
+          "isp_s": 244.80370211561674,
+          "fire_delay_s": 0.0,
+          "parameter_sources": {
+            "duration_s": {
+              "kind": "datamine",
+              "source_field": "rocket.timeFire",
+              "notes": "直接读取顶层燃烧时间。"
+            },
+            "thrust_n": {
+              "kind": "datamine",
+              "source_field": "rocket.force",
+              "notes": "直接读取顶层推力。"
+            },
+            "mass_lost_kg": {
+              "kind": "derived",
+              "source_field": "rocket.mass - rocket.massEnd",
+              "notes": "由阶段开始质量和阶段末质量相减。"
+            },
+            "isp_s": {
+              "kind": "derived",
+              "source_field": "thrust_n / (mass_flow_kg_s * g0)",
+              "notes": "由推力、阶段失重和公共重力常数计算。"
+            }
+          }
+        }
+      ],
+      "kind": "datamine",
+      "source_field": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_77_1.blkx",
+      "notes": "阶段由顶层 timeFire/force 或嵌套 propulsion impulse 批量解析。"
+    },
+    {
+      "path": "aerodynamics.cx_k",
+      "value": 1.65,
+      "kind": "datamine",
+      "source_field": "rocket.CxK",
+      "notes": "直接读取轴向阻力系数标度。"
+    },
+    {
+      "path": "aerodynamics.fins_lateral_acceleration_g",
+      "value": 53.5864,
+      "kind": "datamine",
+      "source_field": "rocket.finsLatAccel",
+      "notes": "直接读取舵面横向加速度能力；部分条目缺失时为 null。"
+    },
+    {
+      "path": "aerodynamics.fin_moment_arm_m",
+      "value": 0.175,
+      "kind": "datamine",
+      "source_field": "rocket.distFromCmToStab",
+      "notes": "直接读取质心到稳定面力臂。"
+    },
+    {
+      "path": "aerodynamics.fin_aoa_limit_rad",
+      "value": {
+        "horizontal": 0.460812,
+        "vertical": 0.460812
+      },
+      "kind": "datamine",
+      "source_field": "rocket.finsAoaHor/finsAoaVer",
+      "notes": "直接读取水平/垂直舵面 AoA 限制，原始值按弧度保留。"
+    },
+    {
+      "path": "aerodynamics.lift_area_scale",
+      "value": 1.45,
+      "kind": "datamine",
+      "source_field": "rocket.wingAreaMult",
+      "notes": "直接读取翼面积标度。"
+    },
+    {
+      "path": "performance.maximum_speed_mps",
+      "value": 2000.0,
+      "kind": "datamine",
+      "source_field": "rocket.endSpeed",
+      "notes": "直接读取速度上限字段。"
+    },
+    {
+      "path": "performance.maximum_distance_m",
+      "value": 120000.0,
+      "kind": "datamine",
+      "source_field": "rocket.maxDistance",
+      "notes": "直接读取最大距离事件字段。"
+    },
+    {
+      "path": "performance.lifetime_s",
+      "value": 120.0,
+      "kind": "datamine",
+      "source_field": "rocket.timeLife",
+      "notes": "直接读取寿命字段。"
+    },
+    {
+      "path": "performance.maximum_mach",
+      "value": 4.0,
+      "kind": "datamine",
+      "source_field": "rocket.machMax",
+      "notes": "直接读取 Mach 上限字段。"
+    },
+    {
+      "path": "performance.minimum_distance_m",
+      "value": 30.0,
+      "kind": "datamine",
+      "source_field": "rocket.minDistance",
+      "notes": "直接读取最小距离字段。"
+    },
+    {
+      "path": "performance.range_reference_m",
+      "value": 120000.0,
+      "kind": "datamine",
+      "source_field": "rocket.rangeMax",
+      "notes": "直接读取显示/性能参考距离。"
+    },
+    {
+      "path": "performance.load_factor_max_g",
+      "value": 50.0,
+      "kind": "datamine",
+      "source_field": "rocket.loadFactorMax",
+      "notes": "直接读取机体横向过载上限；缺失时保留 null，由运行时回退 reqAccelMax。"
+    },
+    {
+      "path": "guidance.maximum_lateral_acceleration_g",
+      "value": 50.0,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.guidanceAutopilot.reqAccelMax",
+      "notes": "直接读取制导横向指令上限，不等同于实战达到过载。"
+    },
+    {
+      "path": "guidance.maximum_angular_rate_deg_s",
+      "value": 60.0,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.radarSeeker.rateMax",
+      "notes": "直接读取 seeker rateMax；语义是 seeker 角速率上限。"
+    },
+    {
+      "path": "guidance.pn_gain",
+      "value": 4.0,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.guidanceAutopilot.propNavMult",
+      "notes": "直接读取比例导引增益；非 PN 制导 profile 仅保留原始可用字段。"
+    },
+    {
+      "path": "guidance.lock_range_m",
+      "value": 16000.0,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.lockDistance",
+      "notes": "直接读取锁定距离。"
+    },
+    {
+      "path": "guidance.lofting_elevation_deg",
+      "value": 24.0,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.guidanceAutopilot.loftElevation",
+      "notes": "直接读取 loft 仰角；未声明时使用 0 度占位。"
+    },
+    {
+      "path": "guidance.flight_time_gain_table",
+      "value": [
+        [
+          0.3,
+          0.0
+        ],
+        [
+          0.31,
+          1.0
+        ]
+      ],
+      "kind": "datamine",
+      "source_field": "rocket.guidance.guidanceAutopilot.timeToGain*",
+      "notes": "按索引读取飞行时间控制增益表；缺失时保留 null，由运行时显式回退。"
+    },
+    {
+      "path": "guidance.proximity_radius_m",
+      "value": 10.0,
+      "kind": "datamine",
+      "source_field": "rocket.proximityFuse.radius",
+      "notes": "优先读取 proximityFuse.radius；缺失时使用 shutterDamageRadius 作为代理。"
+    },
+    {
+      "path": "guidance.seeker_type",
+      "value": "radar",
+      "kind": "datamine",
+      "source_field": "rocket.guidanceType",
+      "notes": "直接读取 seeker 制导类型标签。"
+    },
+    {
+      "path": "guidance.sensor_model.active_radar",
+      "value": true,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.radarSeeker.active",
+      "notes": "直接读取主动雷达标志。"
+    },
+    {
+      "path": "guidance.sensor_model.inertial_navigation",
+      "value": true,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.inertialNavigation",
+      "notes": "直接读取惯性导航标志。"
+    },
+    {
+      "path": "guidance.sensor_model.use_target_velocity",
+      "value": true,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.useTargetVel",
+      "notes": "直接读取目标速度使用标志。"
+    },
+    {
+      "path": "guidance.sensor_model.lock_after_launch",
+      "value": true,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.lockAfterLaunch",
+      "notes": "直接读取发射后锁定标志。"
+    },
+    {
+      "path": "guidance.sensor_model.lock_timeout_s",
+      "value": 0.75,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.lockTimeOut",
+      "notes": "直接读取锁定超时字段；本阶段只保留。"
+    },
+    {
+      "path": "guidance.sensor_model.break_lock_max_time_s",
+      "value": 100.0,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.breakLockMaxTime",
+      "notes": "直接读取惯性保持最大时间。"
+    },
+    {
+      "path": "guidance.sensor_model.inertial_drift_speed_mps",
+      "value": 2.0,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.inertialGuidance.inertialNavigationDriftSpeed",
+      "notes": "直接读取惯性导航漂移速度。"
+    },
+    {
+      "path": "guidance.sensor_model.datalink",
+      "value": true,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.inertialGuidance.datalink",
+      "notes": "直接读取数据链标志。"
+    },
+    {
+      "path": "guidance.sensor_model.radar_seeker",
+      "value": {
+        "band": 8.0,
+        "active": true,
+        "angle_gate_rate_deg_s": 30.0,
+        "prolongation_time_max_s": 1.0,
+        "multipath_effect": [
+          0.0,
+          1.0,
+          60.0,
+          0.0
+        ],
+        "side_lobes_attenuation_db": -30.0,
+        "lock_angle_max_deg": 55.0,
+        "angle_max_deg": 55.0,
+        "rate_max_deg_s": 60.0,
+        "doppler_speed_gate": {
+          "filter_alpha": 0.8,
+          "filter_beta": 0.05,
+          "search_range_mps": 300.0
+        },
+        "dist_gate": {
+          "filter_alpha": 0.8,
+          "filter_beta": 0.05,
+          "search_range_m": 5000.0
+        },
+        "transmitter": {
+          "power": 100.0,
+          "antenna": {
+            "angle_half_sens_deg": 15.0,
+            "side_lobes_sensitivity_db": -30.0
+          }
+        },
+        "receiver": {
+          "rcs_m2": 2.0,
+          "range_m": 16000.0,
+          "range_max_m": 25000.0,
+          "time_gain_control": false,
+          "antenna": {
+            "angle_half_sens_deg": 15.0,
+            "side_lobes_sensitivity_db": -30.0
+          }
+        },
+        "doppler_speed": {
+          "presents": true,
+          "min_mps": -3000.0,
+          "max_mps": 3000.0,
+          "width_mps": 20.0,
+          "ref_width_mps": 80.0,
+          "signal_width_min_mps": 5.0
+        },
+        "distance": {
+          "presents": true,
+          "min_m": 300.0,
+          "max_m": 150000.0,
+          "width_m": 300.0,
+          "signal_width_min_m": 300.0,
+          "ref_width_m": 1200.0
+        }
+      },
+      "kind": "datamine",
+      "source_field": "rocket.guidance.radarSeeker",
+      "notes": "保留主动雷达原始映射值。"
+    },
+    {
+      "path": "control.pid.p",
+      "value": 0.0071,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.guidanceAutopilot.accelControlProp",
+      "notes": "直接读取比例控制项。"
+    },
+    {
+      "path": "control.pid.i",
+      "value": 0.005,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.guidanceAutopilot.accelControlIntg",
+      "notes": "直接读取积分控制项。"
+    },
+    {
+      "path": "control.pid.d",
+      "value": 0.00015,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.guidanceAutopilot.accelControlDiff",
+      "notes": "直接读取微分控制项。"
+    },
+    {
+      "path": "control.pid.integral_limit",
+      "value": 1.0,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.guidanceAutopilot.accelControlIntgLim",
+      "notes": "直接读取积分限幅。"
+    },
+    {
+      "path": "control.base_indicated_speed_kmh",
+      "value": 1800.0,
+      "kind": "datamine",
+      "source_field": "rocket.guidance.guidanceAutopilot.baseIndSpeed",
+      "notes": "直接读取自动驾驶仪基准指示空速；原始数值按 km/h 候选语义保留，确切求解公式尚未确认。"
+    }
+  ]
+}

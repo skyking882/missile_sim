@@ -1,0 +1,380 @@
+{
+  "schema_version": 3,
+  "release_version": "profile-adapter-v28-tgo",
+  "model_label": "su_r_77_1_profile_h2_fin_torque_aoa_v12",
+  "runtime_adapter": "profile_h2_fin_torque_aoa_v12",
+  "aero_model_version": "effective_cda_v1",
+  "force_geometry_version": "h2_spec_packed_lift_cm_np_v13",
+  "control_model_version": "raw_pid_fin_angle_tail_force_moment_body_cn_derived_critical_damping_v12",
+  "reference": {
+    "source": "Unit-explicit missile profile adapted to shared H2 candidate runtime",
+    "solver_reproduction_claimed": false,
+    "runtime_boundary": "H2 spec plant: packed lift slope = 0.58·finsLatAccel·η_q/finsAoa, linear in η_q with no elbow or saturation observed from η=0.55 to 1.7 (three-flight PL-12 fast/slow-launch + R-77 replay joint fit 2026-08, 59 frames, R²=0.97–0.998, thrust-lateral component T·sinα/(m·g) removed from the displayed G before fitting); loadFactorMax is retained only as an untested F_N output cap, not a slope elbow; I=m L^2/12, I ω̇ = K(δ-α)-Cω with K=N'Δ, C=2√(KI), ζ=1. Default autopilot is datamine accelControl PID → fin angle (v12) with error in g (pid_error_scale=1). pid_error_units=mps2 was tested and rejected: ×g0 makes a bang-bang relay and a ~5 Hz G limit cycle; faster actuators made it worse and 4× smaller dt did not change it. timeToHitGain t_go = R/max(Vc, |V_rel|) so beam shots cannot inflate t_go. The shared G-outer/rate-inner cascade remains an opt-in candidate. CdA0 = S_w·CxK·C_et(M) interpolated 1943-law*1.10, CdA_α = S_d·CxAoA·min(α,1.2)^2 with S_d=πd²/4 and no Mach shape, optional CdA_δ default 0; missing baseIndSpeed uses shared 1800 km/h, η_q capped at 4; reqAccelMax caps the gravity-compensated specific-force command. Midcourse PIP lead-turn (IOG+DL→TRK launch heading catch-up) is a declared candidate absent from the datamine; τ_turn=0.8 s (fit within the declared 0.3-0.8 s range to the PL-12 30° slow-launch replay; lock_delay_s=0.8, blend_time_s=0.5 kept at the declared default) and the term self-fades as heading error closes. The handover weight w(t) is 1 for t<lock_delay_s+hold_time_s then linear 1->0 across blend_time_s; hold_time_s defaults to 0.0 fleet-wide (collapses to the original lock_delay_s-only linear fade, bit-identical), and is an available per-missile override for a hold-then-release handover shape (see su_r_77/su_r_77_1's guidance.midcourse_lead_turn). midcourse_lead_turn.mode='pcc_alpha' (per-missile opt-in, R-77 family only as of 2026-08-26) replaces the timer/blend handover with the PCC-alpha capture candidate: a_cap=V*sin(eps)/tau_capture_s toward the loft-aware PIP, explicitly clipped to the thrust-inclusive alpha-limited envelope (capture_alpha_max_deg, h2_dynamics.capture_alpha_envelope_g), alpha-inverted to a direct fin command (delta=alpha trim), released when R_cap=|a_cap|/a_env falls through 1 (emergent, geometry-dependent), with a hysteresis CAPTURE/HOMING state machine (epsilon 2/15 deg, recapture only at R>=1, 0.1 s dwell); hold_time_s/blend_time_s/fin_error_ref_rad are not consumed in that mode. PCC-alpha v0.1 (2026-08-26) adds two shaping filters in the same block, both defaulting to 0.0 = off (fleet-wide bit-identical, and inert in timer_blend): release_washout_time_s asymmetrically washes the routed capture-alpha vector and its direct-routing weight out together (rise fixed at 0.05 s, decay = the key) so the fin command is continuous through the CAPTURE->HOMING handoff and relaxes into PN instead of stepping to zero; los_rate_filter_time_constant_s low-passes the LOS-rate vector before the PN product as a seeker-trackloop surrogate. R-77 family: 0.95 s / 0.0 (the LOS filter is implemented but calibrates to off), with epsilon_exit_deg widened 15->25 deg per-missile because the washout enlarges the post-handoff heading excursion. See docs/PCC_ALPHA_V0.md and docs/CAPTURE_RELEASE_DISCRIMINANT.md. Not an end-to-end validation or game-solver reproduction."
+  },
+  "geometry": {
+    "initial_mass_kg": 190.0,
+    "caliber_m": 0.2,
+    "length_m": 3.71,
+    "wing_area_multiplier": 1.45,
+    "reference_area_mode": "caliber_times_wing_multiplier"
+  },
+  "aerodynamics": {
+    "cx_k": 1.65,
+    "cx_vs_aoa": 9.0,
+    "normal_force_model": "body_cn_linear",
+    "cn_alpha_per_rad": 2.0,
+    "normal_force_cap_enabled": true,
+    "fin_translation_share": 0.935,
+    "packed_lift_slope_scale": 0.58,
+    "packed_lift_force_eta_law": {
+      "coefficient": 0.574,
+      "eta_exponent": 0.242,
+      "eta_clamp": [
+        0.35,
+        2.65
+      ]
+    },
+    "cx_vs_fin_delta": 0.0,
+    "cy_k": 2.0,
+    "max_cy_at_aoa": 1.0,
+    "max_cy_interpretation": "coefficient_cap",
+    "fins_lateral_acceleration_g": 53.5864,
+    "path_g_from_alpha": true,
+    "path_g_scales_with_arm_times_length": false,
+    "distance_cm_to_stabilizer_m": 0.175,
+    "horizontal_fin_aoa_limit_deg": 26.402582748982493,
+    "vertical_fin_aoa_limit_deg": 26.402582748982493,
+    "thrust_vector_angle_deg": 0.0,
+    "natural_lift_enabled": true,
+    "natural_lift_fraction": 1.0,
+    "mach_drag": {
+      "base": 1.0,
+      "transonic_peak": 0.28,
+      "center": 1.0,
+      "width": 0.45
+    },
+    "mach_lift": {
+      "base": 1.0,
+      "transonic_peak": 0.1,
+      "center": 1.0,
+      "width": 0.6
+    }
+  },
+  "drag_model": {
+    "shape_mode": "interpolated_cx_1943_x1_10",
+    "drag_scale": 1.0,
+    "area_basis_mode": "caliber_times_wing_multiplier",
+    "alpha_drag_scale": 1.0,
+    "alpha_drag_cap_rad": 1.2,
+    "alpha_drag_area_basis_mode": "caliber_area",
+    "alpha_drag_mach_shape": false,
+    "lift_area_scale": 1.0,
+    "cx_vs_mach": [
+      [
+        0.8,
+        0.173
+      ],
+      [
+        0.9,
+        0.209
+      ],
+      [
+        1.0,
+        0.33
+      ],
+      [
+        1.1,
+        0.402
+      ],
+      [
+        1.2,
+        0.413
+      ],
+      [
+        1.4,
+        0.396
+      ],
+      [
+        1.6,
+        0.38
+      ],
+      [
+        1.8,
+        0.358
+      ],
+      [
+        1.93,
+        0.352
+      ],
+      [
+        2.01,
+        0.342
+      ],
+      [
+        2.29,
+        0.314
+      ],
+      [
+        2.66,
+        0.288
+      ],
+      [
+        3.1,
+        0.27
+      ],
+      [
+        3.5,
+        0.25
+      ],
+      [
+        4.0,
+        0.231
+      ]
+    ],
+    "cx_vs_mach_source": "1943_law_x1_10_linear_interpolation"
+  },
+  "propulsion": {
+    "stages": [
+      {
+        "name": "boost",
+        "duration_s": 7.0,
+        "thrust_n": 24350.0,
+        "mass_lost_kg": 71.0,
+        "isp_s": 244.80370211561674
+      }
+    ],
+    "unpowered_variant": "zero_force_zero_mass_loss"
+  },
+  "performance": {
+    "maximum_speed_mps": 2000.0,
+    "maximum_distance_m": 120000.0,
+    "lifetime_s": 120.0,
+    "load_factor_max_g": 50.0,
+    "maximum_speed_is_hard_clamp": false
+  },
+  "guidance": {
+    "type": "radar",
+    "lock_range_m": 16000.0,
+    "maximum_lateral_acceleration_g": 50.0,
+    "maximum_angular_rate_deg_s": 60.0,
+    "pn_gain": 4.0,
+    "guidance_timeout_s": 0.6,
+    "guidance_timeout_semantics": "unresolved_do_not_disable_after_timeout",
+    "proximity_fuse_enabled": true,
+    "proximity_radius_m": 10.0,
+    "lofting_enabled": true,
+    "lofting_elevation_deg": 24.0,
+    "loft_exit_distance_m": 16000.0,
+    "loft_exit_time_to_go_s": 18.0,
+    "target_elevation_deg": -3.5,
+    "omega_max_deg_s": 0.75,
+    "angle_to_acceleration_multiplier": 20.0,
+    "flight_time_gain_table": [
+      [
+        0.3,
+        0.0
+      ],
+      [
+        0.31,
+        1.0
+      ]
+    ],
+    "time_to_hit_gain_table": [
+      [
+        10.0,
+        1.0
+      ],
+      [
+        25.0,
+        0.8
+      ],
+      [
+        50.0,
+        0.5
+      ]
+    ],
+    "time_to_go_mode": "closing_or_relative_speed",
+    "time_to_go_relative_speed_weight": 1.0,
+    "midcourse": {
+      "enabled": true,
+      "turn_time_constant_s": 0.8,
+      "lock_delay_s": 0.8,
+      "hold_time_s": 1.4,
+      "blend_time_s": 0.7,
+      "speed_floor_mps": 200.0,
+      "fin_error_ref_rad": 0.03,
+      "mode": "pcc_alpha",
+      "tau_capture_s": 0.3,
+      "capture_alpha_max_deg": 23.7,
+      "epsilon_enter_deg": 2.0,
+      "epsilon_exit_deg": 15.0,
+      "handoff_r_max": 0.9,
+      "recapture_r_min": 1.0,
+      "handoff_dwell_s": 0.1,
+      "release_washout_time_s": 0.0,
+      "los_rate_filter_time_constant_s": 0.0,
+      "release_memory_mode": "scalar"
+    },
+    "sensor_model": {
+      "active_radar": true,
+      "inertial_navigation": true,
+      "use_target_velocity": true,
+      "lock_after_launch": true,
+      "lock_timeout_s": 0.75,
+      "break_lock_max_time_s": 100.0,
+      "inertial_drift_speed_mps": 2.0,
+      "datalink": true,
+      "reconnect_datalink": false,
+      "radar_seeker": {
+        "band": 8.0,
+        "active": true,
+        "angle_gate_rate_deg_s": 30.0,
+        "prolongation_time_max_s": 1.0,
+        "multipath_effect": [
+          0.0,
+          1.0,
+          60.0,
+          0.0
+        ],
+        "side_lobes_attenuation_db": -30.0,
+        "lock_angle_max_deg": 55.0,
+        "angle_max_deg": 55.0,
+        "rate_max_deg_s": 60.0,
+        "doppler_speed_gate": {
+          "filter_alpha": 0.8,
+          "filter_beta": 0.05,
+          "search_range_mps": 300.0
+        },
+        "dist_gate": {
+          "filter_alpha": 0.8,
+          "filter_beta": 0.05,
+          "search_range_m": 5000.0
+        },
+        "transmitter": {
+          "power": 100.0,
+          "antenna": {
+            "angle_half_sens_deg": 15.0,
+            "side_lobes_sensitivity_db": -30.0
+          }
+        },
+        "receiver": {
+          "rcs_m2": 2.0,
+          "range_m": 16000.0,
+          "range_max_m": 25000.0,
+          "time_gain_control": false,
+          "antenna": {
+            "angle_half_sens_deg": 15.0,
+            "side_lobes_sensitivity_db": -30.0
+          }
+        },
+        "doppler_speed": {
+          "presents": true,
+          "min_mps": -3000.0,
+          "max_mps": 3000.0,
+          "width_mps": 20.0,
+          "ref_width_mps": 80.0,
+          "signal_width_min_mps": 5.0
+        },
+        "distance": {
+          "presents": true,
+          "min_m": 300.0,
+          "max_m": 150000.0,
+          "width_m": 300.0,
+          "signal_width_min_m": 300.0,
+          "ref_width_m": 1200.0
+        }
+      },
+      "parameter_sources": {
+        "active_radar": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.radarSeeker.active",
+          "notes": "直接读取主动雷达标志。"
+        },
+        "inertial_navigation": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.inertialNavigation",
+          "notes": "直接读取惯性导航标志。"
+        },
+        "use_target_velocity": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.useTargetVel",
+          "notes": "直接读取目标速度使用标志。"
+        },
+        "lock_after_launch": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.lockAfterLaunch",
+          "notes": "直接读取发射后锁定标志。"
+        },
+        "lock_timeout_s": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.lockTimeOut",
+          "notes": "直接读取锁定超时字段；本阶段只保留。"
+        },
+        "break_lock_max_time_s": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.breakLockMaxTime",
+          "notes": "直接读取惯性保持最大时间。"
+        },
+        "inertial_drift_speed_mps": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.inertialGuidance.inertialNavigationDriftSpeed",
+          "notes": "直接读取惯性导航漂移速度。"
+        },
+        "datalink": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.inertialGuidance.datalink",
+          "notes": "直接读取数据链标志。"
+        },
+        "reconnect_datalink": {
+          "kind": "assumed",
+          "source_field": null,
+          "notes": "原始字段缺失，按计划固定为 false。"
+        },
+        "radar_seeker": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.radarSeeker",
+          "notes": "保留主动雷达原始映射值。"
+        }
+      }
+    }
+  },
+  "control": {
+    "limit_angle_of_attack_enabled": false,
+    "maximum_body_angle_of_attack_deg": 30.0,
+    "feedback_measurement": "body_specific_force_g",
+    "controller_command_basis": "legacy_body_up_right_required_specific_force",
+    "plant_semantics": "fin_torque_body_aoa",
+    "integral_limit_semantics": "term",
+    "fin_aoa_moment_enabled": true,
+    "pid_output_semantics": "fin_angle_rad",
+    "pid_error_units": "g",
+    "pid_error_scale": 1.0,
+    "base_indicated_speed_kmh": 1800.0,
+    "base_indicated_speed_mode": "fin_authority_q",
+    "base_indicated_speed_ratio_max": 4.0,
+    "pid": {
+      "switch_time_s": 3.4028234663852886e+38,
+      "p": 0.0071,
+      "i": 0.005,
+      "d": 0.00015,
+      "integral_limit": 1.0
+    },
+    "fin_command_limit": 1.0,
+    "actuator_time_constant_s": 0.08,
+    "derivative_filter_time_constant_s": 0.03
+  },
+  "atmosphere": {
+    "wind_mps": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "gravity_mps2": 9.80665
+  },
+  "numerics": {
+    "dt_s": 0.02,
+    "event_epsilon": 1e-09,
+    "max_steps": 10000,
+    "integrator": "rk4_fixed_step_with_explicit_stage_boundaries"
+  }
+}

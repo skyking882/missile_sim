@@ -1,0 +1,199 @@
+{
+  "note": "kind != 'datamine'：拟合/标定/识别/假设的量，每一条都带 notes 说明来源",
+  "fields": [
+    {
+      "path": "propulsion.mach_thrust_correction",
+      "value": null,
+      "kind": "assumed",
+      "source_field": null,
+      "notes": "该条目未声明可直接映射的 Mach 推力修正。"
+    },
+    {
+      "path": "aerodynamics.cy_k",
+      "value": null,
+      "kind": "assumed",
+      "source_field": null,
+      "notes": "datamine 未提供 CyK；保留 null，不写入数值假设。"
+    },
+    {
+      "path": "aerodynamics.cx_vs_aoa",
+      "value": {
+        "model": "not_declared",
+        "coefficient_per_rad2": null
+      },
+      "kind": "assumed",
+      "source_field": null,
+      "notes": "datamine 未提供 CxAoA；仅保留模型槽位，未填拟合系数。"
+    },
+    {
+      "path": "aerodynamics.max_cy_at_aoa",
+      "value": {
+        "value": null,
+        "aoa_rad": null
+      },
+      "kind": "assumed",
+      "source_field": null,
+      "notes": "datamine 未提供 CyMaxAoA；保留 null。"
+    },
+    {
+      "path": "aerodynamics.mach_drag_correction",
+      "value": {
+        "model": "not_declared",
+        "parameters": null
+      },
+      "kind": "assumed",
+      "source_field": null,
+      "notes": "datamine 未提供可直接映射的 Mach 阻力修正表。"
+    },
+    {
+      "path": "aerodynamics.mach_lift_correction",
+      "value": {
+        "model": "not_declared",
+        "parameters": null
+      },
+      "kind": "assumed",
+      "source_field": null,
+      "notes": "datamine 未提供可直接映射的 Mach 升力修正表。"
+    },
+    {
+      "path": "aerodynamics.drag_scale",
+      "value": 1.0,
+      "kind": "assumed",
+      "source_field": null,
+      "notes": "中性候选标度 1.0；不是 datamine 识别结果。"
+    },
+    {
+      "path": "aerodynamics.packed_lift_force_eta_law",
+      "value": {
+        "coefficient": 0.574,
+        "eta_exponent": 0.242,
+        "eta_clamp": [
+          0.35,
+          2.65
+        ]
+      },
+      "kind": "fitted",
+      "source_field": null,
+      "notes": "2026-08-24 本弹(su_r_77_1)平射回放 46 帧拟合：k_force(η)=0.574·clamp(η,0.35,2.65)^0.242，逐帧力斜率由 0.45 升至 0.74（η 0.35→2.62），非常数，力律与力矩律(packed_lift_slope_scale)已拆分。单次飞行候选值，未跨弹验证；该飞行内 Mach 数与 η 高度共线，函数形式究竟是 η 幂律还是 Mach 曲线尚不可分辨，待高空判别性回放收敛。旧 30° R-77(su_r_77)慢速回放数据集拟合的平坦 k≈0.577 与本律在中段 η 存在潜在冲突，待重新分析。"
+    },
+    {
+      "path": "guidance.midcourse_lead_turn.mode",
+      "value": "pcc_alpha",
+      "kind": "identified",
+      "source_field": "r77_1_level_20260824 four-model release discriminant",
+      "notes": "2026-08-26 判别（docs/CAPTURE_RELEASE_DISCRIMINANT.md、scripts/capture_release_discriminant.py）：饱和 PN 零假设被证伪（R_PN 峰值 0.54 于 TRK 时刻、单调下降、与 N 取值无关），发射捕获平台的释放为 ε 驱动 ⇒ 发射捕获采用 PCC-α（预测碰撞航向捕获 + 显式 α 限幅，docs/PCC_ALPHA_V0.md）。本 mode 下 hold_time_s / blend_time_s / fin_error_ref_rad 三个定时器交接参数不再被消费（保留仅作 v1.0.2 §1e 标定记录）；释放时刻由 R_cap=|V·sinε/τ_c|/a_env 下穿 1 的物理事件产生，不再由时间表指定。"
+    },
+    {
+      "path": "guidance.midcourse_lead_turn.tau_capture_s",
+      "value": 0.3,
+      "kind": "calibrated",
+      "source_field": "r77_1_level_20260824 alpha-plateau release bracket",
+      "notes": "区间识别而非点标定：由「最后饱和帧/最先解饱帧」的 Q(t)=V·sinε/a_env 反算，本回放约束 τ_c ∈ ≈[0.23, 0.42] s（帧分类取 t_s=1.9/t_u=2.1；取 t_s=2.1/t_u=2.3 则区间移至 ≈[0.04, 0.23]，分类规则待预注册——见 docs/CAPTURE_RELEASE_DISCRIMINANT.md 措辞收紧段）。0.30 s 为区间内 nominal。跨飞行普适性未验：多场回放区间求交集为可证伪判据（不同高度平射为最廉价判别实验）。"
+    },
+    {
+      "path": "guidance.midcourse_lead_turn.release_washout_time_s",
+      "value": 0.0,
+      "kind": "calibrated",
+      "source_field": "r77_1_level_20260824 post-release alpha shoulder",
+      "notes": "已否决为最终机制（2026-08-26 复审）：标量 washout 能局部拟合总迎角肩部，但把幅值记忆锁死在旧水平捕获方向上，注入约 15–20° 额外航向角（ΔΨ≈a_r·τ_r/V），必然产生游戏中不存在的 4.5–6.5 s 解卷绕（G 峰 31 vs 游戏 17）并迫使 epsilon_exit_deg 25° 掩盖真缺陷。0.95 s 仅保留为 ablation 参考值；正式配置回 0.0。下一步按序：α→G force-closure audit → 幅值/方向分离（polar release）→ 垂直面判别（需带高度列的回放）。 原标定记录：PCC-α v0.1（docs/PCC_ALPHA_V0.md “v0.1” 节）。拟合目标仅取释放后肩部三点 α(t=2.5/2.9/3.4 s)=18.4/14.5/10.5°（回放逐字读数），判据为平方误差和；网格 τ_release∈{0.6,0.8,1.0,1.2,1.5,1.8} × τ_LOS∈{0,0.2,0.3,0.5}，随后在 τ_release∈[0.85,1.15]×τ_LOS∈[0,0.15] 局部细化，A7 场景（8 km/30°/6300 m 平射/ideal_truth）。网格最优（仍能命中的点）为 1.0/0.0（SSE 7.05）；细化后取 0.95 s，因为真正的约束边界不是 SSE 而是 A6 40° 双近炸锚点：τ_release≤0.98 才近炸，1.00 时脱靶 12.8 m，而 ±3° 肩部验收带要求 τ_release≥0.92——0.95 在该窗口内两侧都有余量。所得肩部误差 −0.40/−0.76/−2.77°，近炸 7.46 s/10 m（游戏 ~7.2–7.4），单次 CAPTURE→HOMING 无回跳。已知代价（非拟合项、如实报告）：4.5–6.5 s 卸载谷显著变差（G@4.9 16.9 vs 游戏 2.0，v0 为 8.5），因为本机制把释放后过载全部施加在捕获方向上，会把速度矢量打过碰撞航向约 19°；判别文档已声明该段 G 无法在水平/垂直/符号间归属，故此常数的跨飞行普适性未验，垂直面有仪器的捕获回放为下一步判别实验。上升侧固定为 0.05 s（作动器量级，不参与标定）。"
+    },
+    {
+      "path": "guidance.midcourse_lead_turn.los_rate_filter_time_constant_s",
+      "value": 0.0,
+      "kind": "calibrated",
+      "source_field": "r77_1_level_20260824 A7 endgame (negative result)",
+      "notes": "PCC-α v0.1 机制 B（视线角速率矢量一阶低通，作为导引头跟踪回路带宽的替身）。同一网格标定，结果为 0.0（关闭）：τ≥0.15 s 时末段（>2 km/s 接近速度）的角速率滞后直接丢失拦截（脱靶 100–370 m）；τ≤0.10 s 只换来约 1–2 个 SSE 单位，同时把 5.5–7.2 s 段最大过载推离回放，并使航向偏移余量不足 1.5°。机制保留在代码中（默认 0.0，全弹种逐位不变），待 observation_mode 换成真实导引头模型后再评估。"
+    },
+    {
+      "path": "guidance.midcourse_lead_turn.capture_alpha_max_deg",
+      "value": 23.7,
+      "kind": "identified",
+      "source_field": "r77_1_level_20260824 alpha plateau",
+      "notes": "回放钳位平台实测 23.7°（S008/S009 逐字读数；α 钳住而 G 随 q 爬升 ⇒ 饱和在 α/舵通道而非 G 通道）。物理出处未定：满舵配平 α（datamine fin_aoa_limit=26.4° 在旁）vs 自动驾驶仪 α 限幅，二者判别待做；在此之前作为按弹测量常数使用。包络 a_env = 力通道打包升力斜率×α_max + T·sinα_max/(m·g)，与 physical_normal_g 反馈同为轨迹法向含推力基准（h2_dynamics.capture_alpha_envelope_g）。"
+    },
+    {
+      "path": "guidance.guidance_type",
+      "value": "pn_loft",
+      "kind": "derived",
+      "source_field": "model_family.guidance",
+      "notes": "由原始制导结构和 loft 标志映射到显式 v1 模型族；不支持类型保持原值，不做 PN 退化。"
+    },
+    {
+      "path": "guidance.lofting_enabled",
+      "value": true,
+      "kind": "derived",
+      "source_field": "rocket.guidance.guidanceAutopilot.loftEnabled",
+      "notes": "存在 true 时映射为 pn_loft，否则按未启用处理。"
+    },
+    {
+      "path": "guidance.loft_exit_distance_m",
+      "value": null,
+      "kind": "assumed",
+      "source_field": null,
+      "notes": "datamine 未提供与此字段语义一致的退出距离。"
+    },
+    {
+      "path": "guidance.loft_exit_time_to_go_s",
+      "value": null,
+      "kind": "assumed",
+      "source_field": null,
+      "notes": "datamine 未提供与此字段语义一致的剩余时间门槛。"
+    },
+    {
+      "path": "guidance.midcourse_lead_turn.hold_time_s",
+      "value": 1.4,
+      "kind": "calibrated",
+      "source_field": "r77_1_level_20260824 alpha timeline",
+      "notes": "2026-08-24：发射捕获交接形状由「纯线性衰减」改为「保持-释放」：w(t) 在 [lock_delay_s, lock_delay_s+hold_time_s] 区间恒为 1，此后才在 blend_time_s 内线性衰减到 0（hold_time_s=0 与旧形状逐位一致，见 src/aim120_model/guidance.py 的 midcourse_blend_weight）。hold_time_s=1.4 s 与 blend_time_s=0.7 s、fin_error_ref_rad=0.03 rad 三参数联合标定，唯一数据源是 R-77-1 平射回放（data/replays/r77_1_level_20260824.tsv）的 alpha(t) 时间线，按 dt=0.02 s 采样拟合三个目标：T1 迎角平台 [1.2,1.9]s 内 ≥21°（回放 21.7-23.7°）；T2 首次跌破 17° 的时刻 = 2.05±0.15 s；T3 t=3.4 s 迎角 = 10.5±2.0°（回放 10.5°）。方法：粗网格 hold∈{0.9,1.1,1.3,1.5}×blend∈{0.3,0.5,0.7}×fin_error_ref_rad∈{0.05,0.08,0.10,0.15}（48 组）按 T1-T3 残差平方和最小选优，随后在最优点周围局部细化一轮；G、速度、命中/引信等观测量全部未参与拟合，留作独立留出验证（结果见 docs/UPDATE_V1.0.2.md）。诚实披露：网格显示 T1 在给定三参数范围内不可达——峰值迎角在全部网格点上都封顶于约 20.1-20.2°（与标定前基线 19.9° 一致），封顶原因在这三个交接参数之外，本次标定未触碰；T2 与 T3 通过 hold_time_s 此消彼长，本次选取的最优点（残差平方和 1.26）贴近 T3（模型 10.48° vs 目标 10.5°），T2 落在 2.50 s（超出 2.05±0.15 s 容差 0.30 s）；损失函数是三目标残差（T1 用「未达 21° 的缺口」、T2 用秒、T3 用度）的未加权平方和，未做容差归一化。回放中导引头状态自 t=0.9 s 起已为 TRK，故这整段窗口是自动驾驶仪 launch capture handover（发射捕获交接）记忆时长，不是导引头 IOG 持续时间，命名/注释均按此区分，不称 IOG。lock_delay_s 维持共享默认 0.8 s 不变。"
+    },
+    {
+      "path": "guidance.midcourse_lead_turn.blend_time_s",
+      "value": 0.7,
+      "kind": "calibrated",
+      "source_field": "r77_1_level_20260824 alpha timeline",
+      "notes": "由共享默认 0.5 s 改为 0.7 s，是 hold_time_s/blend_time_s/fin_error_ref_rad 三参数联合网格标定的一部分，方法、数据源、目标定义、粗网格/局部细化流程与已知局限（T1 不可达、T2/T3 此消彼长）见同级 midcourse_lead_turn.hold_time_s 条目，不重复展开。此前(2026-08-24 前)取值 1.3 s 是仅覆盖 blend_time_s 单参数的旧标定，已被本次三参数联合标定取代。"
+    },
+    {
+      "path": "guidance.midcourse_lead_turn.fin_error_ref_rad",
+      "value": 0.03,
+      "kind": "calibrated",
+      "source_field": "r77_1_level_20260824 alpha timeline",
+      "notes": "由共享默认 0.15 rad 下调至 0.03 rad（三参数联合标定范围下界 [0.03, 0.15]），是 hold_time_s/blend_time_s/fin_error_ref_rad 联合网格标定的一部分，方法、数据源、目标定义与已知局限见同级 midcourse_lead_turn.hold_time_s 条目。fin_error_ref_rad 主要影响交接末段（航向误差已接近该阈值时）直接舵指令分量的衰减速度，对早期迎角平台峰值影响可忽略——发射后航向误差远大于 0.03-0.15 rad 的候选范围，直接舵分量在平台期本就已饱和于 1.0，这也是网格显示峰值迎角与该参数基本无关（全网格封顶于约 20.1-20.2°）的原因。"
+    },
+    {
+      "path": "guidance.sensor_model.reconnect_datalink",
+      "value": false,
+      "kind": "assumed",
+      "source_field": null,
+      "notes": "原始字段缺失，按计划固定为 false。"
+    },
+    {
+      "path": "control.fin_command_limit",
+      "value": 1.0,
+      "kind": "assumed",
+      "source_field": null,
+      "notes": "标准化舵面命令中性上限 1.0；datamine 未声明该接口量。"
+    },
+    {
+      "path": "control.actuator_time_constant_s",
+      "value": null,
+      "kind": "assumed",
+      "source_field": null,
+      "notes": "datamine 未提供独立舵机时间常数。"
+    },
+    {
+      "path": "control.max_pitch_yaw_rate_deg_s",
+      "value": null,
+      "kind": "assumed",
+      "source_field": null,
+      "notes": "datamine 未提供导弹俯仰/偏航速率上限。"
+    },
+    {
+      "path": "control.identified_controller",
+      "value": null,
+      "kind": "assumed",
+      "source_field": null,
+      "notes": "没有外部识别控制器结果；不得把 PID 与独立识别层混合。"
+    }
+  ]
+}

@@ -97,7 +97,10 @@
     "packed_lift_force_eta_law": {
       "coefficient": 0.574,
       "eta_exponent": 0.242,
-      "eta_clamp": [0.35, 2.65]
+      "eta_clamp": [
+        0.35,
+        2.65
+      ]
     },
     "parameter_sources": {
       "cx_k": {
@@ -236,11 +239,41 @@
     "proximity_radius_m": 10.0,
     "seeker_type": "radar",
     "midcourse_lead_turn": {
+      "mode": "pcc_alpha",
+      "tau_capture_s": 0.3,
+      "capture_alpha_max_deg": 23.7,
+      "release_washout_time_s": 0.0,
+      "los_rate_filter_time_constant_s": 0.0,
       "hold_time_s": 1.4,
       "blend_time_s": 0.7,
       "fin_error_ref_rad": 0.03
     },
     "parameter_sources": {
+      "midcourse_lead_turn.mode": {
+        "kind": "assumed",
+        "source_field": "same-family analogy from su_r_77_1",
+        "notes": "R-77 无独立回放数据；发射捕获机制类型（PCC-α）按同族假设沿用 R-77-1 的判别结论（docs/CAPTURE_RELEASE_DISCRIMINANT.md）。同族假设本身已在 §1e 时期用于定时器参数且在 80° 离轴包络上出现结构性副作用（遗留 #7）——PCC-α 的释放几何相关性正是对该副作用的预测性修复，待离轴回放验证。"
+      },
+      "midcourse_lead_turn.tau_capture_s": {
+        "kind": "assumed",
+        "source_field": "same-family analogy from su_r_77_1",
+        "notes": "沿用 R-77-1 的区间识别结果（≈[0.23,0.42] s，nominal 0.30）；无独立 R-77 数据。"
+      },
+      "midcourse_lead_turn.release_washout_time_s": {
+        "kind": "assumed",
+        "source_field": "same-family analogy from su_r_77_1",
+        "notes": "已否决为最终机制（2026-08-26 复审）：标量 washout 能局部拟合总迎角肩部，但把幅值记忆锁死在旧水平捕获方向上，注入约 15–20° 额外航向角（ΔΨ≈a_r·τ_r/V），必然产生游戏中不存在的 4.5–6.5 s 解卷绕（G 峰 31 vs 游戏 17）并迫使 epsilon_exit_deg 25° 掩盖真缺陷。0.95 s 仅保留为 ablation 参考值；正式配置回 0.0。下一步按序：α→G force-closure audit → 幅值/方向分离（polar release）→ 垂直面判别（需带高度列的回放）。 原标定记录：同族假设，照搬 su_r_77_1 的肩部标定值 0.95 s；无独立 R-77 回放。完整方法（拟合目标、网格、局部细化、A6 40° 锚点构成的实际约束边界、已知代价）见 su_r_77_1.json 同名字段条目与 docs/PCC_ALPHA_V0.md “v0.1” 节。本弹恰是该常数离轴后果的观测点：80° 由 17.8 m 收紧到 14.9 m，90° 首次达到近炸（10 m/9.55 s），70° 反向小幅退化（10.0 m 近炸→10.5 m 未近炸），包络冻结带按新结构重冻结并注明日期。"
+      },
+      "midcourse_lead_turn.los_rate_filter_time_constant_s": {
+        "kind": "assumed",
+        "source_field": "same-family analogy from su_r_77_1",
+        "notes": "同族假设，沿用 su_r_77_1 的标定结果 0.0（关闭）；机制已实现但在本次数据下不采用，理由见 su_r_77_1.json 同名字段条目。"
+      },
+      "midcourse_lead_turn.capture_alpha_max_deg": {
+        "kind": "assumed",
+        "source_field": "same-family analogy from su_r_77_1",
+        "notes": "沿用 R-77-1 平台实测 23.7°；R-77 慢速回放锚点（A4，α 峰值 ≥18°）与此相容但分辨率不足以独立测定。"
+      },
       "guidance_type": {
         "kind": "derived",
         "source_field": "model_family.guidance",

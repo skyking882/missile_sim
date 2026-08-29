@@ -1,0 +1,52 @@
+[
+  {
+    "file": "a7_baseline_dt0.020.csv",
+    "rows": 370,
+    "zeta": 1.0,
+    "fix_proj": false,
+    "alpha_max": 23.7,
+    "tau": 0.3,
+    "dt_s": 0.02,
+    "termination": "proximity_fuse",
+    "min_dist_m": 10.0,
+    "flight_time_s": 7.3611
+  },
+  {
+    "file": "a7_three_step_fix_dt0.020.csv",
+    "rows": 375,
+    "zeta": 0.5,
+    "fix_proj": true,
+    "alpha_max": 26.4,
+    "tau": 0.3,
+    "dt_s": 0.02,
+    "termination": "proximity_fuse",
+    "min_dist_m": 10.0,
+    "flight_time_s": 7.4624
+  },
+  {
+    "file": "a7_baseline_dt0.002.csv",
+    "rows": 3677,
+    "zeta": 1.0,
+    "fix_proj": false,
+    "alpha_max": 23.7,
+    "tau": 0.3,
+    "dt": 0.002,
+    "dt_s": 0.002,
+    "termination": "proximity_fuse",
+    "min_dist_m": 10.0,
+    "flight_time_s": 7.3509
+  },
+  {
+    "file": "a7_three_step_fix_dt0.002.csv",
+    "rows": 3702,
+    "zeta": 0.5,
+    "fix_proj": true,
+    "alpha_max": 26.4,
+    "tau": 0.3,
+    "dt": 0.002,
+    "dt_s": 0.002,
+    "termination": "proximity_fuse",
+    "min_dist_m": 10.0,
+    "flight_time_s": 7.4011
+  }
+]

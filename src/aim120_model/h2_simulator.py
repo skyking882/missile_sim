@@ -16,7 +16,12 @@ from .control import base_indicated_speed_schedule, update_control_feedback
 from .dynamics import SimState
 from .events import event_candidates
 from .guidance import guidance_command
-from .h2_dynamics import _uses_quaternion_candidate, forces_for_state_h2, rk4_step_h2
+from .h2_dynamics import (
+    _uses_quaternion_candidate,
+    capture_alpha_envelope_g,
+    forces_for_state_h2,
+    rk4_step_h2,
+)
 from .math3d import Vector, lerp, norm, sub
 from .observation import IdealTruthTrackProvider, KinematicTrackProvider, SensorTrackProvider
 from .propulsion import PiecewisePropulsion
@@ -112,6 +117,27 @@ class H2Simulator:
             orientation_quaternion=candidate_orientation,
         )
 
+    def _pcc_envelope_g(self, diagnostics: Any, state: SimState) -> float | None:
+        """Alpha-limited achievable trajectory-normal G for PCC-alpha, else None.
+
+        None (timer_blend mode, or no capture_alpha_max_deg) leaves the
+        guidance layer's legacy behavior untouched.
+        """
+
+        midcourse = (self.config.get("guidance") or {}).get("midcourse") or {}
+        if str(midcourse.get("mode", "timer_blend")) != "pcc_alpha":
+            return None
+        alpha_max_deg = midcourse.get("capture_alpha_max_deg")
+        if alpha_max_deg is None:
+            return None
+        return capture_alpha_envelope_g(
+            float(diagnostics.aero.dynamic_pressure_pa),
+            float(state.mass),
+            float(diagnostics.propulsion.thrust_n),
+            math.radians(float(alpha_max_deg)),
+            self.config,
+        )
+
     def _sample(
         self,
         time_s: float,
@@ -125,14 +151,23 @@ class H2Simulator:
         guided: bool,
         controlled: bool,
         reuse_guidance: Any = None,
+        guidance_state: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         variant = case["model_variant"]
+        diagnostics = forces_for_state_h2(state, time_s, self.config, self.propulsion, powered)
         guidance = (
             reuse_guidance
             if reuse_guidance is not None
-            else guidance_command(state, track, time_s, self.config, enabled=guided)
+            else guidance_command(
+                state,
+                track,
+                time_s,
+                self.config,
+                enabled=guided,
+                guidance_state=guidance_state,
+                plant_envelope_g=self._pcc_envelope_g(diagnostics, state),
+            )
         )
-        diagnostics = forces_for_state_h2(state, time_s, self.config, self.propulsion, powered)
         speed_schedule = base_indicated_speed_schedule(diagnostics.aero.dynamic_pressure_pa, self.config)
         relative = sub(target.position, state.position)
         radar_detection = getattr(provider, "radar_detection", None)
@@ -261,6 +296,10 @@ class H2Simulator:
             "midcourse_weight": float(guidance.midcourse_weight),
             "heading_error_deg": math.degrees(float(guidance.heading_error_rad)),
             "pip_time_to_go_s": float(guidance.pip_time_to_go_s),
+            "pcc_capture_mode": str(guidance.capture_mode),
+            "pcc_capture_ratio": float(guidance.capture_ratio_r),
+            "pcc_envelope_g": float(guidance.capture_envelope_g),
+            "pcc_routed_alpha_deg": float(guidance.capture_routed_alpha_deg),
             "observation_mode": observation_mode,
             "observation_provider": observation_provider,
             "observation_reject_reason": observation_reject_reason,
@@ -509,7 +548,28 @@ class H2Simulator:
         else:
             provider = IdealTruthTrackProvider()
         track = provider.update(time_s, dt_nominal, state, target)
-        samples = [self._sample(time_s, state, target, track, provider, observation_mode, case, powered, guided, controlled)]
+        # Per-run mutable guidance memory (PCC-alpha CAPTURE/HOMING mode and
+        # its hysteresis dwell timers live here; empty and inert otherwise).
+        guidance_state: dict[str, Any] = {}
+        # Cumulative horizontal-curvature diagnostics (2026-08-26c review):
+        # J_psi_actual integrates the velocity vector's horizontal heading;
+        # the *_cmd channels integrate the horizontal turn the guidance
+        # command asked for, attributed to the active PCC sub-mode.  Any
+        # release "smoother" must NOT materially change the final J_psi --
+        # otherwise it is not smoothing, it is rewriting the trajectory.
+        j_psi_actual_rad = 0.0
+        j_psi_capture_cmd_rad = 0.0
+        j_psi_homing_cmd_rad = 0.0
+
+        def _j_psi_fields() -> dict[str, float]:
+            return {
+                "j_psi_actual_deg": math.degrees(j_psi_actual_rad),
+                "j_psi_capture_cmd_deg": math.degrees(j_psi_capture_cmd_rad),
+                "j_psi_homing_cmd_deg": math.degrees(j_psi_homing_cmd_rad),
+            }
+
+        samples = [self._sample(time_s, state, target, track, provider, observation_mode, case, powered, guided, controlled, guidance_state=guidance_state)]
+        samples[-1].update(_j_psi_fields())
         event_type: str | None = None
         event_time = time_s
         numerical_failure = False
@@ -530,13 +590,21 @@ class H2Simulator:
                 numerical_failure = True
                 break
             state = replace(state, mass=self.propulsion.mass_at(time_s, powered=powered))
-            guidance = guidance_command(state, track, time_s, self.config, enabled=guided)
             pre_control_diagnostics = forces_for_state_h2(
                 state,
                 time_s,
                 self.config,
                 self.propulsion,
                 powered,
+            )
+            guidance = guidance_command(
+                state,
+                track,
+                time_s,
+                self.config,
+                enabled=guided,
+                guidance_state=guidance_state,
+                plant_envelope_g=self._pcc_envelope_g(pre_control_diagnostics, state),
             )
             speed_schedule = base_indicated_speed_schedule(
                 pre_control_diagnostics.aero.dynamic_pressure_pa,
@@ -555,6 +623,19 @@ class H2Simulator:
                 midcourse_fin_fraction=guidance.midcourse_fin_fraction,
                 midcourse_weight=guidance.midcourse_weight,
             )
+            # J_psi command channels: horizontal heading-rate the commanded
+            # acceleration implies at the current velocity, attributed to the
+            # active PCC sub-mode (all zero-attributed to "homing" for
+            # non-PCC profiles, whose commanded accel is the PN+blend sum).
+            vx, _, vz = state.velocity
+            horizontal_sq = vx * vx + vz * vz
+            if horizontal_sq > 1.0:
+                a_cmd = guidance.commanded_acceleration_mps2
+                psi_rate_cmd = (vx * a_cmd[2] - vz * a_cmd[0]) / horizontal_sq
+                if guidance.capture_mode == "capture":
+                    j_psi_capture_cmd_rad += psi_rate_cmd * step
+                else:
+                    j_psi_homing_cmd_rad += psi_rate_cmd * step
             state_for_step = replace(state, **feedback)
             next_state = rk4_step_h2(
                 state_for_step,
@@ -634,13 +715,21 @@ class H2Simulator:
                     controlled,
                     reuse_guidance=guidance,
                 ))
+                samples[-1].update(_j_psi_fields())
                 event_type = candidate.event_type
                 break
+            old_vx, _, old_vz = state.velocity
+            new_vx, _, new_vz = next_state.velocity
+            if old_vx * old_vx + old_vz * old_vz > 1.0 and new_vx * new_vx + new_vz * new_vz > 1.0:
+                delta_psi = math.atan2(new_vz, new_vx) - math.atan2(old_vz, old_vx)
+                delta_psi = (delta_psi + math.pi) % (2.0 * math.pi) - math.pi
+                j_psi_actual_rad += delta_psi
             state = next_state
             target = next_target
             time_s = next_time
             track = provider.update(time_s, step, state, target)
-            samples.append(self._sample(time_s, state, target, track, provider, observation_mode, case, powered, guided, controlled))
+            samples.append(self._sample(time_s, state, target, track, provider, observation_mode, case, powered, guided, controlled, guidance_state=guidance_state))
+            samples[-1].update(_j_psi_fields())
         else:
             event_type = "numerical_failure"
             event_time = time_s
@@ -650,7 +739,8 @@ class H2Simulator:
             event_type = "numerical_failure"
             numerical_failure = True
         if numerical_failure and (not samples or samples[-1]["time_s"] < event_time):
-            samples.append(self._sample(event_time, state, target, track, provider, observation_mode, case, powered, guided, controlled))
+            samples.append(self._sample(event_time, state, target, track, provider, observation_mode, case, powered, guided, controlled, guidance_state=guidance_state))
+            samples[-1].update(_j_psi_fields())
         return {
             "model_label": self.config["model_label"],
             "aero_model_version": self.config["aero_model_version"],

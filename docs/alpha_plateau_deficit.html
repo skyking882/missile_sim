@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="R-77 捕获段迎角平台比游戏低 5.3°：合成阻尼、cos 投影与舵指令上限的三级分解。">
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0}</style>
+<title>R-77 迎角平台亏损</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+
+<style>
+:root{
+  --ground:#F5F7F9; --surface:#FFFFFF; --sunk:#EDF0F4;
+  --ink:#12161C; --body:#2C333C; --muted:#5A6470; --faint:#8A939E;
+  --rule:#D9DFE6; --hair:#E7EBF0;
+  --model:#B4232B; --game:#12161C; --fixed:#1F6FA8; --flag:#8F5B05;
+  --model-wash:rgba(180,35,43,.09); --fixed-wash:rgba(31,111,168,.09); --flag-wash:rgba(143,91,5,.10);
+  --sans:"IBM Plex Sans","Noto Sans SC",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0C1015; --surface:#141A21; --sunk:#10161C;
+    --ink:#E6EBF1; --body:#C3CBD5; --muted:#949EAB; --faint:#6E7885;
+    --rule:#242C36; --hair:#1C232B;
+    --model:#EA707A; --game:#E6EBF1; --fixed:#66A9DE; --flag:#D2A04A;
+    --model-wash:rgba(234,112,122,.13); --fixed-wash:rgba(102,169,222,.13); --flag-wash:rgba(210,160,74,.14);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0C1015; --surface:#141A21; --sunk:#10161C;
+  --ink:#E6EBF1; --body:#C3CBD5; --muted:#949EAB; --faint:#6E7885;
+  --rule:#242C36; --hair:#1C232B;
+  --model:#EA707A; --game:#E6EBF1; --fixed:#66A9DE; --flag:#D2A04A;
+  --model-wash:rgba(234,112,122,.13); --fixed-wash:rgba(102,169,222,.13); --flag-wash:rgba(210,160,74,.14);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--ground); color:var(--body);
+  font-family:var(--sans); font-size:16px; line-height:1.72;
+  -webkit-font-smoothing:antialiased; margin:0;
+  padding:0 20px 96px;
+}
+.wrap{max-width:880px;margin:0 auto}
+.col{max-width:660px}
+
+/* ---- masthead ---- */
+header{padding:64px 0 30px;border-bottom:1px solid var(--ink)}
+.kicker{
+  font-family:var(--mono); font-size:11.5px; font-weight:500;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
+  display:flex; flex-wrap:wrap; gap:6px 18px; margin-bottom:22px;
+}
+h1{
+  font-family:var(--sans); font-weight:700; color:var(--ink);
+  font-size:clamp(30px,5.4vw,46px); line-height:1.12; letter-spacing:-.018em;
+  margin:0 0 18px; text-wrap:balance;
+}
+.standfirst{font-size:17.5px;line-height:1.68;color:var(--body);margin:0;max-width:640px}
+.standfirst b{color:var(--ink);font-weight:600}
+.meta{
+  display:flex;flex-wrap:wrap;gap:0 34px;margin-top:26px;
+  font-family:var(--mono);font-size:12.5px;color:var(--muted);
+}
+.meta div span{color:var(--faint);display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.meta div b{color:var(--ink);font-weight:500}
+
+/* ---- sections ---- */
+section{padding-top:56px}
+h2{
+  font-family:var(--sans);font-weight:600;color:var(--ink);
+  font-size:24px;line-height:1.28;letter-spacing:-.01em;
+  margin:0 0 6px;text-wrap:balance;
+}
+h2 .num{
+  font-family:var(--mono);font-size:12px;font-weight:500;color:var(--model);
+  letter-spacing:.1em;display:block;margin-bottom:9px;
+}
+h3{font-size:16.5px;font-weight:600;color:var(--ink);margin:34px 0 8px;letter-spacing:-.005em}
+p{margin:0 0 15px}
+p+h3{margin-top:30px}
+strong{color:var(--ink);font-weight:600}
+em{font-style:normal;color:var(--model);font-weight:500}
+code{
+  font-family:var(--mono);font-size:.885em;background:var(--sunk);
+  padding:.1em .34em;border-radius:2px;color:var(--ink);
+}
+a{color:var(--fixed)}
+ul{margin:0 0 15px;padding-left:20px}
+li{margin-bottom:7px}
+li::marker{color:var(--faint)}
+
+/* ---- blocks ---- */
+.eq{
+  font-family:var(--mono);font-size:14.5px;line-height:1.85;color:var(--ink);
+  background:var(--surface);border:1px solid var(--rule);
+  border-left:3px solid var(--ink);
+  padding:16px 20px;margin:22px 0;overflow-x:auto;white-space:pre;
+}
+.eq .c{color:var(--muted)}
+pre{
+  font-family:var(--mono);font-size:12.8px;line-height:1.72;
+  background:var(--surface);border:1px solid var(--rule);
+  padding:16px 18px;margin:20px 0;overflow-x:auto;color:var(--body);
+}
+pre b{color:var(--model);font-weight:500}
+pre i{color:var(--muted);font-style:normal}
+.src{
+  font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  margin:20px 0 -12px;letter-spacing:.02em;
+}
+figure{margin:30px 0}
+figcaption{
+  font-family:var(--mono);font-size:11.8px;line-height:1.62;color:var(--muted);
+  margin-top:12px;padding-top:10px;border-top:1px solid var(--hair);
+}
+.scroll{overflow-x:auto}
+table{
+  border-collapse:collapse;width:100%;min-width:520px;
+  font-size:13.5px;font-variant-numeric:tabular-nums;margin:8px 0 6px;
+}
+th{
+  font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);text-align:right;
+  padding:0 12px 8px;border-bottom:1px solid var(--ink);white-space:nowrap;
+}
+th:first-child,td:first-child{text-align:left;padding-left:0}
+td{padding:8px 12px;border-bottom:1px solid var(--hair);text-align:right;color:var(--body)}
+td b{color:var(--ink);font-weight:600}
+tr.hi td{background:var(--fixed-wash)}
+tr.gm td{color:var(--ink);font-weight:600}
+.num-cell{font-family:var(--mono);font-size:13px}
+
+/* ---- provenance chips ---- */
+.chip{
+  font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.08em;
+  text-transform:uppercase;padding:2px 7px;border-radius:2px;white-space:nowrap;
+}
+.chip.dm{background:var(--fixed-wash);color:var(--fixed)}
+.chip.as{background:var(--flag-wash);color:var(--flag)}
+.chip.id{background:var(--model-wash);color:var(--model)}
+.chip.no{background:var(--sunk);color:var(--faint)}
+
+/* ---- ladder ---- */
+.ladder{margin:26px 0 8px;display:flex;flex-direction:column;gap:3px;position:relative;padding-top:4px}
+.rung{display:grid;grid-template-columns:1fr;gap:5px;padding:11px 0;border-bottom:1px solid var(--hair)}
+.rung:last-child{border-bottom:none}
+.rung .top{display:flex;justify-content:space-between;align-items:baseline;gap:14px}
+.rung .lbl{font-size:14px;color:var(--body)}
+.rung .lbl b{color:var(--ink);font-weight:600}
+.rung .val{font-family:var(--mono);font-size:14px;color:var(--ink);white-space:nowrap}
+.rung .val .d{color:var(--fixed);font-size:12.5px;margin-left:8px}
+.bar{position:relative;height:11px;background:var(--sunk);border-radius:1px;overflow:hidden;
+  box-shadow:inset -2px 0 0 var(--flag)}
+.bar i{position:absolute;left:0;top:0;bottom:0;display:block;border-radius:1px}
+.bar i.m{background:var(--model)}
+.bar i.g{background:var(--game)}
+.bar i.f{background:var(--fixed)}
+.axis{
+  display:flex;justify-content:space-between;margin-top:9px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--flag);
+}
+.axis .z{color:var(--faint)}
+.note{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.6}
+
+/* ---- callout ---- */
+.callout{
+  background:var(--surface);border:1px solid var(--rule);
+  border-top:2px solid var(--model);
+  padding:20px 22px;margin:26px 0;
+}
+.callout .h{
+  font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--model);margin-bottom:9px;font-weight:600;
+}
+.callout p:last-child{margin-bottom:0}
+
+.rule{border:none;border-top:1px solid var(--rule);margin:56px 0 0}
+footer{padding-top:26px;font-family:var(--mono);font-size:11.5px;line-height:1.75;color:var(--faint)}
+footer b{color:var(--muted);font-weight:500}
+
+svg{display:block;max-width:100%;height:auto}
+.chart-shell{background:var(--surface);border:1px solid var(--rule);padding:12px 8px 8px}
+:focus-visible{outline:2px solid var(--fixed);outline-offset:2px}
+@media (max-width:620px){
+  header{padding-top:44px}
+  .meta{gap:0 22px}
+}
+</style>
+
+<style>
+@page { size: A4; margin: 15mm 14mm 16mm; }
+@media print {
+  :root, :root[data-theme="dark"], :root:not([data-theme="light"]) {
+    --ground:#FFFFFF; --surface:#FFFFFF; --sunk:#F1F4F7;
+    --ink:#12161C; --body:#22282F; --muted:#525C68; --faint:#7C8590;
+    --rule:#C9D1DA; --hair:#E3E8ED;
+    --model:#A81F27; --game:#12161C; --fixed:#1A6098; --flag:#7E5004;
+    --model-wash:rgba(168,31,39,.08); --fixed-wash:rgba(26,96,152,.08); --flag-wash:rgba(126,80,4,.10);
+  }
+  body { padding:0; font-size:10.5pt; line-height:1.62; }
+  .wrap, .col { max-width:none; }
+  header { padding:0 0 16px; }
+  h1 { font-size:25pt; }
+  .standfirst { font-size:11.5pt; max-width:none; }
+  section { padding-top:26px; }
+  section.pagebreak { break-before:page; padding-top:0; }
+  h2 { font-size:16pt; break-after:avoid; break-inside:avoid; }
+  h3 { font-size:11.5pt; break-after:avoid; }
+  p, li { orphans:3; widows:3; }
+  figure, .callout, .eq, pre, .ladder, table { break-inside:avoid; }
+  figcaption { break-before:avoid; }
+  .scroll { overflow:visible; }
+  table { min-width:0; font-size:9.5pt; }
+  th { font-size:8pt; }
+  td { padding:5px 9px; }
+  pre { font-size:8.6pt; }
+  .eq { font-size:10pt; }
+  .chart-shell { padding:6px 4px; }
+  footer { padding-top:18px; break-inside:avoid; }
+  a { color:var(--ink); text-decoration:none; }
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker"><span>飞行力学诊断</span><span>su_r_77_1 · A7 平射</span><span>2026-08-26</span></div>
+  <h1>迎角平台低了 5.3°，主因是一个手填的阻尼常数</h1>
+  <p class="standfirst">
+    R-77-1 发射捕获段，游戏的迎角平台是 23.7°，模型只有 18.2°，而舵的机械行程上限是 26.4°。
+    把这 5.3° 拆开：<b>2.2° 来自 plant 里一个假设的临界阻尼 ζ=1，它是这个几何真实产生的气动阻尼的 788 倍</b>；
+    2.1° 来自我们主动只打 89.8% 的舵行程；1.0° 来自制导投影漏了归一化。三项修完平台落在 23.5°。
+  </p>
+  <div class="meta">
+    <div><span>数据</span><b>46 帧服务器回放</b></div>
+    <div><span>场景</span><b>8 km / 30° / 6300 m</b></div>
+    <div><span>结论</span><b>ζ ≈ 0.5</b></div>
+    <div><span>状态</span><b>单飞行，未跨弹验证</b></div>
+  </div>
+</header>
+
+<section class="col">
+  <h2><span class="num">§ 1</span>现象</h2>
+  <p>
+    回放里发射捕获段（"甩头"）的迎角被钉在一个平台上，而<strong>同期过载一直在爬</strong>——
+    15.8 g 涨到 17.8 g。这个组合本身就是判据：如果饱和发生在过载通道，过载应该一起平掉。
+    过载通道的上限 <code>reqAccelMax</code> = <code>loadFactorMax</code> = 50 g，两个都是 datamine 值，远未触及。
+  </p>
+  <p>
+    模型跑同一发，平台只有 18.2°。舵的机械行程上限 26.40°（datamine <code>rocket.finsAoaHor</code>）明明还有余量。
+    问题是：这 5.3° 是我们故意限出来的，还是 plant 自己跑出来的？
+  </p>
+  <p><strong>答案是两个都有</strong>，而且可以精确拆开。</p>
+</section>
+
+<section class="pagebreak">
+  <div class="col">
+    <h2><span class="num">§ 2</span>三级台阶</h2>
+    <p>
+      把 <code>src/</code> 复制一份到 scratchpad，在副本上加两个开关（缩放合成阻尼、归一化投影），
+      仓库未修改；两个开关取默认值时与现仓库逐位一致。同一发 A7，取 t = 1.5–1.9 s 的平台段。
+    </p>
+  </div>
+
+  <div class="ladder">
+    <div class="rung">
+      <div class="top"><span class="lbl">现状</span><span class="val">α 18.2°<span class="d">舵 22.51°</span></span></div>
+      <div class="bar"><i class="m" style="width:69.0%"></i></div>
+    </div>
+
+    <div class="rung">
+      <div class="top"><span class="lbl">① 归一化 cos α 投影　<b>写错了的地方</b></span><span class="val">α 19.2°<span class="d">+1.0°</span></span></div>
+      <div class="bar"><i class="m" style="width:72.7%"></i></div>
+    </div>
+
+    <div class="rung">
+      <div class="top"><span class="lbl">② 改成满舵指令　<b>故意的</b></span><span class="val">α 21.3°<span class="d">+2.1°</span></span></div>
+      <div class="bar"><i class="m" style="width:80.7%"></i></div>
+    </div>
+
+    <div class="rung">
+      <div class="top"><span class="lbl">③ ζ 从 1.0 改成 0.5　<b>plant 的假设常数</b></span><span class="val">α 23.5°<span class="d">+2.2°</span></span></div>
+      <div class="bar"><i class="f" style="width:89.0%"></i></div>
+    </div>
+
+    <div class="rung">
+      <div class="top"><span class="lbl"><b>游戏回放</b></span><span class="val">α 23.5–23.7°</span></div>
+      <div class="bar"><i class="g" style="width:89.8%"></i></div>
+    </div>
+    <div class="axis"><span class="z">0°</span><span>▏舵机械上限 26.40°</span></div>
+  </div>
+  <p class="note col">条形长度 = 迎角 ÷ 舵机械上限 26.40°。三级做完与回放差 0.2°。</p>
+</section>
+
+<section>
+  <div class="col">
+    <h2><span class="num">§ 3</span>数学模型</h2>
+    <h3>转弯链条</h3>
+    <p>
+      这个 plant（<code>plant_semantics = "fin_torque_body_aoa"</code>）不让舵直接产生转弯力，链条分两步：
+      舵偏产生力矩把弹体绕质心拧，弹轴与气流成夹角 α，<strong>弹体在迎角下产生的横向力才是转弯的来源</strong>。
+      舵本身的力只占很小一部分。所以迎角是过载的来源，舵只是把迎角"拧"出来的手段。
+    </p>
+  </div>
+
+  <figure>
+    <div class="chart-shell">
+      <svg viewBox="0 0 700 236" role="img" aria-label="风向标 plant 方框图：舵角与迎角作差后经刚度项产生角加速度，两次积分为角速度与迎角；角速度经阻尼支路负反馈回来">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="7.5" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,4 L0,8 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <!-- forward path -->
+        <g style="color:var(--muted)" fill="none" stroke="currentColor" stroke-width="1.3">
+          <line x1="44"  y1="58" x2="64"  y2="58" marker-end="url(#ar)"/>
+          <line x1="92"  y1="58" x2="114" y2="58" marker-end="url(#ar)"/>
+          <line x1="184" y1="58" x2="210" y2="58" marker-end="url(#ar)"/>
+          <line x1="238" y1="58" x2="262" y2="58" marker-end="url(#ar)"/>
+          <line x1="342" y1="58" x2="386" y2="58" marker-end="url(#ar)"/>
+          <line x1="466" y1="58" x2="510" y2="58" marker-end="url(#ar)"/>
+          <!-- omega tap -> damping lane -> back into the second summing junction -->
+          <path d="M364,58 L364,118 L352,118"/>
+          <path d="M248,118 L224,118 L224,72" marker-end="url(#ar)"/>
+          <!-- alpha feedback -> first summing junction -->
+          <path d="M488,58 L488,178 L78,178 L78,72" marker-end="url(#ar)"/>
+        </g>
+        <g fill="var(--muted)">
+          <circle cx="364" cy="58" r="3"/><circle cx="488" cy="58" r="3"/>
+        </g>
+
+        <!-- summing junctions -->
+        <g fill="var(--surface)" stroke="var(--ink)" stroke-width="1.3">
+          <circle cx="78" cy="58" r="14"/><circle cx="224" cy="58" r="14"/>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="13" fill="var(--ink)" text-anchor="middle">
+          <text x="78"  y="63">Σ</text><text x="224" y="63">Σ</text>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="13" fill="var(--model)">
+          <text x="88" y="86">−</text><text x="234" y="86">−</text>
+        </g>
+
+        <!-- blocks -->
+        <g font-family="IBM Plex Mono, monospace" font-size="13">
+          <rect x="116" y="38" width="68"  height="40" rx="1" fill="var(--surface)" stroke="var(--ink)"  stroke-width="1.3"/>
+          <text x="150" y="63" text-anchor="middle" fill="var(--ink)">K</text>
+
+          <rect x="264" y="38" width="78"  height="40" rx="1" fill="var(--surface)" stroke="var(--rule)" stroke-width="1.3"/>
+          <text x="303" y="63" text-anchor="middle" fill="var(--ink)">1 / s</text>
+
+          <rect x="388" y="38" width="78"  height="40" rx="1" fill="var(--surface)" stroke="var(--rule)" stroke-width="1.3"/>
+          <text x="427" y="63" text-anchor="middle" fill="var(--ink)">1 / s</text>
+
+          <rect x="512" y="38" width="158" height="40" rx="1" fill="var(--surface)" stroke="var(--rule)" stroke-width="1.3"/>
+          <text x="591" y="63" text-anchor="middle" fill="var(--ink)">升力 → 弹道弯曲</text>
+
+          <rect x="248" y="98" width="104" height="40" rx="1" fill="var(--surface)" stroke="var(--model)" stroke-width="1.7"/>
+          <text x="300" y="123" text-anchor="middle" fill="var(--model)">C · ω</text>
+        </g>
+
+        <!-- node labels -->
+        <g font-family="IBM Plex Mono, monospace" font-size="11.5" fill="var(--muted)">
+          <text x="40"  y="62" text-anchor="end">舵 δ</text>
+          <text x="250" y="50">ω̇</text>
+          <text x="370" y="50">ω</text>
+          <text x="494" y="50">α</text>
+          <text x="272" y="194">α 反馈</text>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--model)">
+          <text x="300" y="156" text-anchor="middle">C = 2ζ√(KI),  ζ = 1</text>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="11.5" fill="var(--flag)">
+          <text x="670" y="212" text-anchor="end">真实气动阻尼 ω·Δ/V 被算出来了，但不进这个环</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption>规格 §5 的二阶风向标模型。红色的阻尼支路是问题所在：C 不是从任何气动量算出来的。</figcaption>
+  </figure>
+
+  <div class="col">
+    <h3>plant 方程与刚度</h3>
+    <div class="eq">I·ω̇ = K<span class="c">_M</span>·(δ − α) − C·ω
+<span class="c">按单位惯量写开：</span>
+ω̇ = ω<span class="c">_n</span>²·(δ − α) − 2ζ·ω<span class="c">_n</span>·ω
+
+           A · (q/q₀) · s · g · Δ
+ω<span class="c">_n</span>² = K = ──────────────────────────
+              (L²/12) · δ<span class="c">_max</span></div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>符号</th><th>含义</th><th>值</th><th>出处</th></tr></thead>
+        <tbody>
+          <tr><td class="num-cell">A</td><td style="text-align:left">finsLatAccel</td><td class="num-cell">53.5864 g</td><td><span class="chip dm">datamine</span></td></tr>
+          <tr><td class="num-cell">Δ</td><td style="text-align:left">质心到稳定面力臂</td><td class="num-cell">0.175 m</td><td><span class="chip dm">datamine</span></td></tr>
+          <tr><td class="num-cell">δ<sub>max</sub></td><td style="text-align:left">舵行程上限 finsAoa</td><td class="num-cell">26.40°</td><td><span class="chip dm">datamine</span></td></tr>
+          <tr><td class="num-cell">L</td><td style="text-align:left">弹长</td><td class="num-cell">3.71 m</td><td><span class="chip dm">datamine</span></td></tr>
+          <tr><td class="num-cell">I/m</td><td style="text-align:left">转动惯量 = L²/12</td><td class="num-cell">1.1470 m²</td><td><span class="chip as">假设 匀质杆</span></td></tr>
+          <tr><td class="num-cell">s</td><td style="text-align:left">力矩斜率标度</td><td class="num-cell">0.58</td><td><span class="chip as">力通道拟合值沿用</span></td></tr>
+          <tr class="hi"><td class="num-cell"><b>ζ</b></td><td style="text-align:left"><b>阻尼比</b></td><td class="num-cell"><b>1.0</b></td><td><span class="chip as">假设 规格手填</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">R-77-1 在 6300 m 平台段：η = q/q₀ ≈ 0.46–0.69，<strong>ω<sub>n</sub> ≈ 6.8–8.4 rad/s</strong>。</p>
+
+    <h3>稳态转弯的配平——"α = δ"只在不转弯时成立</h3>
+    <p>
+      代码注释写的是 <code>this plant trims at α = δ</code>。
+      <strong>这句话只在 ω = 0 时成立。</strong>
+      导弹持续转弯时，弹轴必须跟着弯曲的弹道一起转，ω 恒不为零（平台段实测 15–18 °/s）。令 ω̇ = 0：
+    </p>
+    <div class="eq">ω<span class="c">_n</span>²·(δ − α) = 2ζ·ω<span class="c">_n</span>·ω    ⟹    δ − α = 2ζ·ω / ω<span class="c">_n</span></div>
+    <p>迎角永远比舵角小一截，小的量正比于转速。逐点核对（ω<sub>n</sub> 独立用 config 算，不读 plant 内部量）：</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>t (s)</th><th>舵 δ</th><th>迎角 α</th><th>实测 δ−α</th><th>公式 2ζω/ω<sub>n</sub></th><th>ω (°/s)</th><th>ω<sub>n</sub></th></tr></thead>
+        <tbody>
+          <tr><td class="num-cell">1.2</td><td class="num-cell">22.54°</td><td class="num-cell">18.11°</td><td class="num-cell"><b>4.42°</b></td><td class="num-cell"><b>4.41°</b></td><td class="num-cell">15.07</td><td class="num-cell">6.83</td></tr>
+          <tr><td class="num-cell">1.5</td><td class="num-cell">22.52°</td><td class="num-cell">18.17°</td><td class="num-cell"><b>4.35°</b></td><td class="num-cell"><b>4.30°</b></td><td class="num-cell">15.70</td><td class="num-cell">7.30</td></tr>
+          <tr><td class="num-cell">1.9</td><td class="num-cell">22.51°</td><td class="num-cell">18.23°</td><td class="num-cell"><b>4.29°</b></td><td class="num-cell"><b>4.24°</b></td><td class="num-cell">16.78</td><td class="num-cell">7.91</td></tr>
+          <tr><td class="num-cell">2.2</td><td class="num-cell">22.51°</td><td class="num-cell">18.26°</td><td class="num-cell"><b>4.25°</b></td><td class="num-cell"><b>4.22°</b></td><td class="num-cell">17.64</td><td class="num-cell">8.36</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">全段吻合到 0.03–0.05°。机制确定，不是猜的。</p>
+
+    <h3>为什么平台是"死平"的</h3>
+    <p>
+      亏损在整个平台上几乎不变，导弹从 471 m/s 加速到 576 m/s 也不变。原因是速度在分子分母上抵消了：
+      转速 <code>ω = a_n/V</code> 而 <code>a_n ∝ ρV²α</code>，所以 <code>ω ∝ ρVα</code>；
+      而 <code>ω_n ∝ √q ∝ √ρ·V</code>。
+    </p>
+    <div class="eq">          2ζ·ω        ρVα
+亏损 = ─────── ∝ ────────── = √ρ · α    <span class="c">（与速度无关）</span>
+          ω<span class="c">_n</span>        √ρ · V</div>
+    <p>
+      所以 <strong>亏损 / α ≈ 常数</strong>（6300 m 上是 0.233），迎角恒等于舵角的 0.811 倍——
+      这就是平台平得像尺子画的原因。数值验证：发射速度 800 → 1600 km/h（动压 4 倍），
+      平台只从 18.08° 动到 18.32°；高度 1000 → 12000 m，亏损/α 从 0.301 降到 0.188。
+    </p>
+  </div>
+</section>
+
+<section class="col">
+  <h2><span class="num">§ 4</span>单点尾舵 rate-incidence 阻尼有多大</h2>
+  <p>
+    弹体绕质心转动时，尾舵在质心后方 Δ 处横向扫过，扫动速度 <code>ω·Δ</code>。
+    这个横向速度叠加到来流上，把舵处的局部气流角改变了 <code>ω·Δ/V</code>，
+    代码把它算成 <code>tail_rate_incidence_rad</code>。等效于把风向标弹簧的输入从
+    (δ−α) 改成 (δ−α−ωΔ/V)：
+  </p>
+  <div class="eq">阻尼项 = ω<span class="c">_n</span>²·(ω·Δ/V)   令其 = 2ζ<span class="c">_aero</span>·ω<span class="c">_n</span>·ω
+
+⟹  ζ<span class="c">_aero</span> = ω<span class="c">_n</span>·Δ / (2V)     <span class="c">（ω_n ∝ V，故与速度无关）</span></div>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>t (s)</th><th>ω<sub>n</sub></th><th>V (m/s)</th><th>ζ<sub>aero</sub></th><th>代码里的 ζ</th><th>倍数</th></tr></thead>
+      <tbody>
+        <tr><td class="num-cell">1.2</td><td class="num-cell">6.83</td><td class="num-cell">471.0</td><td class="num-cell"><b>0.00127</b></td><td class="num-cell">1.00</td><td class="num-cell"><b>788×</b></td></tr>
+        <tr><td class="num-cell">1.6</td><td class="num-cell">7.45</td><td class="num-cell">513.7</td><td class="num-cell"><b>0.00127</b></td><td class="num-cell">1.00</td><td class="num-cell"><b>788×</b></td></tr>
+        <tr><td class="num-cell">2.0</td><td class="num-cell">8.06</td><td class="num-cell">555.6</td><td class="num-cell"><b>0.00127</b></td><td class="num-cell">1.00</td><td class="num-cell"><b>787×</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout">
+    <div class="h">这个 788× 的措辞必须收窄</div>
+    <p>
+      788× 精确的含义是：代码里的合成阻尼 ≈ 当前<strong>单个尾舵作用站位</strong>的局部
+      rate-incidence 项的 788 倍。它<strong>不是</strong>"完整导弹总 C<sub>mq</sub> 的 788 倍"——
+      完整转动阻尼还包含弹体、翼面、尾舵各站位的分布式贡献
+      （M<sub>q</sub> ~ −(ω/V)·∫x²dN<sub>α</sub>(x)）以及自动驾驶仪可能的 q 反馈。
+    </p>
+    <p>
+      方向性结论不变：把合成阻尼关掉、只留 ζ<sub>aero</sub>，闭环立刻剧烈振荡——迎角在
+      45° → 11° → 39° → 6° 之间来回甩，脱靶 165 m。所以游戏那边<strong>也必然有额外阻尼</strong>，
+      只是没有 ζ=1 这么大。
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <h2><span class="num">§ 5</span>代码位置</h2>
+    <h3>合成阻尼 — h2_dynamics.py:1073–1094</h3>
+  </div>
+  <pre>pitch_stiffness_s2 = max(
+    scheduled_fins_g * gravity * arm_magnitude / (inertia_per_mass * pitch_fin_limit), 0.0)
+pitch_natural_frequency = math.sqrt(pitch_stiffness_s2)
+<i># Spec §5: C = 2 ζ √(K I) with ζ=1, so C/I = 2 ω_n.  The spring</i>
+<i># no longer includes ω·Δ/V, so this is the full critical-damping</i>
+<i># term rather than a remainder.</i>
+pitch_tail_rate_damping = 0.0
+<b>pitch_residual_rate_damping = 2.0 * pitch_natural_frequency</b>   <i># ← ζ=1 手填</i></pre>
+
+  <div class="col"><h3>被算出来但丢弃的真实气动阻尼 — h2_dynamics.py:778–787</h3></div>
+  <pre><i># Spec §5: I ω̇ = K(δ-α)-Cω.  Rate incidence ω·Δ/V is a diagnostic</i>
+<i># only; it does not enter the weathervane spring.</i>
+<b>pitch_tail_rate_incidence = state.pitch_rate * arm / speed_for_rate</b>
+...
+pitch_tail_effective_incidence = (
+    state.actual_pitch_fin_angle_rad - aero.pitch_alpha_rad)   <i># 没有减 ωΔ/V</i></pre>
+  <p class="col note">ω·Δ/V 算出来了，只作为诊断量导出（<code>pitch_tail_rate_incidence_rad</code> 采样字段），不进力矩。</p>
+
+  <div class="col"><h3>cos α 投影 — guidance.py:770–776</h3></div>
+  <pre>fin_fraction_mag = clamp(
+    alpha_full_rad * demand_ratio / pitch_fin_limit_rad, 0.0, 1.0)
+raw_fin_fraction = limit_unit_disk(
+    <b>dot(demand_hat, axes.up)    * fin_fraction_mag</b>,   <i># ← 投影未归一化</i>
+    <b>dot(demand_hat, axes.right) * fin_fraction_mag</b>,
+)</pre>
+  <div class="col">
+    <p>
+      <code>demand_hat</code> 是<strong>垂直于速度</strong>的单位矢量。弹轴与速度夹角就是 α，
+      于是它在弹体横截面 (up, right) 上的投影长度是 <strong>cos α</strong>——
+      投影没有归一化就直接乘幅值，指令被削掉 cos α。
+      实测平台期 <code>pcc_routed_alpha_deg</code> 精确等于 23.7 × cos α。
+    </p>
+    <p>
+      这个写法从 <code>timer_blend</code> 直接舵路径继承而来；在那条路径上幅值只是个启发式的舵行程分数，
+      cos α 的损失被 <code>fin_error_ref_rad</code> 的标定吸收了，所以无害。
+      <strong>一旦幅值的物理含义变成"迎角的度数"，它就成了系统性偏置</strong>，而且 α 越大偏得越多。
+    </p>
+
+    <h3>capture_alpha_max_deg 的实际语义</h3>
+    <p>
+      同一段代码里 <code>alpha_full_rad</code> = 23.7°、<code>pitch_fin_limit_rad</code> = 26.40°，
+      捕获平台期 <code>demand_ratio</code> 被 clip 到 1，于是 <code>fin_fraction_mag = 23.7/26.40 = 0.898</code>。
+    </p>
+    <p>
+      <strong>这是一个舵行程分数。程序从头到尾没有拿实现出来的 α 和 23.7 比较过一次。</strong>
+      它现在的实际语义是"把舵打到机械行程的 89.8%"，不是迎角限幅——迎角限幅的语义只在 ω = 0 时才成立。
+      顺带确认：<code>control.limit_angle_of_attack_enabled = False</code>，
+      动力学层面<strong>没有任何东西在钳迎角</strong>，18.26° 是配平出来的。
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <h2><span class="num">§ 6</span>对上了——以及代价</h2>
+  </div>
+
+  <figure>
+    <div class="chart-shell">
+      <svg viewBox="0 0 720 330" role="img" aria-label="迎角对时间曲线：游戏回放、现状模型、三级修正后模型三条轨迹">
+        <g stroke="var(--hair)" stroke-width="1">
+          <line x1="58" y1="296" x2="704" y2="296"/>
+          <line x1="58" y1="246" x2="704" y2="246"/>
+          <line x1="58" y1="196" x2="704" y2="196"/>
+          <line x1="58" y1="146" x2="704" y2="146"/>
+          <line x1="58" y1="96"  x2="704" y2="96"/>
+          <line x1="58" y1="46"  x2="704" y2="46"/>
+        </g>
+        <line x1="58" y1="32" x2="704" y2="32" stroke="var(--flag)" stroke-width="1.4" stroke-dasharray="5 4"/>
+        <text x="704" y="26" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--flag)">舵机械上限 26.40°</text>
+
+        <g font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--faint)">
+          <text x="48" y="300" text-anchor="end">0</text>
+          <text x="48" y="250" text-anchor="end">5</text>
+          <text x="48" y="200" text-anchor="end">10</text>
+          <text x="48" y="150" text-anchor="end">15</text>
+          <text x="48" y="100" text-anchor="end">20</text>
+          <text x="48" y="50"  text-anchor="end">25</text>
+          <text x="58"  y="316" text-anchor="middle">0</text>
+          <text x="237" y="316" text-anchor="middle">1</text>
+          <text x="417" y="316" text-anchor="middle">2</text>
+          <text x="596" y="316" text-anchor="middle">3</text>
+          <text x="704" y="316" text-anchor="end">飞行时间 (s)</text>
+          <text x="20" y="40" fill="var(--muted)">α°</text>
+        </g>
+
+        <path fill="none" stroke="var(--model)" stroke-width="2" stroke-linejoin="round" d="M 58.0,296.0 L 75.9,288.0 L 93.9,261.7 L 111.8,226.2 L 129.8,191.7 L 147.7,163.7 L 165.7,143.6 L 183.6,130.5 L 201.6,122.7 L 219.5,118.4 L 237.4,116.3 L 255.4,115.3 L 273.3,114.9 L 291.3,114.7 L 309.2,114.5 L 327.2,114.3 L 345.1,114.2 L 363.1,114.0 L 381.0,113.9 L 398.9,113.7 L 416.9,113.6 L 434.8,113.5 L 452.8,113.4 L 470.7,114.2 L 488.7,123.0 L 506.6,144.4 L 524.6,176.1 L 542.5,206.9 L 560.4,223.4 L 578.4,229.7 L 596.3,232.3 L 614.3,234.8 L 632.2,238.3 L 650.2,242.6 L 668.1,247.3 L 686.1,252.3 L 704.0,257.4"/>
+        <path fill="none" stroke="var(--fixed)" stroke-width="2" stroke-dasharray="6 4" stroke-linejoin="round" d="M 58.0,296.0 L 75.9,286.0 L 93.9,248.4 L 111.8,191.4 L 129.8,131.9 L 147.7,83.7 L 165.7,53.0 L 183.6,39.7 L 201.6,39.2 L 219.5,45.6 L 237.4,53.5 L 255.4,59.8 L 273.3,63.2 L 291.3,64.0 L 309.2,63.2 L 327.2,61.8 L 345.1,60.6 L 363.1,59.9 L 381.0,60.2 L 398.9,70.1 L 416.9,102.1 L 434.8,156.1 L 452.8,206.6 L 470.7,226.2 L 488.7,220.3 L 506.6,207.2 L 524.6,200.8 L 542.5,204.6 L 560.4,214.2 L 578.4,223.9 L 596.3,231.0 L 614.3,236.2 L 632.2,241.3 L 650.2,247.2 L 668.1,253.9 L 686.1,260.7 L 704.0,267.4"/>
+        <path fill="none" stroke="var(--game)" stroke-width="2.2" stroke-linejoin="round" d="M 93.9,183.0 L 129.8,253.0 L 147.7,217.0 L 183.6,102.0 L 219.5,64.0 L 255.4,79.0 L 291.3,68.0 L 327.2,59.0 L 345.1,59.0 L 398.9,61.0 L 434.8,67.0 L 470.7,90.0 L 506.6,112.0 L 542.5,133.0 L 578.4,151.0 L 614.3,167.0 L 632.2,179.0 L 668.1,191.0 L 686.1,206.0"/>
+        <g fill="var(--game)"><circle cx="93.9" cy="183.0" r="2.6"/><circle cx="129.8" cy="253.0" r="2.6"/><circle cx="147.7" cy="217.0" r="2.6"/><circle cx="183.6" cy="102.0" r="2.6"/><circle cx="219.5" cy="64.0" r="2.6"/><circle cx="255.4" cy="79.0" r="2.6"/><circle cx="291.3" cy="68.0" r="2.6"/><circle cx="327.2" cy="59.0" r="2.6"/><circle cx="345.1" cy="59.0" r="2.6"/><circle cx="398.9" cy="61.0" r="2.6"/><circle cx="434.8" cy="67.0" r="2.6"/><circle cx="470.7" cy="90.0" r="2.6"/><circle cx="506.6" cy="112.0" r="2.6"/><circle cx="542.5" cy="133.0" r="2.6"/><circle cx="578.4" cy="151.0" r="2.6"/><circle cx="614.3" cy="167.0" r="2.6"/><circle cx="632.2" cy="179.0" r="2.6"/><circle cx="668.1" cy="191.0" r="2.6"/><circle cx="686.1" cy="206.0" r="2.6"/></g>
+
+        <g font-family="IBM Plex Mono, monospace" font-size="11.5">
+          <text x="360" y="52" fill="var(--game)">游戏回放</text>
+          <text x="360" y="129" fill="var(--model)">现状（低 5.3°）</text>
+          <text x="168" y="30" fill="var(--fixed)">三级修正后</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption>
+      平台高度对上了（差 0.2°）。但 ζ 变小以后弹转得更好，航向误差关得更快，释放判据提前触发——
+      平台从 2.22 s 缩到 1.74 s，2.1 s 之后的迎角反而比现状还低。修正后曲线在 0.7–0.9 s 的过冲见 §7。
+    </figcaption>
+  </figure>
+
+  <div class="col">
+    <p>三级都改完不是干净的胜利。如实记录三项代价：</p>
+
+    <h3>(a) 释放提前 0.4 s，在已识别区间内修不回来</h3>
+    <p>
+      现状 t = 2.22 s 释放（游戏 2.1–2.3，正好），改完提前到 1.74 s。
+      沿 <code>tau_capture_s</code> 的已识别区间 [0.23, 0.42] s 向下扫最多拉回 1.80 s，
+      且 τ ≤ 0.26 就丢拦截。这与另一份诊断（释放悬崖：模型 90%→50% 用 0.24 s，游戏用 0.95 s；
+      游戏的释放是斜率 −7.79 °/s 的<strong>直线</strong>，线性拟合 R² = 0.977 优于指数的 0.953）
+      是同一个耦合问题的两面——<strong>弹转得越好，悬崖来得越早越陡。两件事必须一起解。</strong>
+    </p>
+
+    <h3>(b) 离轴冻结带会挂</h3>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>方位</th><th>现状</th><th>三级改完</th><th>冻结断言</th></tr></thead>
+        <tbody>
+          <tr><td class="num-cell">80°</td><td class="num-cell">17.8 m，不引信</td><td class="num-cell"><b>10.0 m，引信起爆</b></td><td style="color:var(--model)">15 &lt; d &lt; 40 且不引信 → <b>挂</b></td></tr>
+          <tr><td class="num-cell">90°</td><td class="num-cell">18.6 m，不引信</td><td class="num-cell">23.5 m，不引信</td><td>通过</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>(c) 过载会偏高，因为迎角亏损一直在替热速度买单</h3>
+    <p>
+      平台过载：改完 17.1–17.7 g，游戏 15.8–16.6 g，高 1.1–1.3 g。
+      现在的 18.2° 之所以过载看着准，纯粹是<strong>"迎角偏低 16%"和"动压偏高 25%"两个错误互相抵消</strong>。
+      这与 <code>plant_g_closure_audit</code> 的结论一致（plant 本身在游戏工作点上 |ΔG| ≤ 0.17 g，误差全在阻力线程）：
+      修迎角必然暴露速度误差。
+    </p>
+  </div>
+</section>
+
+<section class="col">
+  <h2><span class="num">§ 7</span>独立旁证：回放里的振铃</h2>
+  <p>
+    ζ = 1 是临界阻尼，<strong>定义上不过冲</strong>，阶跃响应严格单调。ζ &lt; 1 会冲过头再回落。
+    回放的迎角建立段：
+  </p>
+  <pre>19.4 (0.7 s) → <b>23.2 (0.9)</b> → <b>21.7 (1.1)</b> → <b>22.8 (1.3)</b> → 23.7 (1.5) → 23.7 (1.6)
+                  <i>↑冲过头</i>       <i>↑回落</i>        <i>↑爬回来</i></pre>
+  <p>
+    模型 ζ = 0.5 自己长出同样的形状：25.6 (0.7) → 25.7 (0.8) → 23.2 (1.3) → 23.6 (1.7)。
+    而模型 ζ = 1 是 18.7 → 19.8 → 20.4 → 20.8 → 21.0 → 21.1，
+    <strong>严格单调，物理上不可能产生那个 V 形</strong>。
+  </p>
+  <div class="callout">
+    <div class="h">保留意见</div>
+    <p>
+      游戏那个 V 形只有 3 帧、幅度 ±0.75°，不能排除是截图读数误差。
+      它是一条与闭环拟合<strong>独立</strong>的证据线，但强度是"提示"级别，不是"判据"级别。
+      要坐实需要一段更高帧率的迎角建立过程——振荡周期直接给 ω<sub>n</sub>，过冲量直接给 ζ。
+    </p>
+  </div>
+</section>
+
+<section class="col">
+  <h2><span class="num">§ 8</span>为什么这件事同时决定"游戏有没有迎角限幅"</h2>
+  <p>
+    扫了全部 120 个弹种配置：游戏数据里根本没有"迎角上限"这类字段。
+    <code>CyMaxAoA</code> 非空 <strong>0/120</strong>，<code>CyK</code> 非空 <strong>0/120</strong>。
+    唯一真实的 AoA 类量是舵行程上限 <code>finsAoa</code>。
+  </p>
+  <p>
+    所以"游戏有没有迎角限幅"这个问题，等价于"满舵配平能不能落在 23.7°"，也就等价于 <strong>ζ 是多少</strong>：
+  </p>
+  <ul>
+    <li><strong>若 ζ ≈ 0.5</strong>：游戏没有迎角限幅，平台就是满舵配平，
+      23.7° 可以从 datamine 的舵行程上限<strong>直接推出来</strong>——
+      从"标定常数"升级为"导出量"，还跨弹种可预测。</li>
+    <li><strong>若 ζ 真是 1</strong>：游戏必须另有一条迎角限幅——但 datamine 里找不到它。</li>
+  </ul>
+  <div class="callout">
+    <div class="h">简并声明 —— 而且这个量不该叫 ζ</div>
+    <p>
+      单靠配平亏损这一个观测量，只能约束 <strong>ζ/√K</strong> 这一个组合，ζ 和 K 各自不可分
+      （亏损大一倍，可能是 ζ 大一倍，也可能是 K 小到四分之一）。必须有第二个独立观测量才能分开。
+    </p>
+    <p>
+      平台亏损直接识别的其实是转速滞后时间 <strong>τ<sub>q</sub> = 2ζ/ω<sub>n</sub></strong>，因为
+      δ − α = τ<sub>q</sub>·ω。诚实的 ROM 参数化是
+      <code>ω̇ = ω_n²(δ − α − τ_q·ω)</code>：平台亏损识别 τ<sub>q</sub>，高频振荡周期识别
+      ω<sub>n</sub>，最后才由 ζ = τ<sub>q</sub>ω<sub>n</sub>/2 导出。在拿到第二个独立瞬态观测之前，
+      配置项应该叫 <code>effective_turn_rate_lag_s</code>，<strong>不要把 zeta = 0.5 写成已辨识的物理阻尼比</strong>。
+    </p>
+  </div>
+</section>
+
+<section class="col">
+  <h2><span class="num">§ 9</span>可证伪路径</h2>
+  <p>按判别力排序：</p>
+  <ul>
+    <li><strong>高帧率的迎角建立段</strong>（任意弹种、任意几何）。振荡周期 → ω<sub>n</sub>，过冲量 → ζ，
+      两者还必须同时复现配平亏损。<strong>这是唯一能解开上面那个简并的实验。</strong>
+      现有 46 帧不够：0.7–0.9 s 之间只有两个点。</li>
+    <li><strong>跨弹种平台。</strong><code>finsAoa</code> 是 datamine 且弹间差 1.7 倍
+      （AIM-120 = 15.41°、PL-12 = 21.49°、R-77 = 26.40°、AIM-54 = 25.0°）。
+      满舵配平 ⇒ 各弹平台按各自 finsAoa 标度；固定迎角限幅 ⇒ 不跟着走。
+      现有数据不足——唯一有"钉住平台"的只有 R-77-1 这一发。<strong>需要一发 AIM-120 或 PL-12 的平射捕获回放。</strong></li>
+    <li><strong>不同高度的平射。</strong>§3 预测亏损 ∝ √ρ，是一条纯几何、不含自由参数的标度律，可直接证伪。</li>
+  </ul>
+</section>
+
+<section class="col">
+  <h2><span class="num">§ 10</span>外部复审：两个比 ζ 更优先的结构问题</h2>
+  <p>
+    复审方独立复核了力矩恒等式（残差 6.24e-9 / 7.92e-9 rad/s²）、ζ<sub>implied</sub> = 1.004、
+    dt 与作动器排除、捕获期 PID 无舵权，全部与上文一致。在此之上指出两个**优先级高于 ζ** 的缺陷。
+    两条都已在实验副本上复现并修好。
+  </p>
+
+  <h3>① capture_alpha_max_deg 一参两用 ⇒ 包络是错的</h3>
+  <p>
+    同一个常数既当直接舵指令幅值，又当可达过载包络 <code>a_env = a_n(capture_alpha_max_deg)</code>。
+    把它改成 26.4° 等于同时声明"舵打满 26.4°"和"弹体能到 26.4° 迎角"，但实际只有 α ≈ 23.5°：
+    t=1.5 s 时 <strong>a_env = 19.25 g 而实际只有 17.08 g</strong>，
+    <code>R_cap</code> 的分母根本不是可达包络。
+  </p>
+  <p>正确做法是解满舵<strong>动态</strong>配平的一维标量方程：</p>
+  <div class="eq">α* + (2ζ / (ω<span class="c">_n</span>·V))·a<span class="c">_n</span>(α*) = δ<span class="c">_max</span>
+<span class="c">f(0) &lt; 0、f(δ_max) &gt; 0、单调 ⇒ 二分即可，无需调参</span>
+
+a<span class="c">_env</span> = a<span class="c">_n</span>(α*)      <span class="c">而不是 a_n(δ_max)</span></div>
+  <p>修正后 t=1.5 s 的 <code>a_env = 17.25 g</code> vs 实际 <code>17.08 g</code>——误差从 13% 降到 1%。</p>
+
+  <h3>② PCC 直接舵路径绕过了 datamine 的 launch gain</h3>
+  <p>
+    datamine 的 <code>flight_time_gain_table</code>（来自 <code>timeToGain*</code>）是
+    <strong>(0.30 s, 0) → (0.31 s, 1)</strong>：发射后前 0.30 s 自动驾驶仪增益为 0。
+    代码算了它，但 <code>effective_gain</code> <strong>只乘到了 PN 上</strong>——
+    <code>a_cap = V·sinε/τ_c</code> 和整条 direct-fin 路由完全没乘。所以 PCC 从 t=0 就全权限打舵。
+  </p>
+  <p>
+    补充观察：这不是 PCC 专有的。<code>timer_blend</code> 的 <code>midcourse_accel</code> 和
+    <code>loft</code> 项同样没乘——<strong>整条 midcourse 通道对全弹种都绕过了这个增益表</strong>。
+  </p>
+  <p>
+    ζ=1 的迟钝 plant 掩盖了它；ζ 改 0.5 后早段过快立刻暴露：α@0.7 s 冲到 25.6°（游戏 19.4°），
+    累计航向 J<sub>ψ</sub>(0.9) = 10.64°（游戏重构 ≈ 4.7°）。
+  </p>
+
+  <h3>因子化 ablation（不再是顺序累加）</h3>
+  <p>
+    原来的 +1.0 / +2.1 / +2.2° 是<strong>路径相关</strong>的顺序贡献，不是唯一分解。重跑成六个独立开关：
+    <strong>P</strong> 投影归一化、<strong>Fcmd</strong> 满舵指令、<strong>Fenv</strong> 配平求根包络、
+    <strong>Z</strong> ζ→0.5、<strong>G</strong> launch gain 施加到捕获通道、
+    <strong>L</strong> 发射捕获一次性 latch。
+  </p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>开关</th><th>释放</th><th>α@0.7</th><th>α@1.5</th><th>α@1.9</th><th>α@2.3</th><th>J<sub>ψ</sub>@0.9</th><th>a_env@1.5</th><th>切换</th><th>结果</th></tr></thead>
+      <tbody>
+        <tr class="gm"><td>游戏</td><td class="num-cell">2.1–2.3</td><td class="num-cell">19.4</td><td class="num-cell">23.7</td><td class="num-cell">23.5</td><td class="num-cell">20.6</td><td class="num-cell">≈4.7</td><td class="num-cell">—</td><td class="num-cell">1</td><td>近炸</td></tr>
+        <tr><td>现状</td><td class="num-cell">2.22</td><td class="num-cell">16.6</td><td class="num-cell">18.2</td><td class="num-cell">18.2</td><td class="num-cell">18.2</td><td class="num-cell">7.02</td><td class="num-cell">18.19</td><td class="num-cell">1</td><td>近炸 10 m</td></tr>
+        <tr><td>Fenv 单独</td><td class="num-cell">2.28</td><td class="num-cell">16.6</td><td class="num-cell">18.2</td><td class="num-cell">18.2</td><td class="num-cell">18.3</td><td class="num-cell">7.02</td><td class="num-cell"><b>14.77</b></td><td class="num-cell">1</td><td>近炸 10 m</td></tr>
+        <tr><td>G 单独</td><td class="num-cell">2.46</td><td class="num-cell">10.8</td><td class="num-cell">18.2</td><td class="num-cell">18.2</td><td class="num-cell">18.3</td><td class="num-cell"><b>3.31</b></td><td class="num-cell">18.43</td><td class="num-cell">1</td><td>近炸 10 m</td></tr>
+        <tr><td>P+Fcmd+Z（旧三级）</td><td class="num-cell">1.76</td><td class="num-cell">25.6</td><td class="num-cell">23.4</td><td class="num-cell">23.1</td><td class="num-cell">7.7</td><td class="num-cell">10.64</td><td class="num-cell">17.32</td><td class="num-cell">6</td><td style="color:var(--model)">脱靶 30 m</td></tr>
+        <tr class="hi"><td><b>P+Fcmd+Fenv+Z+G+L</b></td><td class="num-cell"><b>2.02</b></td><td class="num-cell">17.1</td><td class="num-cell"><b>23.2</b></td><td class="num-cell"><b>23.6</b></td><td class="num-cell"><b>18.4</b></td><td class="num-cell"><b>5.14</b></td><td class="num-cell"><b>17.61</b></td><td class="num-cell"><b>1</b></td><td><b>近炸 10 m</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <strong>G 单独就是早段过转的主因</strong>——把 J<sub>ψ</sub>(0.9) 从 10.64° 拉到 5.14°（游戏 ≈4.7°），
+    把释放从 1.76 s 推回 2.02 s（游戏 2.1–2.3）。这一项<strong>零新参数</strong>。
+    <strong>Fenv 是正确性修复不是性能修复</strong>：单独开几乎不动轨迹，但把包络误差从 13% 降到 1%。
+  </p>
+
+  <h3>dt 分岔与一次性 latch</h3>
+  <p>
+    旧三级修正落在一个 hybrid threshold 分岔附近：交接后最大航向偏移在 dt=0.02 下 15.46°、
+    dt=0.002 下 13.14°，正好跨过 <code>epsilon_exit_deg = 15°</code>，模式序列完全不同
+    （6 次切换 vs 1 次），<strong>全飞行结果不具备时间步收敛性</strong>。
+    加上 latch（进入 HOMING 后不再回捕获）之后，dt = 0.020 / 0.010 / 0.002 三档的模式序列、
+    释放时刻（2.02/2.02/2.01）和终止条件全部一致。
+  </p>
+
+  <h3>冻结带这次没被打破</h3>
+  <p>
+    真正的冻结场景（su_r_77，无 loft，6500 m）：80° 从 17.8 m/43.6 g 变成
+    <strong>16.5 m/40.0 g，仍不引信</strong>——留在 <code>15&lt;d&lt;40</code> 且
+    <code>25&lt;maxG&lt;50</code> 带内；90° 29.6 m，仍不引信。
+    对比旧三级修正在 80° 会引信起爆（10.0 m）直接挂断言。
+  </p>
+
+  <div class="callout">
+    <div class="h">主线已经改变</div>
+    <p>
+      现在最可能的主线<strong>不是"继续调 ζ"</strong>，而是"正确构造满舵动态配平包络 +
+      补上 PCC 绕过的 launch gain"。这两项之后再看平台高度、释放时刻和早段累计航向能否同时闭合。
+      下一步最干净的识别路径是 <strong>replay-forced plant run</strong>：把 V(t)/q(t)/m(t)/T(t)
+      强制成游戏时间线，只积分 α/ω/δ，在不受阻力误差与制导几何污染的条件下识别
+      τ<sub>q</sub>、ω<sub>n</sub>、τ<sub>act</sub>。
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+<footer class="col">
+  <p>
+    <b>复现</b>　本次诊断全部为只读或 scratchpad 副本，仓库源码未修改。
+    副本补丁只有两处：<code>h2_dynamics.py</code> 的 <code>2.0 * ω_n</code> 改成 <code>2.0 * _exp_zeta * ω_n</code>
+    （另有开关换成 <code>K·Δ/V</code> 的真实气动阻尼）；<code>guidance.py</code> 的投影加一个可选归一化。
+    两个开关取默认值时与现仓库逐位一致。
+  </p>
+  <p>
+    <b>数据</b>　<code>data/replays/r77_1_level_20260824.tsv</code>，46 帧，2026-08-24 由项目所有者从服务器回放逐帧转录。
+    <b>完整记录</b>　<code>docs/ALPHA_PLATEAU_SYNTHETIC_DAMPING.md</code>。
+  </p>
+  <p>
+    <b>边界声明</b>　本文是独立本地工程候选的诊断记录，不对任何私有实现主张等价性。
+    ζ、I、力矩斜率三者均未被辨识；ζ ≈ 0.5 是<b>单次飞行</b>的闭环拟合与开环反算共同指向的值，
+    跨飞行、跨弹种普适性未验。
+  </p>
+</footer>
+
+</div>
+</body>
+</html>

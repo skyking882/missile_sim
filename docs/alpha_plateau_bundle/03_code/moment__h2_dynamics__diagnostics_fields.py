@@ -1,0 +1,128 @@
+# ==== VERBATIM EXCERPT ====================================================
+# source : src/aim120_model/h2_dynamics.py
+# lines  : 40-160   (1-based, inclusive; original line numbers)
+# note   : H2DynamicsDiagnostics 字段表（CSV 里所有 pitch_*/yaw_* 列的来源）
+# repo   : working tree at 2026-08-26, unmodified
+# ==========================================================================
+
+    drag_force_n: Vector
+    fin_drag_force_n: Vector
+    natural_lift_force_n: Vector
+    fixed_lifting_surface_force_n: Vector
+    control_force_n: Vector
+    gravity_force_n: Vector
+    total_force_n: Vector
+    non_gravity_acceleration_mps2: Vector
+    specific_force_mps2: Vector
+    acceleration_mps2: Vector
+    axial_specific_force_g: float
+    pitch_normal_acceleration_g: float
+    yaw_normal_acceleration_g: float
+    wind_normal_pitch_acceleration_g: float
+    wind_normal_yaw_acceleration_g: float
+    lateral_load_g: float
+    trajectory_pitch_normal_acceleration_g: float
+    trajectory_yaw_normal_acceleration_g: float
+    trajectory_lateral_load_g: float
+    total_specific_force_g: float
+    drag_power_w: float
+    lift_power_w: float
+    body_tail_force_power_at_cg_w: float
+    pitch_angular_acceleration_rad_s2: float
+    yaw_angular_acceleration_rad_s2: float
+    body_reference_area_m2: float
+    body_reference_length_m: float
+    body_cp_cg_arm_over_diameter: float
+    body_cn_alpha_per_rad: float
+    body_cn_q: float
+    body_cm_alpha_per_rad: float
+    body_cm_q: float
+    generalized_cm_alpha_dot_per_rad: float
+    generalized_pitch_alpha_dot_hat: float
+    generalized_yaw_alpha_dot_hat: float
+    generalized_cm_alpha_dot_runtime_enabled: bool
+    pitch_body_normal_force_n: float
+    yaw_body_normal_force_n: float
+    pitch_body_static_moment_nm: float
+    yaw_body_static_moment_nm: float
+    pitch_body_rate_moment_nm: float
+    yaw_body_rate_moment_nm: float
+    pitch_body_total_moment_nm: float
+    yaw_body_total_moment_nm: float
+    fixed_lifting_surface_multiplier: float
+    body_normal_force_area_slope_m2_per_rad: float
+    fixed_lifting_surface_area_slope_m2_per_rad: float
+    fixed_lifting_surface_station_x_m: float
+    pitch_fixed_lifting_surface_alpha_rad: float
+    yaw_fixed_lifting_surface_alpha_rad: float
+    pitch_fixed_lifting_surface_force_n: float
+    yaw_fixed_lifting_surface_force_n: float
+    pitch_fixed_lifting_surface_moment_nm: float
+    yaw_fixed_lifting_surface_moment_nm: float
+    pitch_total_body_wing_tail_normal_force_n: float
+    yaw_total_body_wing_tail_normal_force_n: float
+    tail_station_x_m: float
+    pitch_tail_force_n: float
+    yaw_tail_force_n: float
+    pitch_tail_moment_nm: float
+    yaw_tail_moment_nm: float
+    pitch_tail_authority_fraction: float
+    yaw_tail_authority_fraction: float
+    tail_alpha_force_multiplier: float
+    tail_delta_force_multiplier: float
+    pitch_tail_alpha_force_slope_n_per_rad: float
+    yaw_tail_alpha_force_slope_n_per_rad: float
+    pitch_tail_delta_force_slope_n_per_rad: float
+    yaw_tail_delta_force_slope_n_per_rad: float
+    pitch_tail_alpha_force_n: float
+    yaw_tail_alpha_force_n: float
+    pitch_tail_delta_force_n: float
+    yaw_tail_delta_force_n: float
+    pitch_tail_net_force_pre_cap_n: float
+    yaw_tail_net_force_pre_cap_n: float
+    tail_force_cap_n: float
+    tail_force_cap_scale: float
+    tail_force_cap_active: bool
+    pitch_tail_alpha_moment_nm: float
+    yaw_tail_alpha_moment_nm: float
+    pitch_tail_delta_moment_nm: float
+    yaw_tail_delta_moment_nm: float
+    pitch_residual_damping_moment_nm: float
+    yaw_residual_damping_moment_nm: float
+    pitch_total_moment_nm: float
+    yaw_total_moment_nm: float
+    pitch_body_aoa_force_g: float
+    yaw_body_aoa_force_g: float
+    pitch_fin_moment_equivalent_g: float
+    yaw_fin_moment_equivalent_g: float
+    pitch_tail_rate_incidence_rad: float
+    yaw_tail_rate_incidence_rad: float
+    pitch_tail_effective_incidence_rad: float
+    yaw_tail_effective_incidence_rad: float
+    pitch_natural_frequency_rad_s: float
+    yaw_natural_frequency_rad_s: float
+    pitch_tail_rate_damping_per_s: float
+    yaw_tail_rate_damping_per_s: float
+    pitch_residual_rate_damping_per_s: float
+    yaw_residual_rate_damping_per_s: float
+
+
+@dataclass(frozen=True)
+class SplitTailForce:
+    """Algebraic split of the empirical tail authority on two normal axes."""
+
+    pitch_alpha_slope_n_per_rad: float
+    yaw_alpha_slope_n_per_rad: float
+    pitch_delta_slope_n_per_rad: float
+    yaw_delta_slope_n_per_rad: float
+    pitch_alpha_force_n: float
+    yaw_alpha_force_n: float
+    pitch_delta_force_n: float
+    yaw_delta_force_n: float
+    pitch_pre_cap_force_n: float
+    yaw_pre_cap_force_n: float
+    pitch_force_n: float
+    yaw_force_n: float
+    force_cap_n: float
+    cap_scale: float
+    cap_active: bool

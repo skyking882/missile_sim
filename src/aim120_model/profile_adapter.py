@@ -92,6 +92,28 @@ UNIVERSAL_H2_LAYER: dict[str, Any] = {
             "blend_time_s": 0.5,
             "speed_floor_mps": 200.0,
             "fin_error_ref_rad": 0.15,
+            # PCC-alpha launch capture (docs/PCC_ALPHA_V0.md).  Default mode
+            # "timer_blend" keeps the frozen hold/blend/fin-routing path
+            # bit-identical; "pcc_alpha" replaces it with the explicit
+            # collision-course capture law + alpha envelope, and then requires
+            # capture_alpha_max_deg.
+            "mode": "timer_blend",
+            "tau_capture_s": 0.30,
+            "capture_alpha_max_deg": None,
+            "epsilon_enter_deg": 2.0,
+            "epsilon_exit_deg": 15.0,
+            "handoff_r_max": 0.9,
+            "recapture_r_min": 1.0,
+            "handoff_dwell_s": 0.1,
+            # v0.1 shaping filters, both off (0.0) fleet-wide: 0.0 reproduces
+            # the v0 pcc_alpha path bit-for-bit and is inert in timer_blend.
+            "release_washout_time_s": 0.0,
+            "los_rate_filter_time_constant_s": 0.0,
+            # Shape of the (ablation-only) release memory: "scalar" = the
+            # rejected v0.1 vector lag; "polar" = magnitude-slow /
+            # direction-fast split (2026-08-26c review).  Inert while
+            # release_washout_time_s == 0.
+            "release_memory_mode": "scalar",
         },
     },
     "control": {
@@ -426,6 +448,74 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "midcourse_lead_turn.fin_error_ref_rad",
         ),
     }
+    # PCC-alpha keys: same profile > runtime-defaults > layer precedence.
+    def _midcourse_layered(key: str) -> Any:
+        return midcourse_lead_turn_profile.get(
+            key, midcourse_lead_turn_runtime.get(key, midcourse_lead_turn_defaults[key])
+        )
+
+    _release_memory_mode = str(_midcourse_layered("release_memory_mode"))
+    if _release_memory_mode not in {"scalar", "polar"}:
+        raise ValueError(
+            "guidance.midcourse_lead_turn.release_memory_mode must be 'scalar' or "
+            f"'polar', got {_release_memory_mode!r}"
+        )
+    midcourse_mode = str(_midcourse_layered("mode"))
+    if midcourse_mode not in {"timer_blend", "pcc_alpha"}:
+        raise ValueError(
+            "guidance.midcourse_lead_turn.mode must be 'timer_blend' or 'pcc_alpha', "
+            f"got {midcourse_mode!r}"
+        )
+    capture_alpha_max_deg = _midcourse_layered("capture_alpha_max_deg")
+    if capture_alpha_max_deg is not None:
+        capture_alpha_max_deg = _positive_finite(
+            capture_alpha_max_deg, "midcourse_lead_turn.capture_alpha_max_deg"
+        )
+    if midcourse_mode == "pcc_alpha" and capture_alpha_max_deg is None:
+        raise ValueError(
+            "guidance.midcourse_lead_turn.mode='pcc_alpha' requires capture_alpha_max_deg"
+        )
+    epsilon_enter_deg = _positive_finite(
+        _midcourse_layered("epsilon_enter_deg"), "midcourse_lead_turn.epsilon_enter_deg"
+    )
+    epsilon_exit_deg = _positive_finite(
+        _midcourse_layered("epsilon_exit_deg"), "midcourse_lead_turn.epsilon_exit_deg"
+    )
+    if epsilon_exit_deg <= epsilon_enter_deg:
+        raise ValueError(
+            "guidance.midcourse_lead_turn requires epsilon_exit_deg > epsilon_enter_deg "
+            f"(got {epsilon_exit_deg} <= {epsilon_enter_deg})"
+        )
+    midcourse_lead_turn.update(
+        {
+            "mode": midcourse_mode,
+            "tau_capture_s": _positive_finite(
+                _midcourse_layered("tau_capture_s"), "midcourse_lead_turn.tau_capture_s"
+            ),
+            "capture_alpha_max_deg": capture_alpha_max_deg,
+            "epsilon_enter_deg": epsilon_enter_deg,
+            "epsilon_exit_deg": epsilon_exit_deg,
+            "handoff_r_max": _positive_finite(
+                _midcourse_layered("handoff_r_max"), "midcourse_lead_turn.handoff_r_max"
+            ),
+            "recapture_r_min": _nonnegative_finite(
+                _midcourse_layered("recapture_r_min"), "midcourse_lead_turn.recapture_r_min"
+            ),
+            "handoff_dwell_s": _nonnegative_finite(
+                _midcourse_layered("handoff_dwell_s"), "midcourse_lead_turn.handoff_dwell_s"
+            ),
+            # PCC-alpha v0.1 shaping filters; 0.0 = off = v0 behaviour.
+            "release_washout_time_s": _nonnegative_finite(
+                _midcourse_layered("release_washout_time_s"),
+                "midcourse_lead_turn.release_washout_time_s",
+            ),
+            "los_rate_filter_time_constant_s": _nonnegative_finite(
+                _midcourse_layered("los_rate_filter_time_constant_s"),
+                "midcourse_lead_turn.los_rate_filter_time_constant_s",
+            ),
+            "release_memory_mode": _release_memory_mode,
+        }
+    )
     if midcourse_lead_turn_profile:
         assumptions.append(
             "guidance.midcourse_lead_turn overrides launch capture handover fields "

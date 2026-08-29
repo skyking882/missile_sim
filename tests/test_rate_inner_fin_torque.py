@@ -812,9 +812,25 @@ def test_off_axis_envelope_with_raw_pid_autopilot() -> None:
     assert 400.0 < aam4_80["summary"]["minimum_distance_m"] < 750.0
     assert derby_80["summary"]["termination_event"] == "proximity_fuse"
     assert derby_80["summary"]["minimum_distance_m"] < 15.0
+    # 2026-08-26 PCC-alpha (R-77 family only, docs/PCC_ALPHA_V0.md): launch
+    # capture is now the explicit collision-course law + alpha envelope, whose
+    # release is geometry-dependent instead of the timer that structurally
+    # over-held extreme off-axis shots (UPDATE_V1.0.2.md Sec.5 items 6/7 -- the
+    # hold-then-release calibration had tightened this shot to 36.7 m, below
+    # the old 40-100 m freeze).  Under PCC-alpha the same shot closes to
+    # ~17.8 m: still no fuse, but a near-hit.  Band re-frozen around the new
+    # structure; the other three missiles stay on timer_blend, bit-identical.
+    # 2026-08-26c: the v0.1 scalar release washout (0.95 s) was REJECTED as the
+    # final mechanism after review -- it locks the magnitude memory onto the
+    # stale horizontal capture direction, injecting ~15-20 deg of extra heading
+    # (Delta-psi ~= a_r*tau_r/V) that the game never shows, and the off-axis
+    # tightening it bought (80 deg 17.8->14.9 m, 90 deg fusing) was part of
+    # that same spurious turn area.  release_washout_time_s is back to 0.0 in
+    # the shipped profiles (kept as an ablation switch); bands re-frozen to the
+    # v0 hard-switch behavior.  See docs/PCC_ALPHA_V0.md v0.1 verdict.
     assert r77_80["summary"]["termination_event"] != "proximity_fuse"
-    assert 40.0 < r77_80["summary"]["minimum_distance_m"] < 100.0
-    assert 25.0 < r77_80["summary"]["maximum_trajectory_normal_g"] < 45.0
+    assert 15.0 < r77_80["summary"]["minimum_distance_m"] < 40.0
+    assert 25.0 < r77_80["summary"]["maximum_trajectory_normal_g"] < 50.0
 
     scenario_90 = _off_axis_scenario(90.0)
     pl12_90 = simulate(indexed["cn_pl12"], scenario_90)
@@ -835,7 +851,11 @@ def test_off_axis_envelope_with_raw_pid_autopilot() -> None:
     assert 200.0 < pl12_90["summary"]["minimum_distance_m"] < 500.0
     assert 950.0 < aam4_90["summary"]["minimum_distance_m"] < 1400.0
     assert 10.0 < derby_90["summary"]["minimum_distance_m"] < 30.0
-    assert 40.0 < r77_90["summary"]["minimum_distance_m"] < 100.0
+    # 2026-08-26 PCC-alpha: geometry-dependent capture release closed 90 deg
+    # from 40-100 m (timer path) to ~18.6 m.  (2026-08-26c: the v0.1 washout
+    # briefly made this shot fuse; rejected with the washout itself -- see the
+    # 80 deg block comment above -- so the v0 hard-switch band is restored.)
+    assert 15.0 < r77_90["summary"]["minimum_distance_m"] < 40.0
 
 
 def test_pl12_spec_identities_at_q_base() -> None:

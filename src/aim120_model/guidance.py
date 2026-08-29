@@ -36,6 +36,15 @@ class GuidanceOutput:
     heading_error_rad: float
     pip_time_to_go_s: float
     midcourse_fin_fraction: tuple[float, float]
+    # PCC-alpha telemetry (midcourse_lead_turn.mode == "pcc_alpha" only;
+    # "off" / 0.0 whenever the timer_blend path or no midcourse is active).
+    capture_mode: str = "off"
+    capture_ratio_r: float = 0.0
+    capture_envelope_g: float = 0.0
+    # v0.1 release washout: the alpha command actually routed to the fins
+    # after the asymmetric washout filter (equals the raw capture alpha while
+    # release_washout_time_s == 0, i.e. the v0 path).
+    capture_routed_alpha_deg: float = 0.0
 
 
 def interpolate_table(x: float, table: list[list[float]]) -> float:
@@ -92,6 +101,28 @@ def pn_acceleration(
         return (0.0, 0.0, 0.0), _flush_tiny(closing, NEAR_CLOSING_MPS), los_rate
     acceleration = scale(cross(los_rate, v_hat), pn_gain * closing)
     return acceleration, closing, los_rate
+
+
+def pn_acceleration_from_los_rate(
+    los_rate: Vector,
+    missile_velocity: Vector,
+    closing_mps: float,
+    pn_gain: float,
+    epsilon: float = NEAR_RANGE_M,
+) -> Vector:
+    """Rebuild the PN product for an externally supplied LOS-rate vector.
+
+    ``pn_acceleration`` stays a pure geometric measurement of the true LOS
+    rate; a caller that wants to shape that rate first (the PCC-alpha seeker
+    trackloop surrogate, ``los_rate_filter_time_constant_s``) filters the
+    vector outside and re-forms the same N*Vc*(omega x v_hat) product here,
+    with the identical near-range/near-closing guards.
+    """
+
+    missile_speed = norm(missile_velocity)
+    if closing_mps <= NEAR_CLOSING_MPS or missile_speed <= epsilon:
+        return (0.0, 0.0, 0.0)
+    return scale(cross(los_rate, normalize(missile_velocity)), pn_gain * float(closing_mps))
 
 
 def estimate_time_to_go_s(
@@ -242,12 +273,280 @@ def midcourse_lead_turn_acceleration(
     return acceleration, heading_error_rad, pip_time_to_go_s, e_hat
 
 
+PCC_CAPTURE = "capture"
+PCC_HOMING = "homing"
+
+# --- PCC-alpha v0.1 stateful filters (docs/PCC_ALPHA_V0.md, "v0.1") ---------
+#
+# The launch-capture alpha command does not vanish at release in the game data;
+# it washes out over roughly a second.  Only the DOWNWARD side of that command
+# carries that memory -- upward the fin cannot move faster than its actuator
+# anyway, so the rise uses a fixed actuator-scale constant and only the decay
+# is the calibrated ``release_washout_time_s``.
+PCC_WASHOUT_RISE_TIME_S = 0.05
+_PCC_FILTER_TIME_KEY = "pcc_filter_time_s"
+_PCC_WASHOUT_FRACTION_KEY = "pcc_washout_fin_fraction"
+_PCC_WASHOUT_WEIGHT_KEY = "pcc_washout_weight"
+_PCC_LOS_RATE_KEY = "pcc_los_rate_filtered"
+
+
+def pcc_filter_step_s(time_s: float, guidance_state: dict[str, Any]) -> float:
+    """Return the elapsed time since the PCC filters last advanced.
+
+    ``guidance_command`` runs TWICE per timestamp in the H2 run loop (once in
+    the step loop, once in ``_sample`` at the same t), so every stateful PCC
+    filter shares this one guard: the first call at a new timestamp consumes
+    the real step, the repeat call at the same timestamp gets 0.0 and
+    therefore re-reads an unchanged filter state.  The first call of a run
+    also gets 0.0, which seeds each filter at its raw value instead of at
+    zero (no spurious start-of-flight transient).
+    """
+
+    last = guidance_state.get(_PCC_FILTER_TIME_KEY)
+    guidance_state[_PCC_FILTER_TIME_KEY] = float(time_s)
+    if last is None:
+        return 0.0
+    return max(float(time_s) - float(last), 0.0)
+
+
+def _first_order_blend(dt_s: float, tau_s: float) -> float:
+    """Backward-Euler blend coefficient dt/(tau+dt); 0 for dt<=0, 1 for tau<=0."""
+
+    if dt_s <= 0.0:
+        return 0.0
+    if tau_s <= 0.0:
+        return 1.0
+    return dt_s / (tau_s + dt_s)
+
+
+def pcc_washout_fin_fraction(
+    raw_fraction: tuple[float, float],
+    dt_s: float,
+    washout_time_s: float,
+    guidance_state: dict[str, Any],
+) -> tuple[float, float]:
+    """Asymmetric first-order washout of the routed capture fin-fraction VECTOR.
+
+    Growing commands follow ``PCC_WASHOUT_RISE_TIME_S`` (actuator scale, so the
+    plateau is entered and steered exactly as in v0); shrinking commands follow
+    ``washout_time_s``.  The raw vector is the alpha-inverted demand of
+    whichever sub-mode is active (alpha_max*R along the PIP error direction in
+    CAPTURE, HOMING's own PN+loft command through the same inversion), so it
+    STEPS at the handoff while the lag does not -- that is what makes the
+    routed fin command continuous there instead of dropping to zero.
+
+    Filtering the VECTOR rather than a magnitude with a live direction is the
+    load-bearing choice: once the velocity vector has swung onto the collision
+    course the demand direction flips sign through zero, and a decaying
+    magnitude re-aimed along the flipped direction slams the airframe the
+    other way (measured: a 20 g -> 7 g -> 20 g limit cycle across the
+    shoulder).  Equally, relaxing into HOMING's live demand rather than into a
+    frozen vector is what keeps the residual from flying the airframe past the
+    collision course (measured: heading error 1.6 deg -> 17 deg in 0.8 s, and a
+    recapture that destroys the shot).
+    """
+
+    previous = guidance_state.get(_PCC_WASHOUT_FRACTION_KEY)
+    raw = (float(raw_fraction[0]), float(raw_fraction[1]))
+    if previous is None:
+        guidance_state[_PCC_WASHOUT_FRACTION_KEY] = raw
+        return raw
+    # "Growing" means growing IN THE SAME SENSE.  A demand that has reversed
+    # (the airframe has swung past the collision course and PN now wants the
+    # other way) must come in on the slow side however large it is, or the lag
+    # snaps through zero and rings.
+    same_sense = raw[0] * previous[0] + raw[1] * previous[1] >= 0.0
+    growing = same_sense and math.hypot(*raw) >= math.hypot(*previous)
+    blend = _first_order_blend(dt_s, PCC_WASHOUT_RISE_TIME_S if growing else washout_time_s)
+    value = (
+        previous[0] + blend * (raw[0] - previous[0]),
+        previous[1] + blend * (raw[1] - previous[1]),
+    )
+    guidance_state[_PCC_WASHOUT_FRACTION_KEY] = value
+    return value
+
+
+def pcc_washout_weight(
+    raw_weight: float,
+    dt_s: float,
+    washout_time_s: float,
+    guidance_state: dict[str, Any],
+) -> float:
+    """Asymmetric first-order washout of the direct-routing blend weight.
+
+    The raw weight is v0's own: 1.0 in CAPTURE (direct routing owns the fin,
+    control.py's tracking integrator engaged), 0.0 in HOMING.  Washing it out
+    with the same constant as the fin fraction turns v0's step handover into a
+    crossfade -- at the handoff instant the weight is still 1.0, so there is no
+    jump in the routed fin command, and PID/PN authority (1-w) then grows back
+    at exactly the rate the residual capture command fades.
+    """
+
+    previous = guidance_state.get(_PCC_WASHOUT_WEIGHT_KEY)
+    if previous is None:
+        guidance_state[_PCC_WASHOUT_WEIGHT_KEY] = float(raw_weight)
+        return float(raw_weight)
+    tau_s = PCC_WASHOUT_RISE_TIME_S if raw_weight >= previous else washout_time_s
+    value = previous + _first_order_blend(dt_s, tau_s) * (float(raw_weight) - previous)
+    guidance_state[_PCC_WASHOUT_WEIGHT_KEY] = value
+    return value
+
+
+PCC_POLAR_DIRECTION_TIME_S = 0.08
+_PCC_POLAR_MAG_KEY = "pcc_polar_mag"
+_PCC_POLAR_DIR_KEY = "pcc_polar_dir"
+
+
+def pcc_polar_washout_fin_fraction(
+    raw_fraction: tuple[float, float],
+    direction_target: tuple[float, float],
+    dt_s: float,
+    washout_time_s: float,
+    guidance_state: dict[str, Any],
+) -> tuple[float, float]:
+    """'Polar release': magnitude-slow / direction-fast washout (2026-08-26c review).
+
+    The scalar washout (``pcc_washout_fin_fraction``) lags the routed VECTOR,
+    so magnitude AND direction both decay at ``washout_time_s`` -- the memory
+    stays pointed near the stale capture direction and injects an extra
+    heading integral Delta-psi ~= a_r*tau_r/V (~15-20 deg), which PN must then
+    unwind (the 4.5-6.5 s G hump the game never shows).  Here the two are
+    separated:
+
+      * MAGNITUDE keeps the identified slow release (asymmetric: rise at
+        ``PCC_WASHOUT_RISE_TIME_S``, decay at ``washout_time_s``) toward the
+        raw demand magnitude;
+      * DIRECTION is a unit vector in fin (pitch,yaw) space slewed toward
+        ``direction_target`` with the much faster
+        ``PCC_POLAR_DIRECTION_TIME_S`` -- the physical statement being that
+        aerodynamic load/alpha magnitude decays slowly while control
+        allocation can rotate the load vector quickly.
+
+    ``direction_target`` should be the CURRENT total guidance demand
+    including the gravity-compensation vertical share (a >= 1 g floor), so
+    the target direction never degenerates when PN's kinematic demand
+    passes through zero; if it still does, the previous direction is held
+    while the magnitude keeps decaying.
+    """
+
+    raw_mag = math.hypot(*raw_fraction)
+    tgt_mag = math.hypot(*direction_target)
+    prev_mag = guidance_state.get(_PCC_POLAR_MAG_KEY)
+    prev_dir = guidance_state.get(_PCC_POLAR_DIR_KEY)
+    if tgt_mag > 1e-9:
+        tgt_unit = (direction_target[0] / tgt_mag, direction_target[1] / tgt_mag)
+    elif prev_dir is not None:
+        tgt_unit = prev_dir
+    elif raw_mag > 1e-9:
+        tgt_unit = (raw_fraction[0] / raw_mag, raw_fraction[1] / raw_mag)
+    else:
+        tgt_unit = (0.0, 0.0)
+    if prev_mag is None or prev_dir is None:
+        guidance_state[_PCC_POLAR_MAG_KEY] = raw_mag
+        guidance_state[_PCC_POLAR_DIR_KEY] = tgt_unit
+        return (raw_mag * tgt_unit[0], raw_mag * tgt_unit[1])
+    growing = raw_mag >= prev_mag
+    mag_blend = _first_order_blend(
+        dt_s, PCC_WASHOUT_RISE_TIME_S if growing else washout_time_s
+    )
+    mag = prev_mag + mag_blend * (raw_mag - prev_mag)
+    dir_blend = _first_order_blend(dt_s, PCC_POLAR_DIRECTION_TIME_S)
+    d0 = prev_dir[0] + dir_blend * (tgt_unit[0] - prev_dir[0])
+    d1 = prev_dir[1] + dir_blend * (tgt_unit[1] - prev_dir[1])
+    d_mag = math.hypot(d0, d1)
+    direction = (d0 / d_mag, d1 / d_mag) if d_mag > 1e-9 else tgt_unit
+    guidance_state[_PCC_POLAR_MAG_KEY] = mag
+    guidance_state[_PCC_POLAR_DIR_KEY] = direction
+    return (mag * direction[0], mag * direction[1])
+
+
+def pcc_filtered_los_rate(
+    los_rate: Vector,
+    dt_s: float,
+    tau_s: float,
+    guidance_state: dict[str, Any],
+) -> Vector:
+    """First-order low-pass of the LOS-rate VECTOR (seeker trackloop surrogate).
+
+    ``ideal_truth`` observation hands PN a noiseless per-step LOS rate, which
+    a real trackloop cannot follow; the unfiltered rate is what makes the
+    modelled G wiggle where the game's is smooth.  Filtering the vector (not
+    the finished acceleration) keeps the direction consistent with the
+    magnitude, and leaves ``pn_acceleration`` itself a pure measurement.
+    """
+
+    previous = guidance_state.get(_PCC_LOS_RATE_KEY)
+    if previous is None:
+        seeded = (float(los_rate[0]), float(los_rate[1]), float(los_rate[2]))
+        guidance_state[_PCC_LOS_RATE_KEY] = seeded
+        return seeded
+    blend = _first_order_blend(dt_s, tau_s)
+    value = (
+        previous[0] + blend * (float(los_rate[0]) - previous[0]),
+        previous[1] + blend * (float(los_rate[1]) - previous[1]),
+        previous[2] + blend * (float(los_rate[2]) - previous[2]),
+    )
+    guidance_state[_PCC_LOS_RATE_KEY] = value
+    return value
+
+
+def pcc_alpha_mode_update(
+    time_s: float,
+    epsilon_rad: float,
+    capture_ratio: float,
+    closing_mps: float,
+    midcourse_cfg: dict[str, Any],
+    guidance_state: dict[str, Any] | None,
+) -> str:
+    """CAPTURE/HOMING state machine for the PCC-alpha launch-capture candidate.
+
+    Hysteresis (epsilon_enter < epsilon_exit) plus a short dwell keep the mode
+    from chattering; the recapture guard additionally requires the capture law
+    to actually WANT a large maneuver (capture_ratio >= recapture_r_min) so
+    ordinary PN flight with a drifting collision-course reference (an
+    accelerating missile moves the PIP) cannot re-trigger CAPTURE — see
+    docs/PCC_ALPHA_V0.md.  ``guidance_state`` is a mutable per-run dict owned
+    by the simulator loop; with ``None`` (legacy stateless callers) the mode
+    degrades to a memoryless threshold on epsilon_exit.
+    """
+
+    epsilon_enter = deg_to_rad(float(midcourse_cfg.get("epsilon_enter_deg", 2.0)))
+    epsilon_exit = deg_to_rad(float(midcourse_cfg.get("epsilon_exit_deg", 15.0)))
+    handoff_r_max = float(midcourse_cfg.get("handoff_r_max", 0.9))
+    recapture_r_min = float(midcourse_cfg.get("recapture_r_min", 1.0))
+    dwell_s = float(midcourse_cfg.get("handoff_dwell_s", 0.1))
+    if guidance_state is None:
+        return PCC_CAPTURE if (epsilon_rad > epsilon_exit or capture_ratio >= 1.0) else PCC_HOMING
+    mode = guidance_state.get("pcc_mode", PCC_CAPTURE)
+    if mode == PCC_CAPTURE:
+        condition = (
+            capture_ratio < handoff_r_max
+            and epsilon_rad < epsilon_enter
+            and closing_mps > 0.0
+        )
+        key = "pcc_handoff_since_s"
+    else:
+        condition = epsilon_rad > epsilon_exit and capture_ratio >= recapture_r_min
+        key = "pcc_recapture_since_s"
+    if condition:
+        since = guidance_state.setdefault(key, time_s)
+        if time_s - since >= dwell_s:
+            mode = PCC_HOMING if mode == PCC_CAPTURE else PCC_CAPTURE
+            guidance_state.pop(key, None)
+    else:
+        guidance_state.pop(key, None)
+    guidance_state["pcc_mode"] = mode
+    return mode
+
+
 def guidance_command(
     state: Any,
     target: TrackSolution | TargetState,
     time_s: float,
     config: dict[str, Any],
     enabled: bool,
+    guidance_state: dict[str, Any] | None = None,
+    plant_envelope_g: float | None = None,
 ) -> GuidanceOutput:
     """Build the existing PN/loft command from a copied track solution.
 
@@ -346,16 +645,91 @@ def guidance_command(
         loft_active=loft_active,
         loft_elevation_rad=loft_elevation_rad,
     )
-    midcourse_weight = midcourse_blend_weight(time_s, midcourse_cfg)
     midcourse_active = enabled and bool(midcourse_cfg.get("enabled", False))
-    midcourse_command = scale(midcourse_accel, midcourse_weight) if midcourse_active else (0.0, 0.0, 0.0)
-    commanded = add_vectors(add_vectors(pn, loft), midcourse_command)
-    commanded = sub(commanded, scale(v_hat, dot(commanded, v_hat)))
+    pcc_active = midcourse_active and str(midcourse_cfg.get("mode", "timer_blend")) == "pcc_alpha"
     max_accel = g_to_mps2(
         guidance_cfg["maximum_lateral_acceleration_g"],
         config["atmosphere"]["gravity_mps2"],
     )
-    commanded = clamp_norm(commanded, max_accel)
+    capture_mode = "off"
+    capture_ratio = 0.0
+    capture_routed_alpha_rad = 0.0
+    capture_envelope_g = float(plant_envelope_g) if plant_envelope_g is not None else 0.0
+    release_washout_time_s = 0.0
+    pcc_filter_dt_s = 0.0
+    if pcc_active:
+        # PCC-alpha (docs/PCC_ALPHA_V0.md): CAPTURE steers the velocity vector
+        # onto the predicted collision course with a_cap = V*sin(eps)/tau_c
+        # along the same loft-aware e_hat the timer path used, explicitly
+        # clipped to the alpha-limited achievable envelope; the alpha plateau
+        # and its release (R_cap crossing 1) are emergent, not scheduled.  PN
+        # is NOT summed in during CAPTURE; HOMING is the untouched PN(+loft)
+        # path.  plant_envelope_g is trajectory-normal and thrust-inclusive,
+        # matching the physical_normal_g feedback basis the PID tracks.
+        # midcourse_weight starts at 0.0 (HOMING default) and is raised by the
+        # alpha-routing block below, where control.py reads it as the
+        # direct-fin-routing blend weight ((1-w)*pid): 1.0 on the v0 CAPTURE
+        # plateau, and the washed-out alpha fraction once v0.1's
+        # release_washout_time_s is active, so PID/PN authority grows back
+        # exactly as the capture command fades.
+        midcourse_weight = 0.0
+        # v0.1 filters.  Both default off (0.0), in which case no state is
+        # touched at all and the v0 path is reproduced bit-for-bit.
+        release_washout_time_s = float(midcourse_cfg.get("release_washout_time_s", 0.0))
+        los_rate_filter_time_constant_s = float(
+            midcourse_cfg.get("los_rate_filter_time_constant_s", 0.0)
+        )
+        pcc_filters_live = guidance_state is not None and (
+            release_washout_time_s > 0.0 or los_rate_filter_time_constant_s > 0.0
+        )
+        # One shared dt per timestamp for every PCC filter (see
+        # pcc_filter_step_s: guidance_command runs twice per timestamp).
+        pcc_filter_dt_s = (
+            pcc_filter_step_s(time_s, guidance_state) if pcc_filters_live else 0.0
+        )
+        if los_rate_filter_time_constant_s > 0.0 and guidance_state is not None:
+            pn = scale(
+                pn_acceleration_from_los_rate(
+                    pcc_filtered_los_rate(
+                        los_rate,
+                        pcc_filter_dt_s,
+                        los_rate_filter_time_constant_s,
+                        guidance_state,
+                    ),
+                    state.velocity,
+                    closing,
+                    guidance_cfg["pn_gain"],
+                ),
+                effective_gain,
+            )
+        speed = norm(state.velocity)
+        tau_capture_s = max(float(midcourse_cfg.get("tau_capture_s", 0.3)), 1e-6)
+        capture_accel_mag = speed * math.sin(clamp(heading_error_rad, 0.0, math.pi)) / tau_capture_s
+        envelope_mps2 = (
+            g_to_mps2(capture_envelope_g, config["atmosphere"]["gravity_mps2"])
+            if capture_envelope_g > 0.0
+            else None
+        )
+        capture_ratio = capture_accel_mag / envelope_mps2 if envelope_mps2 else 0.0
+        capture_mode = pcc_alpha_mode_update(
+            time_s, heading_error_rad, capture_ratio, closing, midcourse_cfg, guidance_state
+        )
+        if capture_mode == PCC_CAPTURE:
+            capture_command = scale(midcourse_e_hat, capture_accel_mag)
+            commanded = add_vectors(capture_command, loft)
+            commanded = sub(commanded, scale(v_hat, dot(commanded, v_hat)))
+            lateral_cap = min(envelope_mps2, max_accel) if envelope_mps2 else max_accel
+            commanded = clamp_norm(commanded, lateral_cap)
+        else:
+            commanded = add_vectors(pn, loft)
+            commanded = sub(commanded, scale(v_hat, dot(commanded, v_hat)))
+            commanded = clamp_norm(commanded, max_accel)
+    else:
+        midcourse_weight = midcourse_blend_weight(time_s, midcourse_cfg)
+        midcourse_command = scale(midcourse_accel, midcourse_weight) if midcourse_active else (0.0, 0.0, 0.0)
+        commanded = add_vectors(add_vectors(pn, loft), midcourse_command)
+        commanded = sub(commanded, scale(v_hat, dot(commanded, v_hat)))
+        commanded = clamp_norm(commanded, max_accel)
     if not enabled:
         commanded = (0.0, 0.0, 0.0)
         pn = (0.0, 0.0, 0.0)
@@ -365,7 +739,115 @@ def guidance_command(
         pip_time_to_go_s = 0.0
         midcourse_weight = 0.0
     axes = body_axes_for_state(state)
-    if midcourse_active and midcourse_weight > 0.0:
+    if pcc_active:
+        # a_n^-1 step of PCC-alpha: the packed force law is linear in alpha,
+        # so alpha_cmd = alpha_max * clip(R_cap, 0, 1), and this plant trims
+        # at alpha = delta (I*omega_dot = K(delta-alpha) - C*omega), so the
+        # fin-angle command that realizes alpha_cmd IS alpha_cmd.  Route it
+        # through the existing direct fin path (weight=1 engages control.py's
+        # tracking-mode integrator for bumpless handover); the accel-PID alone
+        # is known to be far too sluggish to reach the launch-capture plateau
+        # (the original v1.0.2 Sec.1 finding).  While saturated (R>=1) this
+        # holds alpha_max; as R falls below 1 the commanded alpha releases
+        # continuously -- the platform release is this fraction shrinking, not
+        # a schedule.
+        alpha_full_rad = deg_to_rad(float(midcourse_cfg["capture_alpha_max_deg"]))
+        pitch_fin_limit_rad = math.radians(
+            max(float(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"]), 1e-9)
+        )
+        capture_now = capture_mode == PCC_CAPTURE
+        if capture_now:
+            demand_ratio = clamp(capture_ratio, 0.0, 1.0)
+            demand_hat = midcourse_e_hat
+        else:
+            # v0.1: HOMING's own command run through the SAME a_n^-1 inversion,
+            # so the washout below has something to relax INTO.  Unused when
+            # release_washout_time_s == 0 (the v0 branch routes nothing here).
+            demand_ratio = (
+                clamp(norm(commanded) / envelope_mps2, 0.0, 1.0) if envelope_mps2 else 0.0
+            )
+            demand_hat = normalize(commanded, fallback=(0.0, 0.0, 0.0))
+        fin_fraction_mag = clamp(
+            alpha_full_rad * demand_ratio / pitch_fin_limit_rad, 0.0, 1.0
+        )
+        raw_fin_fraction = limit_unit_disk(
+            dot(demand_hat, axes.up) * fin_fraction_mag,
+            dot(demand_hat, axes.right) * fin_fraction_mag,
+        )
+        release_memory_mode = str(midcourse_cfg.get("release_memory_mode", "scalar"))
+        if (
+            release_washout_time_s > 0.0
+            and guidance_state is not None
+            and release_memory_mode == "polar"
+        ):
+            # 2026-08-26c 'polar release' ablation (docs/PCC_ALPHA_V0.md): the
+            # magnitude memory is kept but the direction slews quickly to the
+            # CURRENT total demand -- built from the specific-force vector
+            # (kinematic command minus gravity), whose >= 1 g vertical share
+            # keeps the target direction defined when PN's demand vanishes.
+            gravity_ref = (0.0, -float(config["atmosphere"]["gravity_mps2"]), 0.0)
+            sf_ref = sub(commanded, gravity_ref)
+            direction_target = (dot(sf_ref, axes.up), dot(sf_ref, axes.right))
+            lagged_fraction = pcc_polar_washout_fin_fraction(
+                raw_fin_fraction,
+                direction_target,
+                pcc_filter_dt_s,
+                release_washout_time_s,
+                guidance_state,
+            )
+            midcourse_weight = pcc_washout_weight(
+                1.0 if capture_now else 0.0,
+                pcc_filter_dt_s,
+                release_washout_time_s,
+                guidance_state,
+            )
+            midcourse_fin_fraction = limit_unit_disk(
+                midcourse_weight * lagged_fraction[0],
+                midcourse_weight * lagged_fraction[1],
+            )
+        elif release_washout_time_s > 0.0 and guidance_state is not None:
+            # v0.1 release washout (docs/PCC_ALPHA_V0.md).  v0 dropped the
+            # routed command to zero the instant the state machine handed off,
+            # which collapsed alpha in ~0.6 s; the replay's shoulder decays over
+            # ~1.5 s and no PN-derived signal can supply it (the true lambda-dot
+            # is ~0 there), so the capture channel keeps the memory.
+            #
+            # Two states, both with the same time constant:
+            #   * the alpha-inverted demand itself is LAGGED, so the routed fin
+            #     command is continuous through the handoff (the demand steps,
+            #     the lag does not) and then relaxes into what PN is asking for
+            #     -- not into a frozen vector.  Relaxing into PN is what keeps
+            #     the residual from flying the airframe past the collision
+            #     course: once the demand reverses, the lag follows it down.
+            #   * the direct-routing weight crossfades 1 -> 0, and it multiplies
+            #     the routed fraction.  So CAPTURE is exactly v0 (w=1, routed =
+            #     alpha_max*R), the handoff instant is bumpless (w still 1),
+            #     PID/PN authority (1-w) grows back at the same rate the routed
+            #     command fades, and at w=0 the direct term is gone rather than
+            #     double-counting PN's own feed-forward.
+            # The handoff / recapture gates themselves are untouched.
+            lagged_fraction = pcc_washout_fin_fraction(
+                raw_fin_fraction, pcc_filter_dt_s, release_washout_time_s, guidance_state
+            )
+            midcourse_weight = pcc_washout_weight(
+                1.0 if capture_now else 0.0,
+                pcc_filter_dt_s,
+                release_washout_time_s,
+                guidance_state,
+            )
+            midcourse_fin_fraction = (
+                midcourse_weight * lagged_fraction[0],
+                midcourse_weight * lagged_fraction[1],
+            )
+        elif capture_now:
+            midcourse_fin_fraction = raw_fin_fraction
+            midcourse_weight = 1.0
+        else:
+            midcourse_fin_fraction = (0.0, 0.0)
+        capture_routed_alpha_rad = (
+            math.hypot(*midcourse_fin_fraction) * pitch_fin_limit_rad
+        )
+    elif midcourse_active and midcourse_weight > 0.0:
         # Direct IOG fin routing: same PIP lead-turn geometry as the
         # acceleration term above, projected onto the body pitch/yaw axes and
         # scaled by how far the heading error sits past fin_error_ref_rad.
@@ -446,6 +928,10 @@ def guidance_command(
         heading_error_rad=heading_error_rad,
         pip_time_to_go_s=pip_time_to_go_s,
         midcourse_fin_fraction=midcourse_fin_fraction,
+        capture_mode=capture_mode,
+        capture_ratio_r=capture_ratio,
+        capture_envelope_g=capture_envelope_g,
+        capture_routed_alpha_deg=math.degrees(capture_routed_alpha_rad),
     )
 
 

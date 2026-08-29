@@ -1,0 +1,219 @@
+diff -u --recursive --exclude=__pycache__ --exclude=*.pyc src/aim120_model/guidance.py /private/tmp/claude-501/-Users-skyking-Documents-missle-sim/e7247f0a-1f65-4c63-b4c5-632b9bb928cd/scratchpad/src_exp/aim120_model/guidance.py
+--- src/aim120_model/guidance.py	2026-08-26 18:38:51
++++ /private/tmp/claude-501/-Users-skyking-Documents-missle-sim/e7247f0a-1f65-4c63-b4c5-632b9bb928cd/scratchpad/src_exp/aim120_model/guidance.py	2026-08-26 22:37:44
+@@ -518,6 +518,12 @@
+     if guidance_state is None:
+         return PCC_CAPTURE if (epsilon_rad > epsilon_exit or capture_ratio >= 1.0) else PCC_HOMING
+     mode = guidance_state.get("pcc_mode", PCC_CAPTURE)
++    # EXPERIMENTAL (review item 7): once launch capture has handed off, never
++    # re-enter it.  Mid-flight manoeuvres belong to homing/PN, not to the
++    # launch-slew mode; without this the mode SEQUENCE is dt-sensitive.
++    if guidance_state.get("_exp_capture_latch") and guidance_state.get("pcc_capture_done"):
++        guidance_state["pcc_mode"] = PCC_HOMING
++        return PCC_HOMING
+     if mode == PCC_CAPTURE:
+         condition = (
+             capture_ratio < handoff_r_max
+@@ -535,6 +541,8 @@
+             guidance_state.pop(key, None)
+     else:
+         guidance_state.pop(key, None)
++    if mode == PCC_HOMING:
++        guidance_state["pcc_capture_done"] = True
+     guidance_state["pcc_mode"] = mode
+     return mode
+ 
+@@ -705,6 +713,16 @@
+         speed = norm(state.velocity)
+         tau_capture_s = max(float(midcourse_cfg.get("tau_capture_s", 0.3)), 1e-6)
+         capture_accel_mag = speed * math.sin(clamp(heading_error_rad, 0.0, math.pi)) / tau_capture_s
++        # EXPERIMENTAL (2026-08-26 review item 5): the datamine autopilot gain
++        # schedule (guidance.flight_time_gain_table, from timeToGain*) is
++        # currently multiplied into PN ONLY -- the midcourse/capture channel and
++        # its direct-fin route bypass it entirely, so PCC drives full fin
++        # authority from t=0 while the game's own autopilot gain is 0 until
++        # 0.30 s.  Zero new parameters: reuse effective_gain as computed above.
++        capture_gain = 1.0
++        if bool(config["control"].get("_exp_flight_gain_on_capture", False)):
++            capture_gain = effective_gain
++            capture_accel_mag *= capture_gain
+         envelope_mps2 = (
+             g_to_mps2(capture_envelope_g, config["atmosphere"]["gravity_mps2"])
+             if capture_envelope_g > 0.0
+@@ -752,6 +770,12 @@
+         # continuously -- the platform release is this fraction shrinking, not
+         # a schedule.
+         alpha_full_rad = deg_to_rad(float(midcourse_cfg["capture_alpha_max_deg"]))
++        # EXPERIMENTAL (review item 4): the commanded FIN DEFLECTION is its own
++        # quantity.  capture_alpha_max_deg keeps meaning "alpha target"; the
++        # command amplitude comes from _exp_fin_deflection_limit_deg when set.
++        _fin_cmd_deg = config["control"].get("_exp_fin_deflection_limit_deg")
++        if _fin_cmd_deg is not None:
++            alpha_full_rad = deg_to_rad(float(_fin_cmd_deg))
+         pitch_fin_limit_rad = math.radians(
+             max(float(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"]), 1e-9)
+         )
+@@ -770,10 +794,13 @@
+         fin_fraction_mag = clamp(
+             alpha_full_rad * demand_ratio / pitch_fin_limit_rad, 0.0, 1.0
+         )
+-        raw_fin_fraction = limit_unit_disk(
+-            dot(demand_hat, axes.up) * fin_fraction_mag,
+-            dot(demand_hat, axes.right) * fin_fraction_mag,
+-        )
++        _pu = dot(demand_hat, axes.up)
++        _pr = dot(demand_hat, axes.right)
++        if bool(config["control"].get("_exp_fix_projection", False)):
++            _pn = math.hypot(_pu, _pr)
++            if _pn > 1e-9:
++                _pu, _pr = _pu / _pn, _pr / _pn
++        raw_fin_fraction = limit_unit_disk(_pu * fin_fraction_mag, _pr * fin_fraction_mag)
+         release_memory_mode = str(midcourse_cfg.get("release_memory_mode", "scalar"))
+         if (
+             release_washout_time_s > 0.0
+@@ -840,8 +867,11 @@
+                 midcourse_weight * lagged_fraction[1],
+             )
+         elif capture_now:
+-            midcourse_fin_fraction = raw_fin_fraction
+-            midcourse_weight = 1.0
++            midcourse_fin_fraction = (
++                raw_fin_fraction[0] * capture_gain,
++                raw_fin_fraction[1] * capture_gain,
++            )
++            midcourse_weight = capture_gain
+         else:
+             midcourse_fin_fraction = (0.0, 0.0)
+         capture_routed_alpha_rad = (
+diff -u --recursive --exclude=__pycache__ --exclude=*.pyc src/aim120_model/h2_dynamics.py /private/tmp/claude-501/-Users-skyking-Documents-missle-sim/e7247f0a-1f65-4c63-b4c5-632b9bb928cd/scratchpad/src_exp/aim120_model/h2_dynamics.py
+--- src/aim120_model/h2_dynamics.py	2026-08-26 15:56:27
++++ /private/tmp/claude-501/-Users-skyking-Documents-missle-sim/e7247f0a-1f65-4c63-b4c5-632b9bb928cd/scratchpad/src_exp/aim120_model/h2_dynamics.py	2026-08-26 22:37:20
+@@ -316,6 +316,57 @@
+     return max(aero_g + thrust_g, 0.0)
+ 
+ 
++def capture_trim_alpha_rad(
++    dynamic_pressure_pa: float,
++    mass_kg: float,
++    thrust_n: float,
++    delta_max_rad: float,
++    omega_n_rad_s: float,
++    speed_mps: float,
++    zeta: float,
++    config: dict[str, Any],
++) -> float:
++    """EXPERIMENTAL (2026-08-26 review item 4/5): full-fin DYNAMIC trim alpha.
++
++    At a steady turn the weathervane trims where the spring balances the rate
++    damping, not where alpha == delta:
++
++        0 = wn^2 (delta_max - alpha*) - 2 zeta wn omega*,   omega* ~= a_n(alpha*)/V
++
++    which rearranges to the scalar root problem
++
++        alpha* + (2 zeta / (wn V)) a_n(alpha*) = delta_max        [monotone in alpha*]
++
++    a_n(alpha) is the SAME trajectory-normal, thrust-inclusive law
++    capture_alpha_envelope_g already evaluates.  f(0) < 0 and f(delta_max) > 0,
++    so plain bisection on [0, delta_max] is safe and needs no tuning.
++    """
++
++    if omega_n_rad_s <= 0.0 or speed_mps <= 0.0 or delta_max_rad <= 0.0:
++        return max(delta_max_rad, 0.0)
++    gravity = float(config["atmosphere"]["gravity_mps2"])
++    lag_s = 2.0 * max(zeta, 0.0) / omega_n_rad_s          # tau_q = 2 zeta / wn
++
++    def residual(alpha_rad: float) -> float:
++        a_n_mps2 = capture_alpha_envelope_g(
++            dynamic_pressure_pa, mass_kg, thrust_n, alpha_rad, config
++        ) * gravity
++        return alpha_rad + lag_s * a_n_mps2 / speed_mps - delta_max_rad
++
++    lo, hi = 0.0, float(delta_max_rad)
++    if residual(hi) <= 0.0:
++        return hi
++    for _ in range(60):
++        mid = 0.5 * (lo + hi)
++        if residual(mid) > 0.0:
++            hi = mid
++        else:
++            lo = mid
++        if hi - lo < 1e-10:
++            break
++    return 0.5 * (lo + hi)
++
++
+ def _add_many(*vectors: Vector) -> Vector:
+     result = (0.0, 0.0, 0.0)
+     for vector in vectors:
+@@ -1088,8 +1139,16 @@
+         # term rather than a remainder.
+         pitch_tail_rate_damping = 0.0
+         yaw_tail_rate_damping = 0.0
+-        pitch_residual_rate_damping = 2.0 * pitch_natural_frequency
+-        yaw_residual_rate_damping = 2.0 * yaw_natural_frequency
++        _zeta = float(config["control"].get("_exp_zeta", 1.0))
++        _physdamp = bool(config["control"].get("_exp_physical_damping", False))
++        if _physdamp:
++            # real aerodynamic rate damping only: the tail's own local flow
++            # incidence change omega*arm/V acting through the same spring
++            pitch_residual_rate_damping = pitch_stiffness_s2 * arm_magnitude / speed_for_rate
++            yaw_residual_rate_damping = yaw_stiffness_s2 * arm_magnitude / speed_for_rate
++        else:
++            pitch_residual_rate_damping = 2.0 * _zeta * pitch_natural_frequency
++            yaw_residual_rate_damping = 2.0 * _zeta * yaw_natural_frequency
+         pitch_damping = pitch_residual_rate_damping
+         yaw_damping = yaw_residual_rate_damping
+     elif body_cm_tail_plant:
+diff -u --recursive --exclude=__pycache__ --exclude=*.pyc src/aim120_model/h2_simulator.py /private/tmp/claude-501/-Users-skyking-Documents-missle-sim/e7247f0a-1f65-4c63-b4c5-632b9bb928cd/scratchpad/src_exp/aim120_model/h2_simulator.py
+--- src/aim120_model/h2_simulator.py	2026-08-26 18:40:07
++++ /private/tmp/claude-501/-Users-skyking-Documents-missle-sim/e7247f0a-1f65-4c63-b4c5-632b9bb928cd/scratchpad/src_exp/aim120_model/h2_simulator.py	2026-08-26 22:38:43
+@@ -17,6 +17,7 @@
+ from .events import event_candidates
+ from .guidance import guidance_command
+ from .h2_dynamics import (
++    capture_trim_alpha_rad,
+     _uses_quaternion_candidate,
+     capture_alpha_envelope_g,
+     forces_for_state_h2,
+@@ -130,10 +131,27 @@
+         alpha_max_deg = midcourse.get("capture_alpha_max_deg")
+         if alpha_max_deg is None:
+             return None
++        q = float(diagnostics.aero.dynamic_pressure_pa)
++        thrust = float(diagnostics.propulsion.thrust_n)
++        mode = str(self.config["control"].get("_exp_envelope_mode", "alpha_max"))
++        if mode == "full_fin_trim":
++            # EXPERIMENTAL: the envelope is a_n at the alpha the airframe can
++            # ACTUALLY hold at full fin, not a_n at the commanded fin angle.
++            _fin_deg = self.config["control"].get("_exp_fin_deflection_limit_deg")
++            delta_max = math.radians(float(_fin_deg if _fin_deg is not None else alpha_max_deg))
++            wn = float(getattr(diagnostics, "yaw_natural_frequency_rad_s", 0.0)) or float(
++                getattr(diagnostics, "pitch_natural_frequency_rad_s", 0.0)
++            )
++            speed = math.sqrt(sum(v * v for v in state.velocity))
++            zeta = float(self.config["control"].get("_exp_zeta", 1.0))
++            alpha_star = capture_trim_alpha_rad(
++                q, float(state.mass), thrust, delta_max, wn, speed, zeta, self.config
++            )
++            return capture_alpha_envelope_g(q, float(state.mass), thrust, alpha_star, self.config)
+         return capture_alpha_envelope_g(
+-            float(diagnostics.aero.dynamic_pressure_pa),
++            q,
+             float(state.mass),
+-            float(diagnostics.propulsion.thrust_n),
++            thrust,
+             math.radians(float(alpha_max_deg)),
+             self.config,
+         )
+@@ -550,7 +568,9 @@
+         track = provider.update(time_s, dt_nominal, state, target)
+         # Per-run mutable guidance memory (PCC-alpha CAPTURE/HOMING mode and
+         # its hysteresis dwell timers live here; empty and inert otherwise).
+-        guidance_state: dict[str, Any] = {}
++        guidance_state: dict[str, Any] = {
++            "_exp_capture_latch": bool(self.config["control"].get("_exp_capture_latch", False))
++        }
+         # Cumulative horizontal-curvature diagnostics (2026-08-26c review):
+         # J_psi_actual integrates the velocity vector's horizontal heading;
+         # the *_cmd channels integrate the horizontal turn the guidance
