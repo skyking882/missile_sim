@@ -8,7 +8,7 @@ from typing import Any
 
 from .atmosphere import AtmosphereSample, StandardAtmosphere
 from .drag_models import drag_force_from_cda, effective_cda0, effective_cda_alpha, mach_multiplier
-from .math3d import Vector, add, clamp, dot, norm, normalize, scale, sub
+from .math3d import Vector, add, clamp, cross, dot, norm, normalize, scale, sub
 
 
 Quaternion = tuple[float, float, float, float]
@@ -116,23 +116,27 @@ def body_axes_for_state(state: Any) -> BodyAxes:
     return body_axes(float(state.pitch), float(state.yaw))
 
 
+def wind_normal_basis(axes: BodyAxes, air_velocity: Vector) -> BodyAxes:
+    """Pitch-first orthonormal frame about air-relative velocity.
+
+    Pitch is projected body-up; yaw completes the right-handed frame. When
+    flow is parallel to body-up, projected body-right fixes the yaw direction.
+    """
+    tangent = normalize(air_velocity, fallback=axes.forward)
+    projected_up = sub(axes.up, scale(tangent, dot(axes.up, tangent)))
+    if norm(projected_up) <= 1e-12:
+        normal_yaw = normalize(sub(axes.right, scale(tangent, dot(axes.right, tangent))))
+        normal_pitch = cross(normal_yaw, tangent)
+    else:
+        normal_pitch = normalize(projected_up)
+        normal_yaw = normalize(cross(tangent, normal_pitch))
+    return BodyAxes(tangent, normal_pitch, normal_yaw)
+
+
 def cg_wind_normal_basis(state: Any, config: dict[str, Any]) -> BodyAxes:
     axes = body_axes_for_state(state)
     wind = tuple(float(value) for value in config["atmosphere"].get("wind_mps", (0.0, 0.0, 0.0)))
-    tangent = normalize(sub(state.velocity, wind), fallback=axes.forward)
-    normal_pitch = normalize(
-        sub(axes.up, scale(tangent, dot(axes.up, tangent))),
-        fallback=axes.up,
-    )
-    normal_yaw = normalize(
-        (
-            tangent[1] * normal_pitch[2] - tangent[2] * normal_pitch[1],
-            tangent[2] * normal_pitch[0] - tangent[0] * normal_pitch[2],
-            tangent[0] * normal_pitch[1] - tangent[1] * normal_pitch[0],
-        ),
-        fallback=axes.right,
-    )
-    return BodyAxes(tangent, normal_pitch, normal_yaw)
+    return wind_normal_basis(axes, sub(state.velocity, wind))
 
 
 def pitch_yaw_from_quaternion(quaternion: Quaternion) -> tuple[float, float]:
@@ -206,8 +210,12 @@ def compute_aerodynamics_h2(
     mach = speed / atm.speed_of_sound_mps if atm.speed_of_sound_mps > 0.0 else 0.0
     q = 0.5 * atm.density_kg_m3 * speed * speed
     drag_forward_component = dot(v_hat, axes.forward)
-    drag_pitch_alpha = math.atan2(-dot(v_hat, axes.up), drag_forward_component)
-    drag_yaw_alpha = math.atan2(-dot(v_hat, axes.right), drag_forward_component)
+    # Report CG geometric AoA; local force incidence may differ when a
+    # separate aerodynamic station supplies normal_force_velocity_mps.
+    total_alpha = math.atan2(
+        math.hypot(dot(v_hat, axes.up), dot(v_hat, axes.right)),
+        drag_forward_component,
+    )
     normal_velocity = velocity_mps if normal_force_velocity_mps is None else normal_force_velocity_mps
     normal_air_velocity = sub(normal_velocity, (float(wind[0]), float(wind[1]), float(wind[2])))
     normal_speed = norm(normal_air_velocity)
@@ -216,19 +224,15 @@ def compute_aerodynamics_h2(
     forward_component = dot(normal_v_hat, axes.forward)
     pitch_alpha = math.atan2(-dot(normal_v_hat, axes.up), forward_component)
     yaw_alpha = math.atan2(-dot(normal_v_hat, axes.right), forward_component)
-    total_alpha = math.sqrt(pitch_alpha * pitch_alpha + yaw_alpha * yaw_alpha)
     cda0 = effective_cda0(mach, config)
-    cda_alpha = effective_cda_alpha(drag_pitch_alpha, drag_yaw_alpha, mach, config)
+    # The even drag law consumes alpha squared; supply the exact magnitude
+    # as one component rather than the small-angle component norm.
+    cda_alpha = effective_cda_alpha(total_alpha, 0.0, mach, config)
     total_cda = cda0 + cda_alpha
     drag_force = drag_force_from_cda(q, total_cda, v_hat)
-    flow_normal_pitch = normalize(
-        sub(axes.up, scale(normal_v_hat, dot(axes.up, normal_v_hat))),
-        fallback=axes.up,
-    )
-    flow_normal_yaw = normalize(
-        sub(axes.right, scale(normal_v_hat, dot(axes.right, normal_v_hat))),
-        fallback=axes.right,
-    )
+    force_basis = wind_normal_basis(axes, normal_air_velocity)
+    flow_normal_pitch = force_basis.up
+    flow_normal_yaw = force_basis.right
     aero_cfg = config["aerodynamics"]
     normal_force_model = str(aero_cfg.get("normal_force_model", "legacy_cy_k"))
     if normal_force_model in {"body_circular_cn2", "generalized_coefficients"}:

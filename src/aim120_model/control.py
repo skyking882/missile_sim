@@ -488,7 +488,7 @@ def update_control_feedback(
             fin_name,
             actual_name,
         )
-    if plant_semantics == "fin_torque_body_aoa" and "pitch" in pending_fins and "yaw" in pending_fins:
+    if plant_semantics in {"fin_torque_body_aoa", "rebuild_first_principles"} and "pitch" in pending_fins and "yaw" in pending_fins:
         pitch_fraction, yaw_fraction = limit_unit_disk(
             pending_fins["pitch"][0],
             pending_fins["yaw"][0],
@@ -497,7 +497,7 @@ def update_control_feedback(
         pending_fins["yaw"] = (yaw_fraction,) + pending_fins["yaw"][1:]
         updates["pitch_requested_fin_command"] = pitch_fraction
         updates["yaw_requested_fin_command"] = yaw_fraction
-    actuator_alpha = min(1.0, dt / (max(control_cfg["actuator_time_constant_s"], 1e-9) + dt))
+    actuator_alpha = dt / (max(control_cfg["actuator_time_constant_s"], 0.0) + dt)
     for axis, job in pending_fins.items():
         requested_fin, maximum_fin_angle, fin_angle_name, fin_name, actual_name = job
         desired_fin_angle = requested_fin * authority * maximum_fin_angle
@@ -510,6 +510,7 @@ def update_control_feedback(
             "fin_torque_body_aoa",
             "body_cm_tail_force_moment",
             "generalized_aero_moment",
+            "rebuild_first_principles",
         }:
             # The actuator owns only fin angle; the selected plant resolves
             # physical force/moment outputs.  Keep the old direct-G actuator

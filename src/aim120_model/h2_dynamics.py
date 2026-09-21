@@ -384,12 +384,17 @@ def forces_for_state_h2(
     plant_semantics = str(config["control"].get("plant_semantics", "direct_fin_g"))
     legacy_fin_torque_plant = plant_semantics == "fin_torque_body_aoa"
     body_cm_tail_plant = plant_semantics == "body_cm_tail_force_moment"
-    generalized_aero_plant = plant_semantics == "generalized_aero_moment"
+    rebuild_first_principles_plant = plant_semantics == "rebuild_first_principles"
+    generalized_aero_plant = plant_semantics in {
+        "generalized_aero_moment",
+        "rebuild_first_principles",
+    }
     if plant_semantics not in {
         "direct_fin_g",
         "fin_torque_body_aoa",
         "body_cm_tail_force_moment",
         "generalized_aero_moment",
+        "rebuild_first_principles",
     }:
         raise ValueError(f"unknown plant_semantics: {plant_semantics}")
     axes = body_axes_for_state(state)
@@ -923,20 +928,43 @@ def forces_for_state_h2(
                 state.actual_yaw_acceleration_g * gravity * mass,
             ),
         )
-    if legacy_fin_torque_plant:
-        # Spec §4: s_cap = min(1, n_max g / |F_N/m|) applies to packed lift
-        # only.  Drag along -v̂ and thrust along f̂ are not scaled.
+    if legacy_fin_torque_plant or rebuild_first_principles_plant:
+        # The datamine loadFactorMax is an output normal-force cap.  Rebuild
+        # applies it to the combined alpha+delta normal force; the legacy
+        # packed plant keeps its historical control-force-only behavior.
         load_factor_max_g = config.get("performance", {}).get("load_factor_max_g")
         if load_factor_max_g is None:
             load_factor_max_g = config.get("guidance", {}).get("maximum_lateral_acceleration_g")
         if load_factor_max_g is not None:
             cap = max(float(load_factor_max_g), 0.0)
             if cap > 0.0:
-                packed_lift_n = norm(control_force)
+                packed_lift_n = (
+                    norm(control_force)
+                    if legacy_fin_torque_plant
+                    else norm(_add_many(body_normal_force_vector, control_force))
+                )
                 cap_n = cap * gravity * mass
                 if packed_lift_n > cap_n:
                     load_scale = cap_n / packed_lift_n
-                    control_force = scale(control_force, load_scale)
+                    if rebuild_first_principles_plant:
+                        body_normal_force_vector = scale(body_normal_force_vector, load_scale)
+                        control_force = scale(control_force, load_scale)
+                        generalized_body_force_vector = scale(
+                            generalized_body_force_vector, load_scale
+                        )
+                        generalized_delta_force_vector = scale(
+                            generalized_delta_force_vector, load_scale
+                        )
+                        generalized_pitch_body_static_moment *= load_scale
+                        generalized_yaw_body_static_moment *= load_scale
+                        generalized_pitch_delta_moment *= load_scale
+                        generalized_yaw_delta_moment *= load_scale
+                        generalized_pitch_alpha_force *= load_scale
+                        generalized_yaw_alpha_force *= load_scale
+                        generalized_pitch_delta_force *= load_scale
+                        generalized_yaw_delta_force *= load_scale
+                    else:
+                        control_force = scale(control_force, load_scale)
                     pitch_fin_translation_equivalent_g *= load_scale
                     yaw_fin_translation_equivalent_g *= load_scale
                     pitch_tail_force_n *= load_scale
@@ -981,8 +1009,10 @@ def forces_for_state_h2(
     wind_basis = cg_wind_normal_basis(state, config)
     wind_pitch_g = dot(specific_force, wind_basis.up) / gravity
     wind_yaw_g = dot(specific_force, wind_basis.right) / gravity
-    trajectory_pitch_g = dot(specific_force, aero.flow_normal_pitch) / gravity
-    trajectory_yaw_g = dot(specific_force, aero.flow_normal_yaw) / gravity
+    # HUD trajectory load and controller feedback both refer to CG airflow,
+    # even when another plant evaluates forces using a local station flow.
+    trajectory_pitch_g = wind_pitch_g
+    trajectory_yaw_g = wind_yaw_g
     axial_g = dot(specific_force, aero.air_velocity_hat) / gravity
     lateral_g = math.hypot(pitch_g, yaw_g)
     trajectory_lateral_g = math.hypot(trajectory_pitch_g, trajectory_yaw_g)
@@ -1083,13 +1113,13 @@ def forces_for_state_h2(
         )
         pitch_natural_frequency = math.sqrt(pitch_stiffness_s2)
         yaw_natural_frequency = math.sqrt(yaw_stiffness_s2)
-        # Spec §5: C = 2 ζ √(K I) with ζ=1, so C/I = 2 ω_n.  The spring
-        # no longer includes ω·Δ/V, so this is the full critical-damping
-        # term rather than a remainder.
+        # No synthetic body-rate damping: the packed plant retains only
+        # I*omega_dot = K*(delta-alpha). Its turn/alpha coupling and actuator
+        # response still evolve through the existing state equations.
         pitch_tail_rate_damping = 0.0
         yaw_tail_rate_damping = 0.0
-        pitch_residual_rate_damping = 2.0 * pitch_natural_frequency
-        yaw_residual_rate_damping = 2.0 * yaw_natural_frequency
+        pitch_residual_rate_damping = 0.0
+        yaw_residual_rate_damping = 0.0
         pitch_damping = pitch_residual_rate_damping
         yaw_damping = yaw_residual_rate_damping
     elif body_cm_tail_plant:
@@ -1326,6 +1356,7 @@ def _uses_quaternion_candidate(config: dict[str, Any]) -> bool:
     return config["control"].get("plant_semantics") in {
         "body_cm_tail_force_moment",
         "generalized_aero_moment",
+        "rebuild_first_principles",
         "fin_torque_body_aoa",
     }
 
