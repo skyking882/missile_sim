@@ -1,0 +1,37 @@
+{
+  "integration_substeps": 4,
+  "pn_candidate": "ideal_relative_velocity_normal",
+  "pid_error_units": "m/s^2",
+  "effective_parameters": {
+    "cd_base_inverse_mach": [
+      0.1649275802232184,
+      1.081567064520488,
+      -0.2917349160543533
+    ],
+    "cd_incidence_ratio": 25.69774045396138,
+    "lift_sine_slope": 23.46476357606692,
+    "lift_stall_rad": 0.5075000000000003,
+    "lift_rolloff_width_rad": 0.45500000000000007,
+    "control_response_rad_s2": 22.539158208549566,
+    "restoring_response_rad_s2_per_rad": 30.610467943343874,
+    "damping_response_per_s": 4.108598723058536,
+    "loft_common_scale": 1.225
+  },
+  "loft_gate_convention": "absolute_los",
+  "time_to_hit_convention": "linear_closing",
+  "restoring_angle_convention": "total_incidence_vector",
+  "schema_version": 1,
+  "model_family": "effective_single_surface",
+  "reference": {
+    "mass_kg": 190,
+    "caliber_m": 0.2,
+    "length_m": 3.71,
+    "arm_m": 0.4,
+    "cx_k": 1.4,
+    "wing_area_multiplier": 1.5,
+    "fins_lateral_acceleration_g": 55,
+    "speed_mps": 333.3333333333333,
+    "altitude_m": 6300
+  },
+  "boundary": "Shared effective approximation with profile-specific raw inputs and geometry scaling; accuracy has not been verified for every missile."
+}

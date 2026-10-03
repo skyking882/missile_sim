@@ -17,8 +17,9 @@ from .math3d import norm
 SUPPORTED_ENGINE_TYPES = {"piecewise_constant_thrust"}
 SUPPORTED_CONTROL_TYPES = {"pn_pid_first_order"}
 SUPPORTED_TARGET_COURSE_REFERENCES = {
-    "statshark_relative_to_los",
-    "sensorwhale_launch_axis",
+    "relative_to_los",
+    "launch_axis",
+    "absolute_world",
 }
 
 
@@ -97,11 +98,11 @@ def validate_scenario(scenario: dict[str, Any]) -> dict[str, Any]:
 
     course_reference = scenario.get(
         "target_course_reference",
-        "statshark_relative_to_los",
+        "relative_to_los",
     )
     if course_reference not in SUPPORTED_TARGET_COURSE_REFERENCES:
         raise SimulationInputError(
-            "目标航向参考系必须是 statshark_relative_to_los 或 sensorwhale_launch_axis。"
+            "目标航向参考系必须是 relative_to_los、launch_axis 或 absolute_world。"
         )
     normalized["target_course_reference"] = str(course_reference)
 
@@ -316,12 +317,28 @@ def _stage_markers(config: dict[str, Any]) -> list[dict[str, Any]]:
     return markers
 
 
-def simulate(missile_profile: dict[str, Any], scenario: dict[str, Any]) -> dict[str, Any]:
+def simulate(
+    missile_profile: dict[str, Any],
+    scenario: dict[str, Any],
+    *,
+    model_mode: str = "general",
+) -> dict[str, Any]:
     """Run one missile and return a JSON-serializable, read-only result.
 
     This function performs no filesystem writes and is the only GUI calculation
     entry point.
     """
+
+    if model_mode == "general" and "model_family" in missile_profile:
+        if missile_profile.get("_runtime_unsupported"):
+            raise UnsupportedPhysicsError("不支持的制导或物理类型：" + "、".join(missile_profile["_runtime_unsupported"]))
+        from .surface_runtime import simulate_surface
+        try:
+            return simulate_surface(missile_profile, scenario)
+        except ValueError as exc:
+            raise SimulationInputError(str(exc)) from exc
+    if model_mode not in {"general", "legacy_h2"}:
+        raise SimulationInputError(f"未知模型模式：{model_mode}。")
 
     base_config = _validate_profile(missile_profile)
     normalized = validate_scenario(scenario)
@@ -347,6 +364,10 @@ def simulate(missile_profile: dict[str, Any], scenario: dict[str, Any]) -> dict[
             "id": missile_profile.get("missile_id", missile_profile.get("id")),
             "name": missile_profile.get("display_name", missile_profile.get("name")),
             "status": missile_profile.get("model_status", missile_profile.get("status")),
+            "parameter_source": {
+                "version": missile_profile.get("provenance", {}).get("source_version"),
+                "commit": missile_profile.get("provenance", {}).get("source_commit"),
+            },
         },
         "scenario": normalized,
         "summary": _summarize(

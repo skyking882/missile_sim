@@ -136,6 +136,7 @@ class H2Simulator:
             float(diagnostics.propulsion.thrust_n),
             math.radians(float(alpha_max_deg)),
             self.config,
+            mach=float(diagnostics.aero.mach),
         )
 
     def _sample(
@@ -148,26 +149,15 @@ class H2Simulator:
         observation_mode: str,
         case: dict[str, Any],
         powered: bool,
-        guided: bool,
         controlled: bool,
-        reuse_guidance: Any = None,
-        guidance_state: dict[str, Any] | None = None,
+        reuse_guidance: Any,
     ) -> dict[str, Any]:
+        # Telemetry is a pure reader: the run loop advances guidance_state
+        # exactly once per timestamp and hands the resulting command in here,
+        # so sampling frequency can never alter the trajectory.
         variant = case["model_variant"]
         diagnostics = forces_for_state_h2(state, time_s, self.config, self.propulsion, powered)
-        guidance = (
-            reuse_guidance
-            if reuse_guidance is not None
-            else guidance_command(
-                state,
-                track,
-                time_s,
-                self.config,
-                enabled=guided,
-                guidance_state=guidance_state,
-                plant_envelope_g=self._pcc_envelope_g(diagnostics, state),
-            )
-        )
+        guidance = reuse_guidance
         speed_schedule = base_indicated_speed_schedule(diagnostics.aero.dynamic_pressure_pa, self.config)
         relative = sub(target.position, state.position)
         radar_detection = getattr(provider, "radar_detection", None)
@@ -204,7 +194,8 @@ class H2Simulator:
             "generalized_aero_moment_candidate"
         )
         generalized_candidate_active = (
-            self.config["control"].get("plant_semantics") == "generalized_aero_moment"
+            self.config["control"].get("plant_semantics")
+            in {"generalized_aero_moment", "rebuild_first_principles"}
             and isinstance(generalized_candidate, dict)
         )
         return {
@@ -403,11 +394,16 @@ class H2Simulator:
             "tail_station_x_m": float(diagnostics.tail_station_x_m),
             "tail_force_semantics": (
                 "generalized_CN_delta_force"
-                if self.config["control"].get("plant_semantics") == "generalized_aero_moment"
+                if self.config["control"].get("plant_semantics")
+                in {"generalized_aero_moment", "rebuild_first_principles"}
                 else (
                     "empirical_fin_acceleration_authority"
                     if self.config["control"].get("plant_semantics") == "body_cm_tail_force_moment"
-                    else "legacy_equivalent_fin_force"
+                    else (
+                        "rebuild_shared_CN_delta_force"
+                        if self.config["control"].get("plant_semantics") == "rebuild_first_principles"
+                        else "legacy_equivalent_fin_force"
+                    )
                 )
             ),
             "tail_arm_semantics": self.config["aerodynamics"].get(
@@ -568,7 +564,29 @@ class H2Simulator:
                 "j_psi_homing_cmd_deg": math.degrees(j_psi_homing_cmd_rad),
             }
 
-        samples = [self._sample(time_s, state, target, track, provider, observation_mode, case, powered, guided, controlled, guidance_state=guidance_state)]
+        # Single guidance evaluation per timestamp: this one call advances
+        # guidance_state at t0 and feeds both the telemetry row and the first
+        # control step; every later timestamp re-evaluates at the end of the
+        # loop body, right after the track update.
+        state = replace(state, mass=self.propulsion.mass_at(time_s, powered=powered))
+        pre_control_diagnostics = forces_for_state_h2(
+            state,
+            time_s,
+            self.config,
+            self.propulsion,
+            powered,
+        )
+        guidance = guidance_command(
+            state,
+            track,
+            time_s,
+            self.config,
+            enabled=guided,
+            guidance_state=guidance_state,
+            plant_envelope_g=self._pcc_envelope_g(pre_control_diagnostics, state),
+            axial_specific_force_g=pre_control_diagnostics.axial_specific_force_g,
+        )
+        samples = [self._sample(time_s, state, target, track, provider, observation_mode, case, powered, controlled, reuse_guidance=guidance)]
         samples[-1].update(_j_psi_fields())
         event_type: str | None = None
         event_time = time_s
@@ -589,23 +607,9 @@ class H2Simulator:
                 event_time = time_s
                 numerical_failure = True
                 break
-            state = replace(state, mass=self.propulsion.mass_at(time_s, powered=powered))
-            pre_control_diagnostics = forces_for_state_h2(
-                state,
-                time_s,
-                self.config,
-                self.propulsion,
-                powered,
-            )
-            guidance = guidance_command(
-                state,
-                track,
-                time_s,
-                self.config,
-                enabled=guided,
-                guidance_state=guidance_state,
-                plant_envelope_g=self._pcc_envelope_g(pre_control_diagnostics, state),
-            )
+            # ``guidance`` / ``pre_control_diagnostics`` were evaluated once at
+            # this timestamp (pre-loop for t0, end of the previous iteration
+            # otherwise); state mass is already mass_at(time_s) at both sites.
             speed_schedule = base_indicated_speed_schedule(
                 pre_control_diagnostics.aero.dynamic_pressure_pa,
                 self.config,
@@ -622,6 +626,7 @@ class H2Simulator:
                 plant_diagnostics=pre_control_diagnostics,
                 midcourse_fin_fraction=guidance.midcourse_fin_fraction,
                 midcourse_weight=guidance.midcourse_weight,
+                time_s=time_s,
             )
             # J_psi command channels: horizontal heading-rate the commanded
             # acceleration implies at the current velocity, attributed to the
@@ -711,7 +716,6 @@ class H2Simulator:
                     observation_mode,
                     case,
                     powered,
-                    guided,
                     controlled,
                     reuse_guidance=guidance,
                 ))
@@ -728,7 +732,27 @@ class H2Simulator:
             target = next_target
             time_s = next_time
             track = provider.update(time_s, step, state, target)
-            samples.append(self._sample(time_s, state, target, track, provider, observation_mode, case, powered, guided, controlled, guidance_state=guidance_state))
+            # The one guidance evaluation for the new timestamp: advances
+            # guidance_state here, then both the telemetry row below and the
+            # next iteration's control step reuse the same command.
+            pre_control_diagnostics = forces_for_state_h2(
+                state,
+                time_s,
+                self.config,
+                self.propulsion,
+                powered,
+            )
+            guidance = guidance_command(
+                state,
+                track,
+                time_s,
+                self.config,
+                enabled=guided,
+                guidance_state=guidance_state,
+                plant_envelope_g=self._pcc_envelope_g(pre_control_diagnostics, state),
+                axial_specific_force_g=pre_control_diagnostics.axial_specific_force_g,
+            )
+            samples.append(self._sample(time_s, state, target, track, provider, observation_mode, case, powered, controlled, reuse_guidance=guidance))
             samples[-1].update(_j_psi_fields())
         else:
             event_type = "numerical_failure"
@@ -739,7 +763,9 @@ class H2Simulator:
             event_type = "numerical_failure"
             numerical_failure = True
         if numerical_failure and (not samples or samples[-1]["time_s"] < event_time):
-            samples.append(self._sample(event_time, state, target, track, provider, observation_mode, case, powered, guided, controlled, guidance_state=guidance_state))
+            # Diagnostic-only terminal row: reuse the last evaluated command
+            # instead of advancing guidance_state past the failure point.
+            samples.append(self._sample(event_time, state, target, track, provider, observation_mode, case, powered, controlled, reuse_guidance=guidance))
             samples[-1].update(_j_psi_fields())
         return {
             "model_label": self.config["model_label"],

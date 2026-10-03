@@ -3,7 +3,7 @@
 - 基线：v1.0.0 冻结层（2026-08-14，见 [`V1_FREEZE.md`](../V1_FREEZE.md)，本更新不改动冻结路径 `configs/aim120a_h2.yaml` / `direct_fin_g` 语义）
 - 适用范围：profile 运行时（`plant_model: critical_damped_v12`，即 `plant_semantics: fin_torque_body_aoa`）
 - 证据来源：datamine 字段直读、Dagor 引擎公开接口、三次游戏回放遥测（PL-12 快/慢发射、R-77 慢发射，共 121 帧数字化，其中 59 帧进入升力联合拟合）
-- 测试状态：228 通过 / 4 失败（4 个失败均为缺 `data/raw/statshark_h4` 数据文件的预存问题，与模型无关）
+- 测试状态：228 通过 / 4 失败（4 个失败均为缺 `data/raw/external_reference_h4` 数据文件的预存问题，与模型无关）
 
 ---
 
@@ -125,7 +125,7 @@ PIP 解算: |R⃗ + V⃗_t·t| = V̄·t 的最小正根 t̂,  PIP = 目标位置
 参数:     τ_turn=0.8 s（对 PL-12 慢弹 5 点扫描标定，SSE 7.4）, lock=0.8, blend=0.5
 ```
 
-标定成绩：30° 慢发射 α 曲线全程 ±2°（峰值 15.7°@1.40 s vs 游戏 15.2°@1.4 s）；40° statshark R-77 找回近炸；90° R-77 从 6056 m 拉回 68 m。
+标定成绩：30° 慢发射 α 曲线全程 ±2°（峰值 15.7°@1.40 s vs 游戏 15.2°@1.4 s）；40° external_reference R-77 找回近炸；90° R-77 从 6056 m 拉回 68 m。
 
 ### 7.2 末段 PN + loft
 
@@ -176,7 +176,7 @@ loft: 俯仰角误差×20 g/rad, 垂直分量        （datamine loftElevation �
 | 单帧复现（慢弹 t=1.5 s） | 15.9 G | 15.0 G |
 | 发射疲软（慢速发射峰值 G） | 低速折扣 η² 直接给出 | 15.0 G ✓ |
 | R-77 低速折扣形式 | ∝(IAS/1800)² | 相邻帧比值检验逐段吻合 |
-| statshark 40°/8 km | 双弹近炸 | （参考数据）双弹近炸 |
+| external_reference 40°/8 km | 双弹近炸 | （参考数据）双弹近炸 |
 
 ## 10. 已否决假设存档（防止重蹈）
 

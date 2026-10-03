@@ -19,11 +19,11 @@ The current model includes:
 - Quaternion attitude integration
 - Proportional navigation (PN)
 - Mid- to long-range loft guidance
-- Initial turn for large off-boresight launches
+- A single PN law for all launch angles
 - PID autopilot
-- Fin-actuator dynamics
+- Effective control, restoring and damping response at one station
 - Proximity fuse and ground-impact events
-- Fixed-step RK4 integration
+- Fixed 48 Hz control with midpoint integration; legacy RK4 remains available
 - Local web GUI
 - CSV / JSON telemetry export
 
@@ -59,7 +59,9 @@ py -3
 
 The GUI listens only on `127.0.0.1`. No network is required.
 
-On start it scans missile parameter files in `missiles/`. Pick a missile, set the launch conditions, and run.
+On start it selects the active parameter set from [`config/missile_profile_catalog.json`](config/missile_profile_catalog.json), currently the 2.59.0.27 official-server datamine. The 2.57.1.107 profile set and historical experiment path remain in `data/profile_sets/` and `missiles/` for replayability. Pick a missile, set the launch conditions, and run.
+
+The GUI uses a shared single-surface framework with each missile’s mass, geometry, moment arm, engine stages, PID, PN, and Loft fields. Navigation and tracking are enabled. The active catalog contains 122 entries: 118 PN/PN+Loft entries are supported; four command/beam-guidance entries are explicitly unavailable. Shared effective coefficients use fixed nominal conditions and geometry scaling; accuracy has not been verified for every missile. Below the inverse-Mach drag law’s positive maximum, a continuous constant continuation gives finite low-speed forces. At zero speed, attitude defines direction without a fictitious speed. Loft is off by default. Comparison experiments and ideal-truth observation are absent from the GUI. The previous H2 interface remains available as `model_mode="legacy_h2"`, and frozen cases retain their original entry point.
 
 Results include:
 
@@ -133,9 +135,9 @@ fin command
 missile dynamics
 ```
 
-On a large off-boresight launch the model also does a short initial slew, pointing the nose toward the predicted intercept region before normal proportional navigation.
+All launch angles use the same PN and parallel PID. Effective force and moment coefficients are scaled by missile geometry at a fixed reference condition; no angle-specific capture controller is added.
 
-The full equations, parameter meanings, and the evidence behind each assumption are in:
+Historical H2 equations and parameter notes are retained in:
 
 [`docs/UPDATE_V1.0.1.md`](docs/UPDATE_V1.0.1.md)
 
@@ -153,7 +155,7 @@ It is not:
 
 **a frame-by-frame clone of the game's internal solver.**
 
-There are a few sanity-check anchors.
+The following anchors belong to the historical H2 model, not the current shared framework.
 
 | Case | Model | Game / external |
 | --- | ---: | ---: |
@@ -216,14 +218,9 @@ There is not enough data yet to reconstruct that law, so it is not in the model.
 
 ## Missile support
 
-`missiles/` currently has 120 missile parameter files.
+The active profile set (see `config/missile_profile_catalog.json`) has **122** missile profiles: **118** are connected to the current runtime and **4** are retained but unavailable because their guidance types are not yet supported. The root `missiles/` directory remains the 2.57.1.107 input for historical experiments.
 
-Of those:
-
-- **116** can run on the current model
-- **4** are unsupported
-
-The remaining four use command guidance or beam riding, which is not the same physics as the current air-to-air PN plant.
+Four unavailable profiles use command guidance or beam riding. All remain visible with a specific availability reason.
 
 When the program sees one of those missiles it returns:
 
@@ -250,15 +247,16 @@ dt = 0.02 s
 | 12 km, 10° off-boresight, head-on | 12 m fuse | 10.553 s |
 | 15 km, 38° off-boresight, head-on | 12 m fuse | 17.243 s |
 
-These cases use the frozen v1.0.0 config:
+These historical cases use the frozen v1.0.0 config and 2.57.1.107 parameters:
 
 ```text
-configs/aim120a_h2.yaml
+configs/aim120a_v1.json
+configs/aim120a_v1_cases.json
 ```
 
 The v1.0.1 dynamics use a separate runtime path.
 
-They are kept apart on purpose, so work on the new plant cannot silently move the frozen regression baseline.
+These historical baselines are kept separate from the active profile set; updating the parameter source does not mean the trajectories have been revalidated.
 
 ---
 
@@ -267,7 +265,8 @@ They are kept apart on purpose, so work on the new plant cannot silently move th
 ```text
 src/aim120_model/   simulation core
 src/missile_gui/    local web GUI
-missiles/           missile parameters
+missiles/           frozen 2.57.1.107 historical experiment profiles
+data/profile_sets/  versioned profile sets selected by the catalog
 scenarios/          launch and target scenarios
 config/             runtime defaults
 configs/            frozen configs

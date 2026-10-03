@@ -293,6 +293,11 @@
         "kind": "datamine",
         "source_field": "rocket.guidanceType",
         "notes": "直接读取 seeker 制导类型标签。"
+      },
+      "time_to_hit_gain_table": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "Raw knots preserved; an absent table means unit gain in the shared runtime."
       }
     },
     "sensor_model": {
@@ -411,7 +416,11 @@
           "notes": "保留主动雷达原始映射值。"
         }
       }
-    }
+    },
+    "loft_target_elevation_deg": -5.0,
+    "loft_angle_to_acceleration_multiplier": 2.5,
+    "loft_omega_max_deg_s": 0.5,
+    "time_to_hit_gain_table": null
   },
   "control": {
     "pid": {
@@ -492,7 +501,7 @@
     "status": "experimental",
     "validated_cases": [],
     "known_limitations": [
-      "仅完成 profile contract smoke，不等同于 War Thunder/StatShark 求解器复现。",
+      "仅完成 profile contract smoke，不等同于 War Thunder/external reference 求解器复现。",
       "datamine 未声明的 CxAoA、CyK、Mach 气动修正和舵机动态未被虚构。",
       "reqAccelMax 是制导指令上限，不是时间域实际达到过载。",
       "loadFactorMax 是机体横向过载上限，写入 performance.load_factor_max_g。"

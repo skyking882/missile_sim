@@ -246,9 +246,12 @@
         "lock_range_m": {"type": ["number", "null"], "minimum": 0},
         "lofting_enabled": {"type": "boolean"},
         "lofting_elevation_deg": {"type": "number", "minimum": -90, "maximum": 90},
+        "loft_target_elevation_deg": {"type": ["number", "null"]},
+        "loft_angle_to_acceleration_multiplier": {"type": ["number", "null"]},
         "loft_exit_distance_m": {"type": ["number", "null"], "minimum": 0},
         "loft_exit_time_to_go_s": {"type": ["number", "null"], "minimum": 0},
         "loft_omega_max_deg_s": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "time_to_hit_gain_table": {"type": ["array", "null"], "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number"}}, "minItems": 1},
         "flight_time_gain_table": {
           "type": ["array", "null"],
           "minItems": 1,
@@ -311,6 +314,22 @@
             "i": {"type": ["number", "null"]},
             "d": {"type": ["number", "null"]},
             "integral_limit": {"type": ["number", "null"], "minimum": 0}
+          }
+        },
+        "pid_schedule": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["time_s", "p", "i", "d", "integral_limit"],
+            "properties": {
+              "time_s": {"type": "number", "minimum": 0},
+              "p": {"type": "number"},
+              "i": {"type": "number"},
+              "d": {"type": "number"},
+              "integral_limit": {"type": "number", "minimum": 0}
+            }
           }
         },
         "base_indicated_speed_kmh": {"type": ["number", "null"], "exclusiveMinimum": 0},

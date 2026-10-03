@@ -19,6 +19,8 @@ from typing import Any
 
 
 G0 = 9.80665
+R77_TIMER_BLEND_PROFILE_SET = "2.59.0.27"
+R77_TIMER_BLEND_PROFILE_IDS = {"su_r_77", "su_r_77_1"}
 AIR_TO_AIR_ICON_PATTERN = re.compile(r"^missile_type_[a-z]_air_to_air")
 AIR_TO_AIR_ICON_PREFIX = "missile_air_to_air"
 UNSUPPORTED_FEATURE_PATTERNS = (
@@ -75,6 +77,32 @@ def _indexed_gain_table(node: dict[str, Any], prefix: str) -> list[list[float]] 
         return None
     points.sort(key=lambda item: item[0])
     return [[time_s, gain] for _, time_s, gain in points]
+
+
+def _pid_schedule(autopilot: dict[str, Any]) -> list[dict[str, float]] | None:
+    """Preserve indexed PID records without guessing their interpolation law."""
+    entries = []
+    fields = {"time_s": "time", "p": "prop", "i": "intg",
+              "d": "diff", "integral_limit": "intgLim"}
+    for key, node in autopilot.items():
+        match = re.fullmatch(r"pid(\d+)", key)
+        if match is None:
+            continue
+        if not isinstance(node, dict):
+            raise ValueError(f"guidanceAutopilot.{key} must be an object")
+        row = {dest: _number(node.get(source)) for dest, source in fields.items()}
+        if any(value is None for value in row.values()):
+            raise ValueError(f"guidanceAutopilot.{key} has missing/nonfinite PID fields")
+        if row["time_s"] < 0.0 or row["integral_limit"] < 0.0:
+            raise ValueError(f"guidanceAutopilot.{key} has negative time/limit")
+        entries.append((int(match.group(1)), row))
+    if not entries:
+        return None
+    entries.sort(key=lambda entry: entry[0])
+    rows = [row for _, row in entries]
+    if any(b["time_s"] <= a["time_s"] for a, b in zip(rows, rows[1:])):
+        raise ValueError("indexed PID times must be strictly increasing")
+    return rows
 
 
 def _source(kind: str, field: str | None, notes: str) -> dict[str, Any]:
@@ -532,10 +560,13 @@ def _stages(rocket: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any
             (key for key in rocket if re.fullmatch(r"propulsion\d+", key)),
             key=lambda key: int(re.search(r"\d+", key).group()),
         )
+        nested_previous_mass = initial_mass
+        nested_mass_source = "rocket.mass"
         for propulsion_key in propulsion_keys:
             propulsion = rocket.get(propulsion_key)
             if not isinstance(propulsion, dict):
                 continue
+            stage_start_mass = nested_previous_mass
             impulse_keys = sorted(
                 (key for key in propulsion if re.fullmatch(r"impulse\d+", key)),
                 key=lambda key: int(re.search(r"\d+", key).group()),
@@ -547,8 +578,28 @@ def _stages(rocket: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any
                 duration = _number(impulse.get("time"))
                 thrust = _number(impulse.get("force"))
                 mass_lost = _number(impulse.get("massLost"))
+                mass_end = _number(impulse.get("massEnd"))
+                if mass_lost is None and mass_end is not None:
+                    mass_lost = stage_start_mass - mass_end
+                    mass_lost_source = _source(
+                        "derived",
+                        f"{nested_mass_source} - rocket.{propulsion_key}.{impulse_key}.massEnd",
+                        "嵌套脉冲只给出阶段末质量；从前一有效阶段质量中相减得到失重。",
+                    )
+                elif mass_lost is not None:
+                    mass_lost_source = _source(
+                        "datamine",
+                        f"rocket.{propulsion_key}.{impulse_key}.massLost",
+                        "直接读取嵌套脉冲失重。",
+                    )
+                else:
+                    mass_lost_source = None
                 if duration is None or duration <= 0 or thrust is None or mass_lost is None:
                     continue
+                if mass_lost < -1.0e-9:
+                    raise ValueError(
+                        f"rocket.{propulsion_key}.{impulse_key} massEnd exceeds the preceding stage mass"
+                    )
                 stage_index = len(stages)
                 stages.append({
                     "name": "boost" if stage_index == 0 else "sustain",
@@ -560,10 +611,16 @@ def _stages(rocket: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any
                     "parameter_sources": {
                         "duration_s": _source("datamine", f"rocket.{propulsion_key}.{impulse_key}.time", "直接读取嵌套脉冲时间。"),
                         "thrust_n": _source("datamine", f"rocket.{propulsion_key}.{impulse_key}.force", "直接读取嵌套脉冲推力。"),
-                        "mass_lost_kg": _source("datamine", f"rocket.{propulsion_key}.{impulse_key}.massLost", "直接读取嵌套脉冲失重。"),
+                        "mass_lost_kg": mass_lost_source,
                         "isp_s": _source("derived", "thrust_n / (mass_flow_kg_s * g0)", "由推力、阶段失重和公共重力常数计算。"),
                     },
                 })
+                if mass_end is not None:
+                    stage_start_mass = mass_end
+                    nested_mass_source = f"rocket.{propulsion_key}.{impulse_key}.massEnd"
+                else:
+                    stage_start_mass -= mass_lost
+            nested_previous_mass = stage_start_mass
         if not stages:
             raise ValueError("没有找到可解析的发动机阶段")
     for stage in stages:
@@ -578,6 +635,43 @@ def _stages(rocket: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any
             "保留原始外部压力推力修正；未宣称为完整冲压模型。",
         )
     return stages, stage_source
+
+
+def _global_ballistics_parameters(repo: Path) -> dict[str, Any]:
+    """Read shared shell-ballistics fields without assigning them to a missile.
+
+    CxAoA lives in gameparams.blkx, outside per-missile rocket profiles.  It is
+    reported in the manifest with its source so callers can distinguish it
+    from a missile-specific coefficient or a runtime mapping decision.
+    """
+
+    relative = Path("aces.vromfs.bin_u/config/gameparams.blkx")
+    path = repo / relative
+    if not path.is_file():
+        return {}
+    try:
+        document = _read_json(path)
+    except Exception as exc:
+        raise ValueError(f"{relative.as_posix()}: {exc}") from exc
+    shell_ballistics = document.get("shellBallisticsParams") or {}
+    props = shell_ballistics.get("props") or {}
+    if not isinstance(props, dict):
+        raise ValueError("shellBallisticsParams.props must be an object")
+    result: dict[str, Any] = {}
+    for raw_name, value, source_field in (
+        ("CxAoA", props.get("CxAoA"), "shellBallisticsParams.props.CxAoA"),
+        ("applyWingAreaMultToCxAoA", shell_ballistics.get("applyWingAreaMultToCxAoA"), "shellBallisticsParams.applyWingAreaMultToCxAoA"),
+        ("useCxiMach", shell_ballistics.get("useCxiMach"), "shellBallisticsParams.useCxiMach"),
+    ):
+        if value is not None:
+            result[raw_name] = {
+                "value": value,
+                "kind": "datamine",
+                "source_file": relative.as_posix(),
+                "source_field": source_field,
+                "note": "全局 shell ballistics 参数；单独记录，不复制为各弹专属系数。",
+            }
+    return result
 
 
 def _profile(
@@ -634,11 +728,23 @@ def _profile(
         "d": _number(autopilot.get("accelControlDiff")),
         "integral_limit": _number(autopilot.get("accelControlIntgLim")),
     }
+    pid_schedule = _pid_schedule(autopilot)
+    cy_k = _number(rocket.get("CyK"))
+    cy_max = _number(rocket.get("CyMaxAoA"))
+    cy_mach_node = rocket.get("CyMachMult")
+    if cy_mach_node is not None and not isinstance(cy_mach_node, dict):
+        raise ValueError("rocket.CyMachMult must be an indexed object")
+    cy_mach = _indexed_gain_table(cy_mach_node or {}, "CyMachMult")
+    if cy_mach_node is not None and (
+        not cy_mach or len(cy_mach) != len(cy_mach_node)
+        or any(b[0] <= a[0] for a, b in zip(cy_mach, cy_mach[1:]))
+    ):
+        raise ValueError("rocket.CyMachMult contains invalid or unordered Mach knots")
     aerodynamics = {
         "cx_k": cx_k,
-        "cy_k": None,
+        "cy_k": cy_k,
         "cx_vs_aoa": {"model": "not_declared", "coefficient_per_rad2": None},
-        "max_cy_at_aoa": {"value": None, "aoa_rad": None},
+        "max_cy_at_aoa": {"value": cy_max, "aoa_rad": None},
         "fins_lateral_acceleration_g": _number(rocket.get("finsLatAccel")),
         "fin_moment_arm_m": moment_arm,
         "fin_aoa_limit_rad": {
@@ -646,19 +752,22 @@ def _profile(
             "vertical": _number(rocket.get("finsAoaVer")) or 0.0,
         },
         "mach_drag_correction": {"model": "not_declared", "parameters": None},
-        "mach_lift_correction": {"model": "not_declared", "parameters": None},
+        "mach_lift_correction": {
+            "model": "lookup_table" if cy_mach is not None else "not_declared",
+            "parameters": cy_mach,
+        },
         "drag_scale": 1.0,
         "lift_area_scale": _number(rocket.get("wingAreaMult")) or 1.0,
         "parameter_sources": {
             "cx_k": _source("datamine", "rocket.CxK", "直接读取轴向阻力系数标度。"),
-            "cy_k": _source("assumed", None, "datamine 未提供 CyK；保留 null，不写入数值假设。"),
-            "cx_vs_aoa": _source("assumed", None, "datamine 未提供 CxAoA；仅保留模型槽位，未填拟合系数。"),
-            "max_cy_at_aoa": _source("assumed", None, "datamine 未提供 CyMaxAoA；保留 null。"),
-            "fins_lateral_acceleration_g": _source("datamine", "rocket.finsLatAccel", "直接读取舵面横向加速度能力；部分条目缺失时为 null。"),
-            "fin_moment_arm_m": _source("datamine", "rocket.distFromCmToStab", "直接读取质心到稳定面力臂。"),
-            "fin_aoa_limit_rad": _source("datamine", "rocket.finsAoaHor/finsAoaVer", "直接读取水平/垂直舵面 AoA 限制，原始值按弧度保留。"),
+            "cy_k": _source("datamine" if cy_k is not None else "assumed", "rocket.CyK" if cy_k is not None else None, "保留显式 CyK；缺失为 null。内部参考面积与运行时映射仍待识别。"),
+            "cx_vs_aoa": _source("assumed", None, "本弹 rocket BLKX 未提供专属 CxAoA；共享 ballistics 值单独记录在来源 manifest，不填入本弹系数槽位。"),
+            "max_cy_at_aoa": _source("datamine" if cy_max is not None else "assumed", "rocket.CyMaxAoA" if cy_max is not None else None, "保留显式 CyMaxAoA；不把系数值解释为角度，未提供的角度为 null。"),
+            "fins_lateral_acceleration_g": _source("assumed", "rocket.finsLatAccel", "原始数值直接保留；加速度单位、参考工况及力通道含义尚未识别，字段名沿用 schema。"),
+            "fin_moment_arm_m": _source("assumed", "rocket.distFromCmToStab", "原始稳定性相关数值保留；实际力臂单位及力矩映射尚未独立识别。"),
+            "fin_aoa_limit_rad": _source("datamine", "rocket.finsAoaHor/finsAoaVer", "保留配平迎角限制的原始弧度值；字段名沿用既有 schema，不识别为实际舵偏角。"),
             "mach_drag_correction": _source("assumed", None, "datamine 未提供可直接映射的 Mach 阻力修正表。"),
-            "mach_lift_correction": _source("assumed", None, "datamine 未提供可直接映射的 Mach 升力修正表。"),
+            "mach_lift_correction": _source("datamine" if cy_mach is not None else "assumed", "rocket.CyMachMult.CyMachMult*" if cy_mach is not None else None, "按索引保留 Mach/升力乘子；插值及外推规则不由原始表证明。"),
             "drag_scale": _source("assumed", None, "中性候选标度 1.0；不是 datamine 识别结果。"),
             "lift_area_scale": _source("datamine", "rocket.wingAreaMult", "直接读取翼面积标度。"),
         },
@@ -671,9 +780,13 @@ def _profile(
         "lock_range_m": lock_range,
         "lofting_enabled": loft_enabled,
         "lofting_elevation_deg": _number(autopilot.get("loftElevation")) or 0.0,
+        "loft_target_elevation_deg": _number(autopilot.get("loftTargetElevation")),
+        "loft_angle_to_acceleration_multiplier": _number(autopilot.get("loftAngleToAccelMult")),
+        "loft_omega_max_deg_s": _number(autopilot.get("loftTargetOmegaMax")),
         "loft_exit_distance_m": None,
         "loft_exit_time_to_go_s": None,
         "flight_time_gain_table": flight_time_gain_table,
+        "time_to_hit_gain_table": _indexed_gain_table(autopilot, "timeToHitToGain"),
         "proximity_radius_m": proximity or 0.1,
         "seeker_type": str(rocket.get("guidanceType", "unknown")),
         "parameter_sources": {
@@ -684,8 +797,12 @@ def _profile(
             "lock_range_m": _source(lock_range_kind, lock_range_source, "缺少 lockDistance 时使用 seeker rangeMax/range 作为锁定距离代理。" if lock_range_kind == "derived" else "直接读取锁定距离。"),
             "lofting_enabled": _source("derived", "rocket.guidance.guidanceAutopilot.loftEnabled", "存在 true 时映射为 pn_loft，否则按未启用处理。"),
             "lofting_elevation_deg": _source("datamine" if "loftElevation" in autopilot else "assumed", "rocket.guidance.guidanceAutopilot.loftElevation" if "loftElevation" in autopilot else None, "直接读取 loft 仰角；未声明时使用 0 度占位。"),
+            "loft_target_elevation_deg": _source("assumed", f"{autopilot_path}.loftTargetElevation" if "loftTargetElevation" in autopilot else None, "保留原字段数值，缺失为 null；运行时字段名沿用既有接口，单位和作用尚未识别。"),
+            "loft_angle_to_acceleration_multiplier": _source("assumed", f"{autopilot_path}.loftAngleToAccelMult" if "loftAngleToAccelMult" in autopilot else None, "保留原字段数值，缺失为 null；加速度映射尚未识别。"),
+            "loft_omega_max_deg_s": _source("assumed", f"{autopilot_path}.loftTargetOmegaMax" if "loftTargetOmegaMax" in autopilot else None, "保留原字段数值，缺失为 null；运行时字段名沿用既有接口，单位和限幅解释尚未识别。"),
             "loft_exit_distance_m": _source("assumed", None, "datamine 未提供与此字段语义一致的退出距离。"),
             "loft_exit_time_to_go_s": _source("assumed", None, "datamine 未提供与此字段语义一致的剩余时间门槛。"),
+            "time_to_hit_gain_table": _source("datamine" if _indexed_gain_table(autopilot, "timeToHitToGain") else "assumed", f"{autopilot_path}.timeToHitToGain*", "Raw knots retained; absent table uses unit gain."),
             "flight_time_gain_table": _source(
                 "datamine" if flight_time_gain_table is not None else "assumed",
                 f"{autopilot_path}.timeToGain*" if flight_time_gain_table is not None else None,
@@ -748,12 +865,13 @@ def _profile(
             "load_factor_max_g": _source(
                 "datamine" if load_factor_max_g is not None else "assumed",
                 "rocket.loadFactorMax" if load_factor_max_g is not None else None,
-                "直接读取机体横向过载上限；缺失时保留 null，由运行时回退 reqAccelMax。",
+                "保留最大过载/性能标示参数；不由此证明游戏对实际过载作硬裁剪。",
             ),
         },
     }
     control = {
         "pid": pid_values,
+        **({"pid_schedule": pid_schedule} if pid_schedule is not None else {}),
         "base_indicated_speed_kmh": _number(autopilot.get("baseIndSpeed")),
         "fin_command_limit": 1.0,
         "actuator_time_constant_s": None,
@@ -771,6 +889,16 @@ def _profile(
             "identified_controller": _source("assumed", None, "没有外部识别控制器结果；不得把 PID 与独立识别层混合。"),
         },
     }
+    if pid_schedule is not None:
+        control["parameter_sources"]["pid_schedule"] = _source(
+            "datamine", f"{autopilot_path}.pid*",
+            "按索引保留带时间的 PID 组；单环增益调度候选，切换/插值语义待识别。",
+        )
+        for key, value in pid_values.items():
+            if value is None:
+                control["parameter_sources"][f"pid.{key}"] = _source(
+                    "assumed", None, "旧版平铺 PID 字段缺失；完整时间表保存在 pid_schedule，不回填零增益。"
+                )
     runtime_implemented = not unsupported_features
     unsupported_note = ""
     if unsupported_features:
@@ -819,8 +947,8 @@ def _profile(
             "status": "experimental",
             "validated_cases": [],
             "known_limitations": [
-                "仅完成 profile contract smoke，不等同于 War Thunder/StatShark 求解器复现。",
-                "datamine 未声明的 CxAoA、CyK、Mach 气动修正和舵机动态未被虚构。",
+                "仅完成 profile contract smoke，不等同于 War Thunder/external reference 求解器复现。",
+                "本弹 rocket BLKX 未声明的 CxAoA、CyK、Mach 气动修正和舵机动态未被虚构；共享 ballistics 字段单独记录。",
                 "reqAccelMax 是制导指令上限，不是时间域实际达到过载。",
                 "loadFactorMax 是机体横向过载上限，写入 performance.load_factor_max_g。",
             ],
@@ -921,6 +1049,39 @@ def import_profiles(project_dir: Path, repo: Path) -> dict[str, Any]:
             parse_errors.append(f"{bullet_name}: profile 生成失败：{exc}")
             continue
         profile_path = missiles_dir / f"{bullet_name}.json"
+        # Preserve the explicitly assumed R-77 family handover choice only
+        # when re-importing into its existing 2.59 profile set.  All raw
+        # profile fields above are freshly rebuilt from BLKX before this narrow
+        # overlay; a new target directory or another datamine version is seeded
+        # through the normal importer path without carrying this choice.
+        if (
+            version == R77_TIMER_BLEND_PROFILE_SET
+            and project_dir.name == R77_TIMER_BLEND_PROFILE_SET
+            and bullet_name in R77_TIMER_BLEND_PROFILE_IDS
+            and profile_path.is_file()
+        ):
+            try:
+                previous = _read_json(profile_path)
+                previous_guidance = previous.get("guidance", {})
+                previous_midcourse = previous_guidance.get("midcourse_lead_turn")
+                previous_sources = previous_guidance.get("parameter_sources", {})
+                mode_source = previous_sources.get("midcourse_lead_turn.mode", {})
+                if (
+                    isinstance(previous_midcourse, dict)
+                    and previous_midcourse.get("mode") == "timer_blend"
+                    and all(key in previous_midcourse for key in (
+                        "hold_time_s", "blend_time_s", "fin_error_ref_rad"
+                    ))
+                    and mode_source.get("kind") == "assumed"
+                    and "project" in str(mode_source.get("notes", "")).lower()
+                ):
+                    profile["guidance"]["midcourse_lead_turn"] = previous_midcourse
+                    for key, value in previous_sources.items():
+                        if key.startswith("midcourse_lead_turn."):
+                            profile["guidance"]["parameter_sources"][key] = value
+            except (OSError, json.JSONDecodeError, AttributeError):
+                # A missing or malformed prior profile is seeded from raw data.
+                pass
         profile_path.write_text(json.dumps(profile, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         included.append({
             "missile_id": bullet_name,
@@ -942,6 +1103,7 @@ def import_profiles(project_dir: Path, repo: Path) -> dict[str, Any]:
             "repository": "https://github.com/gszabi99/War-Thunder-Datamine",
             "relative_path": "aces.vromfs.bin_u/gamedata/weapons/rocketguns",
         },
+        "global_parameters": _global_ballistics_parameters(repo),
         "selection": {
             "icon_type_prefix": "missile_air_to_air* or missile_type_[a-z]_air_to_air*",
             "fallback_selector": "rocket.bulletType=aam with a guidance object",
@@ -961,6 +1123,7 @@ def import_profiles(project_dir: Path, repo: Path) -> dict[str, Any]:
         "notes": [
             "Included profiles are experimental data profiles; they are not all validated flight models.",
             "The canonical profile stores unit-explicit fields; original BLK files remain available in the sparse checkout for raw provenance.",
+            "Global shell-ballistics values are reported separately and are not copied into missile-specific profile fields by this importer.",
         ],
     }
     manifest_path = project_dir / "data" / "aam_non_tvc_manifest.json"

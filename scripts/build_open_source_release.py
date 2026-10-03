@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Build a deterministic, allowlist-only v1.0.0 source release."""
+"""Build a deterministic, allowlist-only source release."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "1.0.0"
+VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 RELEASE_NAME = f"aim120a-local-model-{VERSION}"
 DIST = ROOT / "dist"
 RELEASE_DIR = DIST / RELEASE_NAME
@@ -21,9 +22,11 @@ ZIP_HASH_PATH = DIST / f"{RELEASE_NAME}.zip.sha256"
 FILES = {
     ".gitignore": ".gitignore",
     "LICENSE_PENDING.md": "LICENSE_PENDING.md",
-    "OPEN_SOURCE_README.md": "README.md",
+    "README.md": "README.md",
+    "README.en.md": "README.en.md",
     "VERSION": "VERSION",
-    "V1_FREEZE.md": "MODEL_CARD.md",
+    "V1_FREEZE.md": "V1_FREEZE.md",
+    "docs/UPDATE_V1.0.1.md": "docs/UPDATE_V1.0.1.md",
     "pyproject.toml": "pyproject.toml",
     "requirements-gui.txt": "requirements-gui.txt",
     "run_gui.cmd": "run_gui.cmd",
@@ -32,6 +35,7 @@ FILES = {
     "configs/aim120a_v1_cases.json": "configs/aim120a_v1_cases.json",
     "config/defaults.json": "config/defaults.json",
     "config/profile_h2_runtime_defaults.json": "config/profile_h2_runtime_defaults.json",
+    "config/missile_profile_catalog.json": "config/missile_profile_catalog.json",
     "scenarios/default_head_on.json": "scenarios/default_head_on.json",
     "schemas/missile_profile.schema.json": "schemas/missile_profile.schema.json",
     "data/aam_non_tvc_manifest.json": "data/aam_non_tvc_manifest.json",
@@ -44,6 +48,7 @@ FILES = {
     "missile_lab/cli.py": "missile_lab/cli.py",
     "missile_lab/validator.py": "missile_lab/validator.py",
     "src/aim120_model/__init__.py": "src/aim120_model/__init__.py",
+    "src/aim120_model/alpha_servo.py": "src/aim120_model/alpha_servo.py",
     "src/aim120_model/aerodynamics.py": "src/aim120_model/aerodynamics.py",
     "src/aim120_model/atmosphere.py": "src/aim120_model/atmosphere.py",
     "src/aim120_model/config.py": "src/aim120_model/config.py",
@@ -57,11 +62,20 @@ FILES = {
     "src/aim120_model/h2_simulator.py": "src/aim120_model/h2_simulator.py",
     "src/aim120_model/math3d.py": "src/aim120_model/math3d.py",
     "src/aim120_model/metrics.py": "src/aim120_model/metrics.py",
+    "src/aim120_model/observation.py": "src/aim120_model/observation.py",
     "src/aim120_model/propulsion.py": "src/aim120_model/propulsion.py",
     "src/aim120_model/profile_adapter.py": "src/aim120_model/profile_adapter.py",
+    "src/aim120_model/profile_catalog.py": "src/aim120_model/profile_catalog.py",
     "src/aim120_model/public_api.py": "src/aim120_model/public_api.py",
+    "src/aim120_model/effective_surface_core.py": "src/aim120_model/effective_surface_core.py",
+    "src/aim120_model/surface_runtime.py": "src/aim120_model/surface_runtime.py",
+    "config/effective_surface_defaults.json": "config/effective_surface_defaults.json",
+    "tests/test_surface_runtime.py": "tests/test_surface_runtime.py",
+    "src/aim120_model/radar_seeker.py": "src/aim120_model/radar_seeker.py",
     "src/aim120_model/simulator.py": "src/aim120_model/simulator.py",
     "src/aim120_model/target.py": "src/aim120_model/target.py",
+    "src/aim120_model/tracking.py": "src/aim120_model/tracking.py",
+    "src/aim120_model/trajectory.py": "src/aim120_model/trajectory.py",
     "src/aim120_model/units.py": "src/aim120_model/units.py",
     "src/missile_gui/__init__.py": "src/missile_gui/__init__.py",
     "src/missile_gui/library.py": "src/missile_gui/library.py",
@@ -71,7 +85,7 @@ FILES = {
     "src/missile_gui/static/index.html": "src/missile_gui/static/index.html",
     "tests/test_gui_v1.py": "tests/test_gui_v1.py",
     "tests/test_missile_profiles.py": "tests/test_missile_profiles.py",
-    "tests/test_v1_regression.py": "tests/test_v1_regression.py"
+    "tests/test_v1_regression.py": "tests/test_v1_regression.py",
 }
 
 # The profile set is generated from a versioned datamine checkout.  Keep the
@@ -80,6 +94,18 @@ FILES = {
 for profile_path in sorted((ROOT / "missiles").glob("*.json")):
     relative = profile_path.relative_to(ROOT).as_posix()
     FILES[relative] = relative
+
+# Both selectable profile sets are required by the packaged catalog.  Include
+# their normalized profiles and source manifests, but never the raw datamine
+# repositories: the default runtime does not load raw BLKX at startup.
+for profile_set in ("2.57.1.107", "2.59.0.27"):
+    profile_root = ROOT / "data" / "profile_sets" / profile_set
+    manifest = profile_root / "data" / "aam_non_tvc_manifest.json"
+    relative_manifest = manifest.relative_to(ROOT).as_posix()
+    FILES[relative_manifest] = relative_manifest
+    for profile_path in sorted((profile_root / "missiles").glob("*.json")):
+        relative = profile_path.relative_to(ROOT).as_posix()
+        FILES[relative] = relative
 
 FORBIDDEN_BYTE_PATTERNS = (
     b"cf-turnstile-response",
@@ -174,8 +200,12 @@ def write_deterministic_zip() -> None:
 
 
 def main() -> int:
-    if (ROOT / "VERSION").read_text(encoding="utf-8").strip() != VERSION:
-        raise RuntimeError("VERSION file does not match release builder")
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    project_section = re.search(r"(?ms)^\[project\]\s*\n(.*?)(?=^\[|\Z)", pyproject)
+    project_version = re.search(r'^version\s*=\s*"([^"]+)"\s*$', project_section.group(1), re.MULTILINE) if project_section else None
+    if project_version is None or project_version.group(1) != VERSION:
+        found = project_version.group(1) if project_version else "missing"
+        raise RuntimeError(f"VERSION ({VERSION}) does not match [project].version ({found})")
     DIST.mkdir(parents=True, exist_ok=True)
     remove_previous_release()
     RELEASE_DIR.mkdir(parents=True)

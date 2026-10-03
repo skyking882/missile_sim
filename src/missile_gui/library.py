@@ -59,17 +59,22 @@ def _load_one(path: Path, project_dir: Path) -> dict[str, Any]:
                     "runtime_adapter", defaults["runtime_name"]
                 )
             except (KeyError, TypeError, ValueError, OSError) as exc:
-                raise MissileLibraryError(f"{path.name} 无法接入 profile H2 runtime：{exc}") from exc
+                # Keep valid source profiles visible in the catalog even when
+                # this runtime cannot interpret a newly introduced parameter.
+                # The public API can then report an explicit unavailable state
+                # instead of silently dropping the missile from the library.
+                profile["_model_config"] = None
+                profile["_runtime_adapter_error"] = str(exc)
         profile["_runtime_unsupported"] = unsupported
         if unsupported:
             display_status = "Unsupported physics"
             status_reason = "不支持的模型类型：" + "、".join(unsupported)
         elif profile.get("_model_config") is not None:
             display_status = "Validated" if profile.get("model_status") == "validated" else "Experimental"
-            status_reason = "已使用公共 Python H2 模型层并叠加当前导弹 JSON；公共层和缺失字段的来源保留在导出结果中，仍未端到端验证。"
+            status_reason = "使用统一单面近似模型与当前导弹参数；缺失字段的共同假设保留在导出结果中，尚未逐弹验证精度。"
         else:
-            display_status = "Validated" if profile.get("model_status") == "validated" else "Experimental"
-            status_reason = runtime.get("notes", "")
+            display_status = "Unsupported physics"
+            status_reason = profile.get("_runtime_adapter_error", runtime.get("notes", "当前本地求解器尚未接入该 profile。"))
         legacy_ids = {
             "us_aim_120a": "aim-120a",
             "cn_pl12": "pl-12",
@@ -110,7 +115,13 @@ def _load_one(path: Path, project_dir: Path) -> dict[str, Any]:
     return profile
 
 
-def scan_library(missiles_dir: Path, project_dir: Path) -> tuple[list[dict[str, Any]], list[str]]:
+def scan_library(
+    missiles_dir: Path,
+    project_dir: Path,
+    *,
+    expected_source_version: str | None = None,
+    expected_source_commit: str | None = None,
+) -> tuple[list[dict[str, Any]], list[str]]:
     profiles: list[dict[str, Any]] = []
     errors: list[str] = []
     ids: set[str] = set()
@@ -119,6 +130,15 @@ def scan_library(missiles_dir: Path, project_dir: Path) -> tuple[list[dict[str, 
     for path in sorted(missiles_dir.glob("*.json")):
         try:
             profile = _load_one(path, project_dir)
+            if expected_source_version is not None or expected_source_commit is not None:
+                provenance = profile.get("provenance", {})
+                if (
+                    provenance.get("source_version") != expected_source_version
+                    or provenance.get("source_commit") != expected_source_commit
+                ):
+                    raise MissileLibraryError(
+                        f"{path.name} 的参数来源与活动目录版本不符。"
+                    )
             profile_id = profile.get("missile_id", profile.get("id"))
             if profile_id in ids:
                 raise MissileLibraryError(f"导弹 ID 重复：{profile_id}。")
@@ -141,7 +161,7 @@ def public_profile(profile: dict[str, Any]) -> dict[str, Any]:
             status_reason = "不支持的模型类型：" + "、".join(unsupported)
         elif not implemented:
             status = "Unsupported physics"
-            status_reason = runtime.get("notes", "当前本地求解器尚未接入该 profile。")
+            status_reason = profile.get("_runtime_adapter_error", runtime.get("notes", "当前本地求解器尚未接入该 profile。"))
         else:
             status = "Validated" if profile.get("model_status") == "validated" else "Experimental"
             status_reason = profile.get("status_reason", runtime.get("notes", ""))
@@ -160,6 +180,10 @@ def public_profile(profile: dict[str, Any]) -> dict[str, Any]:
         return {
             "id": profile["missile_id"],
             "name": profile["display_name"],
+            "parameter_source": {
+                "version": profile.get("provenance", {}).get("source_version"),
+                "commit": profile.get("provenance", {}).get("source_commit"),
+            },
             "country": profile["country"],
             "series": profile["display_name"],
             "status": status,
@@ -191,6 +215,10 @@ def public_profile(profile: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": profile["id"],
         "name": profile["name"],
+        "parameter_source": {
+            "version": profile.get("provenance", {}).get("source_version"),
+            "commit": profile.get("provenance", {}).get("source_commit"),
+        },
         "country": profile["country"],
         "series": profile["series"],
         "status": profile["status"],

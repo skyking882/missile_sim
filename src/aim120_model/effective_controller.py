@@ -1,6 +1,6 @@
 """Plan 7 Lite effective mapping from ``aCmdYaw`` to backend ``currentG``.
 
-StatShark reports ``currentG`` as a nonnegative magnitude.  The local plant
+external reference reports ``currentG`` as a nonnegative magnitude.  The local plant
 uses a signed effective actuator input, so command sign is applied only at
 that interface boundary.  Keeping both outputs explicit prevents a magnitude
 array from being mistaken for a signed backend state.
@@ -26,7 +26,7 @@ class EffectiveControllerEnvelope:
             raise ValueError("authority_fraction must be positive and finite")
 
     def predict_current_g_magnitude(self, a_cmd_yaw_g: float, fins_lat_accel_g: float) -> float:
-        """Predict the nonnegative StatShark ``currentG`` magnitude."""
+        """Predict the nonnegative external reference ``currentG`` magnitude."""
 
         command = float(a_cmd_yaw_g)
         authority = float(fins_lat_accel_g)

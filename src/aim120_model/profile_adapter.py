@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from .drag_models import CX_1943_X1_10_TABLE, INTERPOLATED_CX_1943_X1_10
+from .profile_catalog import datamine_path_for_profile
 
 
 SUPPORTED_MODEL_TYPES = {
@@ -31,10 +32,12 @@ SUPPORTED_MODEL_TYPES = {
 LEGACY_CRITICAL_DAMPED_PLANT = "critical_damped_v12"
 BODY_CM_TAIL_FORCE_PLANT = "body_cm_tail_force_moment_v1"
 GENERALIZED_AERO_MOMENT_PLANT = "generalized_aero_moment_v1"
+REBUILD_FIRST_PRINCIPLES_PLANT = "rebuild_first_principles_v1"
 SUPPORTED_PLANT_MODELS = {
     LEGACY_CRITICAL_DAMPED_PLANT,
     BODY_CM_TAIL_FORCE_PLANT,
     GENERALIZED_AERO_MOMENT_PLANT,
+    REBUILD_FIRST_PRINCIPLES_PLANT,
 }
 
 
@@ -121,7 +124,7 @@ UNIVERSAL_H2_LAYER: dict[str, Any] = {
         # The datamine exposes fin deflection, not a body-angle limit.  This is
         # therefore an explicit shared H2 controller guard, not a profile fact.
         "maximum_body_angle_of_attack_deg": 30.0,
-        "actuator_time_constant_s": 0.08,
+        "actuator_time_constant_s": 0.0,
         "derivative_filter_time_constant_s": 0.03,
     },
     "atmosphere": {"wind_mps": [0.0, 0.0, 0.0], "gravity_mps2": 9.80665},
@@ -165,6 +168,78 @@ def _positive_finite(value: Any, label: str) -> float:
     return number
 
 
+@lru_cache(maxsize=32)
+def _load_rebuild_raw_loft(
+    missile_id: str,
+    source_version: str,
+    source_commit: str,
+) -> dict[str, Any]:
+    """Load the per-missile loft fields retained in the local raw BLKX.
+
+    The normalized profile contract predates the rebuild and does not carry
+    all four guidanceAutopilot values.  Rebuild v1 therefore reads the
+    from the profile's recorded version and commit instead of turning one
+    missile's values into a fleet-wide default.  A missing or mismatched source
+    is an explicit data error: silently substituting another release changes
+    the profile's inputs.
+    """
+
+    project_dir = Path(__file__).resolve().parents[2]
+    try:
+        raw_root = datamine_path_for_profile(
+            project_dir,
+            {"provenance": {"source_version": source_version, "source_commit": source_commit}},
+        )
+    except ValueError as exc:
+        raise ValueError(f"rebuild_first_principles_v1 cannot resolve matching raw source: {exc}") from exc
+    path = raw_root / "aces.vromfs.bin_u" / "gamedata" / "weapons" / "rocketguns" / f"{missile_id}.blkx"
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ValueError(
+            f"rebuild_first_principles_v1 requires local raw BLKX for {missile_id!r}: {path}"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid raw BLKX JSON for {missile_id!r}: {path}") from exc
+    try:
+        autopilot = raw["rocket"]["guidance"]["guidanceAutopilot"]
+    except (KeyError, TypeError) as exc:
+        raise ValueError(
+            f"raw BLKX for {missile_id!r} has no rocket.guidance.guidanceAutopilot block"
+        ) from exc
+    required = {
+        "loftEnabled": "loft_enabled",
+        "loftElevation": "lofting_elevation_deg",
+        "loftTargetElevation": "target_elevation_deg",
+        "loftAngleToAccelMult": "angle_to_acceleration_multiplier",
+        "loftTargetOmegaMax": "loft_omega_max_deg_s",
+    }
+    missing = [source for source in required if source not in autopilot]
+    if missing:
+        raise ValueError(
+            f"raw BLKX for {missile_id!r} is missing guidanceAutopilot fields: {missing}"
+        )
+    values: dict[str, Any] = {dest: autopilot[source] for source, dest in required.items()}
+    values["source_path"] = str(path)
+    return values
+
+
+def _legacy_profile_loft_fields(
+    profile: dict[str, Any], assumptions: list[str]
+) -> dict[str, Any]:
+    """Read normalized loft values without a runtime raw-file dependency.
+
+    Field names retain compatibility with the existing candidate interface.
+    Missing legacy fields remain None so its declared defaults still apply.
+    """
+
+    del assumptions
+    return {key: profile["guidance"].get(key) for key in (
+        "loft_target_elevation_deg", "loft_angle_to_acceleration_multiplier",
+        "loft_omega_max_deg_s",
+    )}
+
+
 def _nonnegative_finite(value: Any, label: str) -> float:
     number = float(value)
     if not math.isfinite(number) or number < 0.0:
@@ -192,7 +267,29 @@ def _bounded_coefficient(value: Any, label: str) -> float:
     return number
 
 
-def _mach_settings(node: dict[str, Any], fallback: dict[str, Any], assumptions: list[str], label: str) -> dict[str, float]:
+def _mach_settings(node: dict[str, Any], fallback: dict[str, Any], assumptions: list[str], label: str) -> dict[str, Any]:
+    if node.get("model") == "lookup_table":
+        rows = node.get("parameters")
+        if not isinstance(rows, list) or len(rows) < 2:
+            raise ValueError(f"{label}: lookup table must contain at least two [Mach, multiplier] knots")
+        table: list[list[float]] = []
+        previous_mach = -math.inf
+        for index, row in enumerate(rows):
+            if not isinstance(row, list) or len(row) != 2:
+                raise ValueError(f"{label}[{index}] must be [Mach, multiplier]")
+            mach = _finite(row[0], f"{label}[{index}].Mach")
+            multiplier = _finite(row[1], f"{label}[{index}].multiplier")
+            if mach <= previous_mach:
+                raise ValueError(f"{label} Mach knots must be strictly increasing")
+            if multiplier <= 0.0:
+                raise ValueError(f"{label} multipliers must be positive")
+            table.append([mach, multiplier])
+            previous_mach = mach
+        assumptions.append(
+            f"{label}: datamine knots preserved; project runtime uses piecewise-linear interpolation "
+            "and endpoint clamping (not asserted as Gaijin's internal rule)"
+        )
+        return {"model": "lookup_table", "parameters": table}
     if node.get("model") == "scalar" and isinstance(node.get("parameters"), (int, float)):
         return {"base": float(node["parameters"]), "transonic_peak": 0.0, "center": 1.0, "width": float(fallback["width"])}
     if node.get("model") != "not_declared":
@@ -241,6 +338,31 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     performance = profile["performance"]
     guidance = profile["guidance"]
     control = profile["control"]
+    pid_schedule = control.get("pid_schedule")
+    if pid_schedule:
+        if not isinstance(pid_schedule, list) or not pid_schedule:
+            raise ValueError("control.pid_schedule must be a non-empty list")
+        previous_time = -math.inf
+        normalized_pid_schedule: list[dict[str, float]] = []
+        for index, row in enumerate(pid_schedule):
+            if not isinstance(row, dict):
+                raise ValueError(f"control.pid_schedule[{index}] must be an object")
+            mapped_row = {
+                key: _finite(row.get(key), f"control.pid_schedule[{index}].{key}")
+                for key in ("time_s", "p", "i", "d", "integral_limit")
+            }
+            if mapped_row["time_s"] <= previous_time:
+                raise ValueError("control.pid_schedule time_s values must be strictly increasing")
+            if mapped_row["integral_limit"] < 0.0:
+                raise ValueError("control.pid_schedule integral_limit values must be nonnegative")
+            normalized_pid_schedule.append(mapped_row)
+            previous_time = mapped_row["time_s"]
+        pid_schedule = normalized_pid_schedule
+        assumptions.append(
+            "control.pid_schedule: datamine time/gain knots preserved; project runtime treats time_s "
+            "as elapsed seconds since launch, uses piecewise-linear interpolation and endpoint clamping; "
+            "this clock/interpolation rule is not publicly confirmed as Gaijin's internal behavior"
+        )
     pid = control["pid"]
     plant_model = str(defaults.get("plant_model", LEGACY_CRITICAL_DAMPED_PLANT))
     if plant_model not in SUPPORTED_PLANT_MODELS:
@@ -249,16 +371,20 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             f"expected one of {sorted(SUPPORTED_PLANT_MODELS)}"
         )
 
-    raw_pid = {
-        "p": _number(pid.get("p"), 0.0, assumptions, "control.pid.p"),
-        "i": _number(pid.get("i"), 0.0, assumptions, "control.pid.i"),
-        "d": _number(pid.get("d"), 0.0, assumptions, "control.pid.d"),
-    }
+    raw_pid = (
+        {key: pid_schedule[0][key] for key in ("p", "i", "d")}
+        if pid_schedule
+        else {
+            "p": _number(pid.get("p"), 0.0, assumptions, "control.pid.p"),
+            "i": _number(pid.get("i"), 0.0, assumptions, "control.pid.i"),
+            "d": _number(pid.get("d"), 0.0, assumptions, "control.pid.d"),
+        }
+    )
     mapped_pid = raw_pid
     SHARED_BASE_INDICATED_SPEED_KMH = 1800.0
     base_indicated_speed = control.get("base_indicated_speed_kmh")
     use_fin_force_q_scaling = (
-        plant_model == LEGACY_CRITICAL_DAMPED_PLANT
+        plant_model in {LEGACY_CRITICAL_DAMPED_PLANT, REBUILD_FIRST_PRINCIPLES_PLANT}
         and bool(defaults.get("fin_force_q_scaling", False))
     )
     if base_indicated_speed is None:
@@ -364,7 +490,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "output is interpreted as a body-rate command in rad/s; a shared body-rate inner-loop time constant "
             "uses local tail moment effectiveness to request fin angle"
         )
-    else:
+    elif plant_model == GENERALIZED_AERO_MOMENT_PLANT:
         assumptions.append(
             "generalized candidate uses explicit dimensionless CN/Cm derivatives; "
             "these are unsupported local coefficients and are not copied from a game file"
@@ -376,6 +502,19 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         assumptions.append(
             "generalized candidate has no force station, x_W/k_W, distFromCmToStab, "
             "or finsLatAccel force-to-moment conversion"
+        )
+    else:
+        assumptions.append(
+            "rebuild v1 uses a shared explicit CN(alpha,delta) and Cm(alpha,delta) law; "
+            "the four normalized force/moment gains remain independently configurable"
+        )
+        assumptions.append(
+            "rebuild v1 raw accelControl PID closes wind-normal specific-force error "
+            "directly to actual fin angle in radians; no body-rate inner loop or cascade is enabled"
+        )
+        assumptions.append(
+            "rebuild v1 Cm_q and Cm_alpha_dot are frozen at zero as unprovided-term hypotheses; "
+            "this does not claim the game has no damping"
         )
 
     midcourse_lead_turn_defaults = layer_guidance["midcourse_lead_turn"]
@@ -516,6 +655,13 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "release_memory_mode": _release_memory_mode,
         }
     )
+    if plant_model == REBUILD_FIRST_PRINCIPLES_PLANT:
+        # Rebuild v1 is the PN baseline: profile capture/PIP handover fields
+        # remain visible for provenance but cannot silently re-enter control.
+        midcourse_lead_turn["enabled"] = False
+        assumptions.append(
+            "rebuild v1 disables profile midcourse capture/PIP handover; PN and loft remain active"
+        )
     if midcourse_lead_turn_profile:
         assumptions.append(
             "guidance.midcourse_lead_turn overrides launch capture handover fields "
@@ -559,24 +705,87 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
         assumptions.append(f"guidance.lock_range_m missing -> {lock_range:g}")
     loft_exit_distance = guidance.get("loft_exit_distance_m")
     if loft_exit_distance is None:
-        loft_exit_distance = float(lock_range)
-        assumptions.append(f"guidance.loft_exit_distance_m missing -> lock range {loft_exit_distance:g}")
+        # A profile's raw loft flag has no implicit lock-range exit. Using
+        # lockRange here disabled loft from launch for an 8 km head-on shot.
+        loft_exit_distance = (
+            0.0 if plant_model == LEGACY_CRITICAL_DAMPED_PLANT else float(lock_range)
+        )
+        assumptions.append(
+            f"guidance.loft_exit_distance_m missing -> {loft_exit_distance:g}"
+        )
     loft_exit_tgo = guidance.get("loft_exit_time_to_go_s")
     if loft_exit_tgo is None:
-        loft_exit_tgo = float(layer_guidance["loft_exit_time_to_go_s"])
-        assumptions.append(f"guidance.loft_exit_time_to_go_s missing -> {loft_exit_tgo:g}")
-    loft_omega_raw = guidance.get("loft_omega_max_deg_s")
-    if loft_omega_raw is None:
-        loft_omega_raw = defaults.get("loft_omega_max_deg_s")
-    loft_omega_max_deg_s = (
-        None
-        if loft_omega_raw is None
-        else _positive_finite(loft_omega_raw, "loft_omega_max_deg_s")
-    )
-    if loft_omega_max_deg_s is not None and guidance.get("loft_omega_max_deg_s") is None:
-        assumptions.append(
-            f"guidance.loft_omega_max_deg_s missing -> shared default {loft_omega_max_deg_s:g}"
+        loft_exit_tgo = (
+            0.0
+            if plant_model == LEGACY_CRITICAL_DAMPED_PLANT
+            else float(layer_guidance["loft_exit_time_to_go_s"])
         )
+        assumptions.append(f"guidance.loft_exit_time_to_go_s missing -> {loft_exit_tgo:g}")
+    if plant_model == REBUILD_FIRST_PRINCIPLES_PLANT:
+        provenance = profile.get("provenance", {})
+        raw_loft = _load_rebuild_raw_loft(
+            str(profile["missile_id"]),
+            str(provenance.get("source_version", "")),
+            str(provenance.get("source_commit", "")),
+        )
+        lofting_enabled = bool(raw_loft["loft_enabled"])
+        lofting_elevation_deg = _finite(
+            raw_loft["lofting_elevation_deg"],
+            "raw guidanceAutopilot.loftElevation",
+        )
+        target_elevation_deg = _finite(
+            raw_loft["target_elevation_deg"],
+            "raw guidanceAutopilot.loftTargetElevation",
+        )
+        angle_to_acceleration_multiplier = _finite(
+            raw_loft["angle_to_acceleration_multiplier"],
+            "raw guidanceAutopilot.loftAngleToAccelMult",
+        )
+        loft_omega_max_deg_s = _positive_finite(
+            raw_loft["loft_omega_max_deg_s"],
+            "raw guidanceAutopilot.loftTargetOmegaMax",
+        )
+        assumptions.append(
+            "rebuild v1 loft fields read per missile from local raw "
+            "rocket.guidance.guidanceAutopilot (loftEnabled, loftElevation, "
+            "loftTargetElevation, loftAngleToAccelMult, loftTargetOmegaMax)"
+        )
+        assumptions.append(
+            "raw loftTargetElevation is preserved as target_elevation_deg but is "
+            "not consumed by the current first-order loft command"
+        )
+    else:
+        raw_loft = None
+        profile_loft = _legacy_profile_loft_fields(profile, assumptions)
+        lofting_enabled = bool(guidance["lofting_enabled"])
+        lofting_elevation_deg = float(guidance["lofting_elevation_deg"])
+        target_elevation_raw = profile_loft["loft_target_elevation_deg"]
+        if target_elevation_raw is None:
+            target_elevation_raw = defaults.get(
+                "loft_target_elevation_deg", layer_guidance["target_elevation_deg"]
+            )
+        target_elevation_deg = _finite(target_elevation_raw, "loft_target_elevation_deg")
+        angle_to_acceleration_raw = profile_loft["loft_angle_to_acceleration_multiplier"]
+        if angle_to_acceleration_raw is None:
+            angle_to_acceleration_raw = defaults.get(
+                "loft_angle_to_acceleration_multiplier",
+                layer_guidance["angle_to_acceleration_multiplier"],
+            )
+        angle_to_acceleration_multiplier = _finite(
+            angle_to_acceleration_raw, "loft_angle_to_acceleration_multiplier"
+        )
+        loft_omega_raw = profile_loft["loft_omega_max_deg_s"]
+        if loft_omega_raw is None:
+            loft_omega_raw = defaults.get("loft_omega_max_deg_s")
+        loft_omega_max_deg_s = (
+            None
+            if loft_omega_raw is None
+            else _positive_finite(loft_omega_raw, "loft_omega_max_deg_s")
+        )
+        if loft_omega_max_deg_s is not None and profile_loft["loft_omega_max_deg_s"] is None:
+            assumptions.append(
+                f"guidance.loft_omega_max_deg_s missing -> shared default {loft_omega_max_deg_s:g}"
+            )
     flight_time_gain_table = _gain_table(
         guidance.get("flight_time_gain_table"),
         layer_guidance["flight_time_gain_table"],
@@ -609,6 +818,11 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
     induced_drag_mode: str | None = None
     if plant_model == LEGACY_CRITICAL_DAMPED_PLANT:
         runtime_name = legacy_runtime_name
+        if aero.get("cy_k") is not None:
+            assumptions.append(
+                "profile.aerodynamics.cy_k is retained as a raw datamine field but is not consumed by the packed FORCE model; "
+                "no conversion to the fitted packed-lift slope is established"
+            )
         body_lift = defaults.get("legacy_body_lift") or {}
         natural_lift_enabled = bool(body_lift.get("enabled", True))
         cn_alpha_per_rad = _positive_finite(
@@ -757,6 +971,133 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "derived_cm_q": cm_q,
             "inertia_closure": "I_perp=m*length^2/12_provisional",
         }
+    elif plant_model == REBUILD_FIRST_PRINCIPLES_PLANT:
+        # Rebuild v1 uses one transparent, shared first-order force/moment law.
+        # The nominal dimensionless gains are hypotheses; the raw profile
+        # fields only set the per-missile authority scale, reference angle and
+        # arm.  Convert that normalized law to the existing q*S CN/Cm
+        # evaluator so force and moment share exactly the same air state.
+        candidate = defaults.get("rebuild_force_moment_candidate")
+        if not isinstance(candidate, dict):
+            raise ValueError(
+                "rebuild_force_moment_candidate settings are required for "
+                "rebuild_first_principles_v1"
+            )
+        alpha_force_gain = _bounded_coefficient(
+            candidate.get("alpha_force_gain", 1.0),
+            "rebuild_force_moment_candidate.alpha_force_gain",
+        )
+        delta_force_gain = _bounded_coefficient(
+            candidate.get("delta_force_gain", -1.0),
+            "rebuild_force_moment_candidate.delta_force_gain",
+        )
+        alpha_moment_gain = _bounded_coefficient(
+            candidate.get("alpha_moment_gain", -1.0),
+            "rebuild_force_moment_candidate.alpha_moment_gain",
+        )
+        delta_moment_gain = _bounded_coefficient(
+            candidate.get("delta_moment_gain", 1.0),
+            "rebuild_force_moment_candidate.delta_moment_gain",
+        )
+        requested_rate_gain = _bounded_coefficient(
+            candidate.get("rate_moment_gain", 0.0),
+            "rebuild_force_moment_candidate.rate_moment_gain",
+        )
+        # A body-rate moment is deliberately frozen at zero in the minimal
+        # rebuild.  Keep a requested value visible in the config rather than
+        # silently turning an omitted coefficient into a game claim.
+        if abs(requested_rate_gain) > 0.0:
+            assumptions.append(
+                "rebuild_force_moment_candidate.rate_moment_gain is retained as a requested input only; "
+                "runtime freezes the unprovided rate term at zero"
+            )
+        requested_alpha_dot_gain = _bounded_coefficient(
+            candidate.get("alpha_dot_moment_gain", 0.0),
+            "rebuild_force_moment_candidate.alpha_dot_moment_gain",
+        )
+        if abs(requested_alpha_dot_gain) > 0.0:
+            assumptions.append(
+                "rebuild_force_moment_candidate.alpha_dot_moment_gain is retained as a requested input only; "
+                "runtime freezes the unprovided alpha-dot term at zero"
+            )
+        pitch_reference_rad = _fins_aoa_limit_rad(aero["fin_aoa_limit_rad"]["horizontal"])
+        yaw_reference_rad = _fins_aoa_limit_rad(aero["fin_aoa_limit_rad"]["vertical"])
+        reference_angle_rad = max((pitch_reference_rad + yaw_reference_rad) * 0.5, 1e-9)
+        base_speed_mps = float(base_indicated_speed or 1800.0) / 3.6
+        q_base_pa = 0.5 * 1.225000018 * base_speed_mps * base_speed_mps
+        reference_area_m2 = math.pi * float(geometry["caliber_m"]) ** 2 / 4.0
+        reference_length_m = float(geometry["caliber_m"])
+        authority_force_n = (
+            float(geometry["initial_mass_kg"])
+            * float(UNIVERSAL_H2_LAYER["atmosphere"]["gravity_mps2"])
+            * max(fins_g, 0.0)
+        )
+        q_s_base = max(q_base_pa * reference_area_m2, 1e-9)
+        force_scale = authority_force_n / q_s_base
+        moment_scale = force_scale * max(float(aero["fin_moment_arm_m"]), 1e-9) / reference_length_m
+        generalized_cn_alpha = force_scale * alpha_force_gain / reference_angle_rad
+        generalized_cn_delta = force_scale * delta_force_gain / reference_angle_rad
+        generalized_cm_alpha = moment_scale * alpha_moment_gain / reference_angle_rad
+        generalized_cm_delta = moment_scale * delta_moment_gain / reference_angle_rad
+        runtime_name = "profile_h2_rebuild_first_principles_v1"
+        normal_force_model = "generalized_coefficients"
+        natural_lift_enabled = False
+        cn_alpha_per_rad = generalized_cn_alpha
+        release_version = "profile-adapter-rebuild-v1"
+        force_geometry_version = "rebuild_shared_force_moment_qs_v1"
+        control_model_version = "raw_pid_fin_angle_rebuild_v1"
+        plant_semantics = "rebuild_first_principles"
+        generalized_force_moment_candidate = {
+            "reference_area_mode": "caliber_circular_area",
+            "reference_length_mode": "caliber_m",
+            "cn_alpha_per_rad": generalized_cn_alpha,
+            "cn_delta_per_rad": generalized_cn_delta,
+            "cm_alpha_per_rad": generalized_cm_alpha,
+            "cm_delta_per_rad": generalized_cm_delta,
+            "cm_q": 0.0,
+            "cm_alpha_dot": 0.0,
+            "cm_alpha_dot_requested": requested_alpha_dot_gain,
+            "cm_alpha_dot_runtime_status": "frozen_zero_unprovided",
+            "cn_q_per_rad": 0.0,
+            "cn_alpha_dot_per_rad": 0.0,
+            "delta_definition": "actual_fin_angle_rad",
+            "alpha_definition": "CG_wind_normal_alpha_rad",
+            "q_hat_definition": "not_used_rate_term_frozen_zero",
+            "normalization": {
+                "authority_force_n_at_reference": authority_force_n,
+                "q_base_pa": q_base_pa,
+                "reference_area_m2": reference_area_m2,
+                "reference_length_m": reference_length_m,
+                "reference_angle_rad": reference_angle_rad,
+                "force_mass_mode": "initial_mass_reference",
+                "dynamic_pressure_mode": "q_over_q_base_via_qS",
+            },
+            "normalized_shared_gains": {
+                "alpha_force_gain": alpha_force_gain,
+                "delta_force_gain": delta_force_gain,
+                "alpha_moment_gain": alpha_moment_gain,
+                "delta_moment_gain": delta_moment_gain,
+                "rate_moment_gain_requested": requested_rate_gain,
+                "alpha_dot_moment_gain_requested": requested_alpha_dot_gain,
+            },
+            "equations": {
+                "CN": "scale*(alpha_force_gain*alpha/reference_angle + delta_force_gain*delta/reference_angle)",
+                "Cm": "scale*arm/reference_length*(alpha_moment_gain*alpha/reference_angle + delta_moment_gain*delta/reference_angle)",
+                "normal_force": "q_dyn*S*CN",
+                "pitch_moment": "q_dyn*S*reference_length*Cm",
+            },
+            "parameter_boundary": (
+                "Rebuild v1 nominal gains are shared hypotheses, not datamine coefficients; "
+                "finsLatAccel, finsAoa, distFromCmToStab, baseIndSpeed and initial mass "
+                "set the per-profile normalization. F_delta and M_delta are both active. "
+                "Unprovided rate and alpha-dot terms are zero hypotheses only."
+            ),
+            "inertia_closure": "I_perp=m*length^2/12_provisional",
+        }
+        assumptions.append(
+            "rebuild v1: shared linear CN(alpha,delta) and Cm(alpha,delta) law; "
+            "force uses initial-mass reference with q/q_base, and direct fin force is active at zero AoA"
+        )
     else:
         candidate = defaults.get("generalized_aero_moment_candidate")
         if not isinstance(candidate, dict):
@@ -883,7 +1224,11 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
                     "Unsupported local reduced-order generalized CN/Cm candidate; "
                     "not War Thunder native physics or a validated solver reproduction."
                     if plant_model == GENERALIZED_AERO_MOMENT_PLANT
-                    else "Unsupported local reduced-order body-Cm/tail-force candidate; not War Thunder native physics or a validated solver reproduction."
+                    else (
+                        defaults.get("boundary", "")
+                        if plant_model == REBUILD_FIRST_PRINCIPLES_PLANT
+                        else "Unsupported local reduced-order body-Cm/tail-force candidate; not War Thunder native physics or a validated solver reproduction."
+                    )
                 )
             ),
         },
@@ -980,8 +1325,8 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "guidance_timeout_semantics": str(layer_guidance["guidance_timeout_semantics"]),
             "proximity_fuse_enabled": True,
             "proximity_radius_m": float(guidance["proximity_radius_m"]),
-            "lofting_enabled": bool(guidance["lofting_enabled"]),
-            "lofting_elevation_deg": float(guidance["lofting_elevation_deg"]),
+            "lofting_enabled": lofting_enabled,
+            "lofting_elevation_deg": lofting_elevation_deg,
             "loft_exit_distance_m": float(loft_exit_distance),
             "loft_exit_time_to_go_s": float(loft_exit_tgo),
             **(
@@ -989,9 +1334,9 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
                 if loft_omega_max_deg_s is not None
                 else {}
             ),
-            "target_elevation_deg": float(layer_guidance["target_elevation_deg"]),
+            "target_elevation_deg": target_elevation_deg,
             "omega_max_deg_s": float(layer_guidance["omega_max_deg_s"]),
-            "angle_to_acceleration_multiplier": float(layer_guidance["angle_to_acceleration_multiplier"]),
+            "angle_to_acceleration_multiplier": angle_to_acceleration_multiplier,
             "flight_time_gain_table": flight_time_gain_table,
             "time_to_hit_gain_table": copy.deepcopy(layer_guidance["time_to_hit_gain_table"]),
             "time_to_go_mode": str(
@@ -1015,7 +1360,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
                 else "cg_wind_normal_specific_force_g"
             ),
             "controller_command_basis": (
-                "legacy_body_up_right_required_specific_force"
+                "body_up_right_axial_completed_specific_force"
                 if plant_model == LEGACY_CRITICAL_DAMPED_PLANT
                 else "cg_velocity_wind_normal_required_specific_force"
             ),
@@ -1023,11 +1368,13 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             "integral_limit_semantics": "term",
             "fin_aoa_moment_enabled": True,
             # The body-Cm / generalized candidates use the raw PID as an
-            # acceleration outer loop whose output commands body rate.
-            # The current fin-torque runtime can opt into the same cascade.
+            # acceleration outer loop whose output commands body rate.  The
+            # rebuild candidate intentionally bypasses that cascade and sends
+            # the raw acceleration PID output to fin angle.
             "pid_output_semantics": (
                 "fin_angle_rad"
-                if plant_model == LEGACY_CRITICAL_DAMPED_PLANT and not legacy_rate_inner
+                if plant_model in {LEGACY_CRITICAL_DAMPED_PLANT, REBUILD_FIRST_PRINCIPLES_PLANT}
+                and not legacy_rate_inner
                 else "body_rate_command_rad_s"
             ),
             "pid_error_units": "g",
@@ -1053,7 +1400,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
                         "fin_force_q_ratio_max",
                     )
                 }
-                if plant_model == LEGACY_CRITICAL_DAMPED_PLANT
+                if plant_model in {LEGACY_CRITICAL_DAMPED_PLANT, REBUILD_FIRST_PRINCIPLES_PLANT}
                 and defaults.get("fin_force_q_ratio_max") is not None
                 else {}
             ),
@@ -1062,12 +1409,21 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
                 "p": mapped_pid["p"],
                 "i": mapped_pid["i"],
                 "d": mapped_pid["d"],
-                "integral_limit": _number(pid.get("integral_limit"), 1.0, assumptions, "control.pid.integral_limit"),
+                "integral_limit": (
+                    pid_schedule[0]["integral_limit"]
+                    if pid_schedule
+                    else _number(pid.get("integral_limit"), 1.0, assumptions, "control.pid.integral_limit")
+                ),
+                **({"schedule": copy.deepcopy(pid_schedule)} if pid_schedule else {}),
             },
             # Compatibility field for frozen normalized-command configs.
             "fin_command_limit": float(control["fin_command_limit"]),
             "actuator_time_constant_s": actuator_tau,
-            "derivative_filter_time_constant_s": float(layer_control["derivative_filter_time_constant_s"]),
+            "derivative_filter_time_constant_s": (
+                0.0
+                if plant_model == REBUILD_FIRST_PRINCIPLES_PLANT
+                else float(layer_control["derivative_filter_time_constant_s"])
+            ),
         },
         "atmosphere": copy.deepcopy(UNIVERSAL_H2_LAYER["atmosphere"]),
         "numerics": copy.deepcopy(UNIVERSAL_H2_LAYER["numerics"]),
@@ -1194,7 +1550,7 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
             ),
             "source": "shared_unsupported_candidate_assumption",
         }
-    if generalized_force_moment_candidate is not None:
+    if generalized_force_moment_candidate is not None and plant_model == GENERALIZED_AERO_MOMENT_PLANT:
         pitch_travel_rad = _fins_aoa_limit_rad(aero["fin_aoa_limit_rad"]["horizontal"])
         yaw_travel_rad = _fins_aoa_limit_rad(aero["fin_aoa_limit_rad"]["vertical"])
         config["aerodynamics"]["generalized_aero_moment_candidate"] = (
@@ -1219,6 +1575,32 @@ def build_h2_candidate_config(profile: dict[str, Any], defaults: dict[str, Any])
                 "first_order_rate_target_with_independent_Cm_delta_effectiveness"
             ),
             "source": "shared_unsupported_candidate_assumption",
+        }
+    if plant_model == REBUILD_FIRST_PRINCIPLES_PLANT:
+        pitch_travel_rad = _fins_aoa_limit_rad(aero["fin_aoa_limit_rad"]["horizontal"])
+        yaw_travel_rad = _fins_aoa_limit_rad(aero["fin_aoa_limit_rad"]["vertical"])
+        config["aerodynamics"]["generalized_aero_moment_candidate"] = (
+            generalized_force_moment_candidate
+        )
+        config["aerodynamics"]["rebuild_force_moment_candidate"] = copy.deepcopy(
+            generalized_force_moment_candidate["normalized_shared_gains"]
+        )
+        config["aerodynamics"]["tail_station_x_m"] = -float(aero["fin_moment_arm_m"])
+        config["aerodynamics"]["tail_station_semantics"] = {
+            "source_field": "distFromCmToStab",
+            "interpretation": "shared moment reference arm; no separate tail force station model",
+        }
+        config["control"]["fin_actuator_travel"] = {
+            "pitch_limit_rad": pitch_travel_rad,
+            "yaw_limit_rad": yaw_travel_rad,
+            "source_field": "finsAoaHor/finsAoaVer",
+        }
+        config["attitude_candidate"] = {
+            "primary_orientation": "unit_quaternion_body_to_inertial_wxyz",
+            "body_basis": "forward_up_right",
+            "body_angular_velocity_components": "[0,-yaw_rate,+pitch_rate]",
+            "roll_dynamics": "not_included",
+            "pitch_yaw": "derived_telemetry_only",
         }
     sensor_model = guidance.get("sensor_model")
     if isinstance(sensor_model, dict):
@@ -1264,6 +1646,7 @@ __all__ = [
     "BODY_CM_TAIL_FORCE_PLANT",
     "GENERALIZED_AERO_MOMENT_PLANT",
     "LEGACY_CRITICAL_DAMPED_PLANT",
+    "REBUILD_FIRST_PRINCIPLES_PLANT",
     "SUPPORTED_MODEL_TYPES",
     "SUPPORTED_PLANT_MODELS",
     "UNIVERSAL_H2_LAYER",
