@@ -49,7 +49,7 @@ def estimate_inverse_cda(
 ) -> list[dict[str, Any]]:
     """Estimate CdA from m*dV/dt = -q*CdA - m*g*sin(gamma).
 
-    The visible StatShark speed is quantized, so a local least-squares slope is
+    The visible external reference speed is quantized, so a local least-squares slope is
     used instead of a single two-point difference.  This is an inverse
     diagnostic, not proof of the site solver's internal equations.
     """

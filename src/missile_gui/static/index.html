@@ -50,8 +50,7 @@
           <option value="head_on">正面对头</option>
           <option value="off_axis_10">10°离轴</option>
           <option value="off_axis_38">38°离轴</option>
-          <option value="off_axis_70">70°离轴 · 8 km（R-77 能中 / PL-12 脱靶）</option>
-          <option value="sensorwhale_pl12_off_axis_38">SensorWhale PL-12 · 38° / course 0°</option>
+          <option value="off_axis_70">70°离轴 · 8 km</option>
           <option value="tail_chase">尾追</option>
           <option value="custom">自定义场景</option>
         </select>
@@ -59,19 +58,17 @@
         <div class="convention">
           <strong>目标航向约定</strong>
           <span>相对视线：0°迎头，180°尾追</span>
-          <span>SensorWhale：0°沿固定发射轴迎头；本地等效角 = course − 方位角</span>
         </div>
 
         <label class="preset-label" for="target-course-reference-select">目标航向参考系</label>
         <select id="target-course-reference-select" class="preset-select" name="target_course_reference" form="scenario-form">
-          <option value="statshark_relative_to_los">相对初始视线</option>
-          <option value="sensorwhale_launch_axis">SensorWhale 固定发射轴</option>
+          <option value="relative_to_los">相对初始视线</option>
+          <option value="absolute_world">绝对世界航向</option>
         </select>
 
         <label class="preset-label" for="observation-mode-select">制导观测</label>
         <select id="observation-mode-select" class="preset-select" name="observation_mode">
-          <option value="ideal_truth">理想真值</option>
-          <option value="sensor_track">传感器 / 航迹层</option>
+          <option value="sensor_track">导航 / 航迹层</option>
         </select>
 
         <form id="scenario-form" novalidate>
@@ -81,7 +78,7 @@
               <input id="loft-enabled-toggle" name="loft_enabled" type="checkbox">
               <span>启用 Loft 计算 <em>默认关闭</em></span>
             </label>
-            <p class="field-help">开启后仅允许所选导弹现有的 Loft 门槛运行，不改写现有高抛公式。</p>
+            <p class="field-help" id="loft-mode-help">开启后使用所选导弹的 Loft 参数。</p>
           </fieldset>
           <fieldset>
             <legend>发射平台</legend>
@@ -112,13 +109,14 @@
           <button id="export-scenario" type="button" class="secondary-button">导出场景 JSON</button>
           <input id="scenario-file" class="hidden" type="file" accept="application/json,.json">
         </div>
+        <div id="scene-warning" class="alert warning hidden" role="status"></div>
       </aside>
 
       <main class="results-panel">
         <section class="run-strip">
           <div>
             <p class="eyebrow">SINGLE MISSILE RUN</p>
-            <p id="run-caption">公共 Python H2 模型层 + 所选导弹 JSON；本次运行不会写入实验目录。</p>
+            <p id="run-caption">统一单面模型 + 所选导弹参数；导航与航迹计算。</p>
           </div>
           <button id="run-button" class="run-button" type="button"><span class="run-icon">▶</span><span class="run-label">Calculate</span></button>
         </section>
@@ -136,8 +134,8 @@
             <div class="section-heading">
               <div><p class="eyebrow">TERMINAL SUMMARY</p><h2>结果摘要</h2></div>
               <div class="export-actions">
-                <button id="export-result" class="secondary-button" type="button">结果 JSON</button>
-                <button id="export-csv" class="secondary-button" type="button">轨迹 CSV</button>
+                <button id="export-result" class="secondary-button" type="button" disabled>结果 JSON</button>
+                <button id="export-csv" class="secondary-button" type="button" disabled>轨迹 CSV</button>
               </div>
             </div>
             <div id="summary-grid" class="summary-grid"></div>

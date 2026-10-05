@@ -223,7 +223,7 @@ def fit_linear_bounded(
 
     ``prior`` maps a coefficient name to ``(value, ridge_weight)``.  It is a
     soft constraint used for the existing H2 high-Mach local anchor; it is
-    never presented as a new StatShark observation.
+    never presented as a new external reference observation.
     """
 
     names = coefficient_names(level)

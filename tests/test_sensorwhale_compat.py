@@ -39,17 +39,17 @@ def _scenario() -> dict[str, object]:
 
 def test_public_scenario_default_course_reference_is_unchanged() -> None:
     normalized = validate_scenario(_scenario())
-    assert normalized["target_course_reference"] == "statshark_relative_to_los"
+    assert normalized["target_course_reference"] == "relative_to_los"
 
 
 def test_public_scenario_accepts_sensorwhale_course_reference() -> None:
     scenario = _scenario()
-    scenario["target_course_reference"] = "sensorwhale_launch_axis"
+    scenario["target_course_reference"] = "launch_axis"
     normalized = validate_scenario(scenario)
     case = _case_from_scenario(normalized)
     assert (
         case["initial_conditions"]["target_course_reference"]
-        == "sensorwhale_launch_axis"
+        == "launch_axis"
     )
 
 

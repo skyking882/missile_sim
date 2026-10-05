@@ -758,7 +758,7 @@ def test_statshark_8km_40deg_straight_x_both_fuse_with_q_scale() -> None:
         "initial_distance_m": 8000.0,
         "target_azimuth_deg": 40.0,
         "target_heading_deg": -40.0,
-        "target_course_reference": "statshark_relative_to_los",
+        "target_course_reference": "relative_to_los",
         "target_vertical_heading_deg": 0.0,
         "target_constant_turn_g": 0.0,
         "max_simulation_time_s": 40.0,

@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "model_family": "r771_jari_only_effective_single_surface",
+  "status": "experimental_jari_only_frozen_for_site_validation",
+  "source": "existing_public_JARI_compiled_c_2.59.0.28",
+  "game_replay_observations_used": false,
+  "old_game_coefficients_used": false,
+  "raw_parameter_version": "2.59.0.27",
+  "raw_to_site_resource_equivalence_verified": false,
+  "forward_duration_s": 16.0,
+  "integration_substeps": 4,
+  "pn_candidate": "ideal_relative_velocity_normal",
+  "pid_error_units": "m/s^2",
+  "effective_parameters": {
+    "cd_base_inverse_mach": [
+      0.1649275802232184,
+      1.081567064520488,
+      -0.2917349160543533
+    ],
+    "cd_incidence_ratio": 25.69774045396138,
+    "lift_sine_slope": 23.46476357606692,
+    "lift_stall_rad": 0.5075000000000003,
+    "lift_rolloff_width_rad": 0.45500000000000007,
+    "control_response_rad_s2": 22.539158208549566,
+    "restoring_response_rad_s2_per_rad": 30.610467943343874,
+    "damping_response_per_s": 4.108598723058536,
+    "loft_common_scale": 1.5
+  },
+  "controller_convention": {
+    "clock_hz": 48,
+    "raw_gains_unchanged": true,
+    "form": "parallel PID, I output += ki*e*dt, clipped to raw I_limit; D=kd*(e-e_prev)/dt; output=clip(age_gain*IAS_gain*(P+I+D),-1,1)",
+    "initial_I_and_previous_error": [
+      0.0,
+      0.0
+    ],
+    "inactive_updates": "zero command; zero initial memory retained before age gain activates",
+    "feedback": "previous completed plant acceleration including gravity, projected on current body up/right",
+    "IAS_gain": "(raw baseIndSpeed / (speed_mps*3.6*sqrt(ISA_density/1.225)))^2",
+    "gain_and_unit_semantics": "assumed mapping, selected on three site fit cases only",
+    "high_angle_mode": false,
+    "integral_transport": false,
+    "request_slew": false
+  },
+  "loft_field_function": {
+    "loftElevation": "24: bias aims nose 24 degrees above current world LOS elevation",
+    "loftTargetElevation": "-3.5: finish bias when world LOS elevation minus flight-path elevation drops below this angle",
+    "loftAngleToAccelMult": "17.5: scale nose-angle error in degrees to acceleration in m/s^2, times one common fitted scale",
+    "loftTargetOmegaMax": "0.5: eligible only while LOS angular speed in deg/s is at most this value",
+    "phase": "initial climb eligible at first active control tick; end once either raw termination threshold fails; no re-arming",
+    "semantics_evidence": "game-effect hypotheses using raw fields; internal JARI bias and field units are not exported"
+  },
+  "single_equivalent_surface": {
+    "count": 1,
+    "distFromCmToStab_m": 0.4,
+    "restoring_couple_at_same_station": true
+  },
+  "runtime_source_boundary": {
+    "required_files": [
+      "/Users/skyking/Documents/missle_sim/outputs/jari_only/dataset/creation_inputs.json",
+      "/Users/skyking/Documents/missle_sim/config/r771_jari_only.json",
+      "/Users/skyking/Documents/missle_sim/data/datamine_2.59.0.27/aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_77_1.blkx"
+    ],
+    "observation_archive": false,
+    "terminal_state": false,
+    "previous_model_or_forecast": false,
+    "duration": "uniform 16 seconds from config; no source terminal time; analysis continues after hypothetical intercept"
+  },
+  "selection": {
+    "PID_units": {
+      "rule": "minimum worst initial exported control component error on fit cases, shared across PN candidates",
+      "errors": {
+        "G": 0.931246248978104,
+        "m/s^2": 0.3257560275411243
+      }
+    },
+    "PN": {
+      "rule": "minimum worst early yaw RMSE across 30/60 fit cases; other channels retained separately",
+      "yaw_rmse_by_candidate": {
+        "pure_velocity_normal__m_s^2": 8.889840216291056,
+        "true_los_normal__m_s^2": 9.152170781597723,
+        "ideal_relative_velocity_normal__m_s^2": 5.962756906799258
+      }
+    },
+    "validation_used_for_selection": false,
+    "total_free_coefficients": 11,
+    "fit_cases": [
+      "angle_p0",
+      "angle_p30",
+      "angle_p60"
+    ],
+    "site_validation_cases": [
+      "angle_p5",
+      "angle_p10",
+      "angle_p15",
+      "angle_p45",
+      "angle_p75",
+      "angle_m30",
+      "collision"
+    ],
+    "site_validation_is_blind": false
+  },
+  "request_cap_interpretation": {
+    "raw_field": "reqAccelMax",
+    "value": 50.0,
+    "assumed_units": "G",
+    "assumed_operation": "Euclidean norm clip after complete PN and loft request",
+    "evidence_level": "assumed raw-field mapping; not established by JARI exports",
+    "terminal_requested_g": "The site's large terminal requested_g is a pre-native diagnostic and neither confirms nor rejects this assumed cap"
+  },
+  "coefficient_identifiability": {
+    "nominal_scope": "Effective fit in JARI exported control and cross-section coefficient coordinates",
+    "physical_control_gain_identification_interval": null,
+    "reason": "Unknown exported control scale confounds any physical control gain; these coefficients do not identify fin angle or a physical actuator",
+    "loft_scale_tested_interval": [
+      0.25,
+      1.5
+    ],
+    "loft_scale_classification": "bounded calibration, optimum at tested upper bound; not an independently identified field conversion",
+    "lift_grid_tested_intervals_rad": {
+      "stall": [
+        0.3,
+        0.8
+      ],
+      "rolloff_width": [
+        0.1,
+        0.9
+      ]
+    }
+  }
+}

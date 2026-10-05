@@ -84,7 +84,7 @@ def test_a1_35km_head_on_loft_anchor() -> None:
     scenario = dict(
         loft_enabled=True,
         observation_mode="ideal_truth",
-        target_course_reference="statshark_relative_to_los",
+        target_course_reference="relative_to_los",
         launch_speed_kmh=1188,
         launch_altitude_m=7000,
         launch_pitch_deg=0,
@@ -129,7 +129,7 @@ def test_a2_30deg_fast_pl12_anchor() -> None:
     scenario = dict(
         loft_enabled=True,
         observation_mode="ideal_truth",
-        target_course_reference="statshark_relative_to_los",
+        target_course_reference="relative_to_los",
         launch_speed_kmh=1508,
         launch_altitude_m=6783,
         launch_pitch_deg=0,
@@ -211,7 +211,7 @@ def test_a5_user_bug_case_anchor() -> None:
     scenario = dict(
         loft_enabled=False,
         observation_mode="ideal_truth",
-        target_course_reference="statshark_relative_to_los",
+        target_course_reference="relative_to_los",
         launch_speed_kmh=1100,
         launch_altitude_m=6500,
         launch_pitch_deg=0,
@@ -265,7 +265,7 @@ def test_a6_statshark_40deg_double_fuse_anchor() -> None:
         initial_distance_m=8000.0,
         target_azimuth_deg=40.0,
         target_heading_deg=-40.0,
-        target_course_reference="statshark_relative_to_los",
+        target_course_reference="relative_to_los",
         target_vertical_heading_deg=0.0,
         target_constant_turn_g=0.0,
         max_simulation_time_s=40.0,
@@ -294,7 +294,7 @@ def test_a7_level_straight_target_deload_arc_anchor() -> None:
     scenario = dict(
         loft_enabled=True,
         observation_mode="ideal_truth",
-        target_course_reference="statshark_relative_to_los",
+        target_course_reference="relative_to_los",
         launch_speed_kmh=1200, launch_altitude_m=6300,
         launch_pitch_deg=0, launch_heading_deg=0,
         target_speed_kmh=1200, target_altitude_m=6300,

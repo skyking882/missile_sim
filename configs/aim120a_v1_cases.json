@@ -15,7 +15,7 @@
         "initial_target_distance_m": 12000.0,
         "target_azimuth_deg": 10.0,
         "target_course_deg": 0.0,
-        "target_course_reference": "statshark_relative_to_los",
+        "target_course_reference": "relative_to_los",
         "target_constant_g_turn": 0.0,
         "target_vertical_course_deg": 0.0
       }
@@ -33,7 +33,7 @@
         "initial_target_distance_m": 15000.0,
         "target_azimuth_deg": 38.0,
         "target_course_deg": 0.0,
-        "target_course_reference": "statshark_relative_to_los",
+        "target_course_reference": "relative_to_los",
         "target_constant_g_turn": 0.0,
         "target_vertical_course_deg": 0.0
       }

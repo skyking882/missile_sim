@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "active_profile_set": "2.59.0.27",
+  "profile_sets": {
+    "2.57.1.107": {
+      "profiles_path": "data/profile_sets/2.57.1.107/missiles",
+      "manifest_path": "data/profile_sets/2.57.1.107/data/aam_non_tvc_manifest.json",
+      "datamine_path": "data/datamine",
+      "source_version": "2.57.1.107",
+      "source_commit": "3f20645862c538b46c94e3f60ee30da9dfacd81a"
+    },
+    "2.59.0.27": {
+      "profiles_path": "data/profile_sets/2.59.0.27/missiles",
+      "manifest_path": "data/profile_sets/2.59.0.27/data/aam_non_tvc_manifest.json",
+      "datamine_path": "data/datamine_2.59.0.27",
+      "source_version": "2.59.0.27",
+      "source_commit": "4ac255b829a27346b9300fccdc138362c2535fbe"
+    }
+  }
+}

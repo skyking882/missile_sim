@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import copy
 import math
-from typing import Any
+from typing import Any, Callable
 
 from .h2_simulator import H2Simulator
 from .math3d import norm
@@ -17,8 +17,9 @@ from .math3d import norm
 SUPPORTED_ENGINE_TYPES = {"piecewise_constant_thrust"}
 SUPPORTED_CONTROL_TYPES = {"pn_pid_first_order"}
 SUPPORTED_TARGET_COURSE_REFERENCES = {
-    "statshark_relative_to_los",
-    "sensorwhale_launch_axis",
+    "relative_to_los",
+    "launch_axis",
+    "absolute_world",
 }
 
 
@@ -97,11 +98,11 @@ def validate_scenario(scenario: dict[str, Any]) -> dict[str, Any]:
 
     course_reference = scenario.get(
         "target_course_reference",
-        "statshark_relative_to_los",
+        "relative_to_los",
     )
     if course_reference not in SUPPORTED_TARGET_COURSE_REFERENCES:
         raise SimulationInputError(
-            "目标航向参考系必须是 statshark_relative_to_los 或 sensorwhale_launch_axis。"
+            "目标航向参考系必须是 relative_to_los、launch_axis 或 absolute_world。"
         )
     normalized["target_course_reference"] = str(course_reference)
 
@@ -316,12 +317,76 @@ def _stage_markers(config: dict[str, Any]) -> list[dict[str, Any]]:
     return markers
 
 
-def simulate(missile_profile: dict[str, Any], scenario: dict[str, Any]) -> dict[str, Any]:
+def simulate(
+    missile_profile: dict[str, Any],
+    scenario: dict[str, Any],
+    *,
+    model_mode: str = "general",
+    target_factory: Callable[[Any], Any] | None = None,
+    early_miss_s: float | None = None,
+    clutter_model: str | None = None,
+    clutter_min_depression_deg: float | None = None,
+    cw_on_clear_beam: bool = False,
+    multipath_gain: float | None = None,
+    launcher_radar_gimbal_deg: float | None = None,
+    require_seeker_lock: bool = False,
+) -> dict[str, Any]:
     """Run one missile and return a JSON-serializable, read-only result.
 
     This function performs no filesystem writes and is the only GUI calculation
-    entry point.
+    entry point. Opt-in, general runtime only: ``target_factory`` wraps the
+    scenario target (see ``evasive_target.evasive_target_factory``);
+    ``early_miss_s`` ends an unpowered missile that has been opening from a
+    faster target for that long with ``termination_event == "early_miss"``;
+    ``clutter_model="geometric_mainlobe"`` replaces the any-look-down clutter
+    notch condition with a flat-earth main-beam ground intersection;
+    ``"look_down_angle"`` requires the line of sight to point at least
+    ``clutter_min_depression_deg`` (default 2) below the horizon;
+    ``cw_on_clear_beam`` lets any chaff bundle capture a beaming target that
+    has no ground clutter behind it (decoy path only);
+    ``multipath_gain`` (0–1) moves the radar seeker's measured position toward
+    the target's flat-surface image by gain times the profile's
+    ``multipath_effect`` strength at the target height (see
+    ``RadarSeekerObserver.enable_multipath``).
+    ``launcher_radar_gimbal_deg`` drops the datalink for good once the launcher's
+    own radar would lose the target (outside that cone, or in the clutter notch
+    seen from the launcher; see ``SensorTrackProvider.enable_launcher_radar``);
+    ``require_seeker_lock`` lets the proximity fuse fire only after the seeker
+    has tracked the target at least once.
     """
+
+    if early_miss_s is not None and (isinstance(early_miss_s, bool) or not isinstance(early_miss_s, (int, float))
+                                     or not math.isfinite(early_miss_s) or early_miss_s <= 0):
+        raise SimulationInputError("提前脱靶判定时间必须是正数。")
+    if clutter_model not in (None, "look_down", "geometric_mainlobe", "look_down_angle"):
+        raise SimulationInputError("杂波模型必须是 look_down、geometric_mainlobe 或 look_down_angle。")
+    if clutter_min_depression_deg is not None and (
+            clutter_model != "look_down_angle" or isinstance(clutter_min_depression_deg, bool)
+            or not isinstance(clutter_min_depression_deg, (int, float))
+            or not 0 <= clutter_min_depression_deg < 90):
+        raise SimulationInputError("下视门槛角只用于 look_down_angle，且应在 0–90° 之间。")
+    if multipath_gain is not None and (isinstance(multipath_gain, bool) or not isinstance(multipath_gain, (int, float))
+                                       or not 0 <= multipath_gain <= 1):
+        raise SimulationInputError("多径增益应在 0–1 之间。")
+    if launcher_radar_gimbal_deg is not None and (
+            isinstance(launcher_radar_gimbal_deg, bool) or not isinstance(launcher_radar_gimbal_deg, (int, float))
+            or not 0 < launcher_radar_gimbal_deg <= 180):
+        raise SimulationInputError("载机雷达扫描半角应在 0–180° 之间。")
+    if model_mode == "general" and "model_family" in missile_profile:
+        if missile_profile.get("_runtime_unsupported"):
+            raise UnsupportedPhysicsError("不支持的制导或物理类型：" + "、".join(missile_profile["_runtime_unsupported"]))
+        from .surface_runtime import simulate_surface
+        try:
+            return simulate_surface(missile_profile, scenario, target_factory, early_miss_s, clutter_model,
+                                    clutter_min_depression_deg, bool(cw_on_clear_beam), multipath_gain,
+                                    launcher_radar_gimbal_deg, bool(require_seeker_lock))
+        except ValueError as exc:
+            raise SimulationInputError(str(exc)) from exc
+    if model_mode not in {"general", "legacy_h2"}:
+        raise SimulationInputError(f"未知模型模式：{model_mode}。")
+    if target_factory is not None or early_miss_s is not None or clutter_model is not None or cw_on_clear_beam \
+            or multipath_gain is not None or launcher_radar_gimbal_deg is not None or require_seeker_lock:
+        raise SimulationInputError("外部目标模型、提前脱靶判定、杂波、多径、载机雷达和导引头锁定条件只支持通用 surface 运行时。")
 
     base_config = _validate_profile(missile_profile)
     normalized = validate_scenario(scenario)
@@ -347,6 +412,10 @@ def simulate(missile_profile: dict[str, Any], scenario: dict[str, Any]) -> dict[
             "id": missile_profile.get("missile_id", missile_profile.get("id")),
             "name": missile_profile.get("display_name", missile_profile.get("name")),
             "status": missile_profile.get("model_status", missile_profile.get("status")),
+            "parameter_source": {
+                "version": missile_profile.get("provenance", {}).get("source_version"),
+                "commit": missile_profile.get("provenance", {}).get("source_commit"),
+            },
         },
         "scenario": normalized,
         "summary": _summarize(

@@ -31,12 +31,12 @@ class TargetModel:
         speed = kmh_to_mps(initial_conditions["target_speed_kmh"])
         course = deg_to_rad(initial_conditions.get("target_course_deg", 0.0))
         course_reference = str(initial_conditions.get("target_course_reference", "absolute_world"))
-        if course_reference == "statshark_relative_to_los":
-            # StatShark defines TargetCourse relative to the initial line of sight:
+        if course_reference == "relative_to_los":
+            # external reference defines TargetCourse relative to the initial line of sight:
             # 0 deg is head-on (toward the launcher) and 180 deg is tail-away.
             course += azimuth + math.pi
-        elif course_reference == "sensorwhale_launch_axis":
-            # SensorWhale's public calculator uses a fixed launch-axis convention:
+        elif course_reference == "launch_axis":
+            # external reference's public calculator uses a fixed launch-axis convention:
             # 0 deg is head-on along world -X, independent of target azimuth.
             # Therefore its native course C is equivalent to our LOS-relative
             # course C - target_azimuth.

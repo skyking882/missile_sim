@@ -1,6 +1,6 @@
 "use strict";
 
-const state = { profiles: [], selected: null, result: null, charts: [] };
+const state = { profiles: [], selected: null, result: null, resultGeneration: 0, charts: [], modelMode: "general",  };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 const tooltip = $("#chart-tooltip");
@@ -8,12 +8,11 @@ const COLORS = { missile: "#f16a45", target: "#5ed2d6", actual: "#eac469", grid:
 const COLORS_3D = { ground: "rgba(95,132,141,.16)", axisX: "#f16a45", axisY: "#61c995", axisZ: "#5ed2d6", stage: "#eac469", burnout: "#d58cff", termination: "#ff8576", connector: "rgba(255,133,118,.45)" };
 
 const PRESETS = {
-  head_on: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 12000, target_azimuth_deg: 0, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
-  off_axis_10: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 12000, target_azimuth_deg: 10, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
-  off_axis_38: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 15000, target_azimuth_deg: 38, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
-  off_axis_70: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 8000, target_azimuth_deg: 70, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
-  sensorwhale_pl12_off_axis_38: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "sensorwhale_launch_axis", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 15000, target_azimuth_deg: 38, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
-  tail_chase: { loft_enabled: false, observation_mode: "ideal_truth", target_course_reference: "statshark_relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 900, target_altitude_m: 6500, initial_distance_m: 8000, target_azimuth_deg: 0, target_heading_deg: 180, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null }
+  head_on: { loft_enabled: false, observation_mode: "sensor_track", target_course_reference: "relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 12000, target_azimuth_deg: 0, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
+  off_axis_10: { loft_enabled: false, observation_mode: "sensor_track", target_course_reference: "relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 12000, target_azimuth_deg: 10, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
+  off_axis_38: { loft_enabled: false, observation_mode: "sensor_track", target_course_reference: "relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 15000, target_azimuth_deg: 38, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
+  off_axis_70: { loft_enabled: false, observation_mode: "sensor_track", target_course_reference: "relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 1200, target_altitude_m: 6500, initial_distance_m: 8000, target_azimuth_deg: 70, target_heading_deg: 0, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null },
+  tail_chase: { loft_enabled: false, observation_mode: "sensor_track", target_course_reference: "relative_to_los", launch_speed_kmh: 1200, launch_altitude_m: 6500, launch_pitch_deg: 0, launch_heading_deg: 0, target_speed_kmh: 900, target_altitude_m: 6500, initial_distance_m: 8000, target_azimuth_deg: 0, target_heading_deg: 180, target_vertical_heading_deg: 0, target_constant_turn_g: 0, max_simulation_time_s: null }
 };
 
 function showAlert(element, message) { element.textContent = message; element.classList.remove("hidden"); }
@@ -38,7 +37,9 @@ async function loadMissiles() {
     for (const profile of state.profiles) {
       const option = document.createElement("option");
       option.value = profile.id;
-      option.textContent = `${profile.name} · ${profile.country} / ${profile.series}`;
+      const source = profile.parameter_source || {};
+      option.textContent = `${profile.name} · ${profile.country} / ${profile.series} · 参数 ${source.version || "未知"} / ${(source.commit || "无提交信息").slice(0, 12)}`;
+      option.title = source.commit || "无提交信息";
       select.appendChild(option);
     }
     if (payload.library_errors.length) showAlert($("#library-alert"), `部分导弹配置未加载：\n${payload.library_errors.join("\n")}`);
@@ -57,14 +58,17 @@ async function loadMissiles() {
 }
 
 function selectMissile(id) {
+  const previousId = state.selected?.id;
   state.selected = state.profiles.find((profile) => profile.id === id) || null;
   if (!state.selected) return;
+  if (previousId && previousId !== state.selected.id) invalidateResult();
   const profile = state.selected;
   $("#missile-name").textContent = `${profile.name} · ${profile.country} / ${profile.series}`;
   $("#missile-detail").textContent = profile.status_reason || profile.description;
   const badge = $("#status-badge");
   badge.textContent = profile.status;
   badge.className = "status-badge " + ({ "Validated": "validated", "Experimental": "experimental", "Unsupported physics": "unsupported" }[profile.status] || "");
+  badge.classList.toggle("hidden", state.modelMode !== "general");
   const facts = [];
   const p = profile.parameters || {};
   if (p.lifetime_s != null) facts.push(["寿命", `${p.lifetime_s} s`]);
@@ -73,8 +77,9 @@ function selectMissile(id) {
   if (p.loft_enabled != null) facts.push(["Profile Loft 能力", p.loft_enabled ? "支持" : "不支持"]);
   facts.push(["模型", profile.runnable ? "可运行" : "不可运行"]);
   $("#model-facts").innerHTML = facts.map(([key, value]) => `<div><dt>${key}</dt><dd>${value}</dd></div>`).join("");
-  $("#run-button").disabled = !profile.runnable;
-  $("#run-caption").textContent = profile.runnable ? "公共 Python H2 模型层 + 所选导弹 JSON；本次运行不会写入实验目录。" : "此条目的物理类型尚未被公共 H2 计算核心支持，不能运行。";
+  $("#model-facts").classList.toggle("hidden", state.modelMode !== "general");
+  $("#run-button").disabled = !profile.runnable && state.modelMode === "general";
+  $("#run-caption").textContent = profile.runnable ? "导航与航迹计算 · 所选导弹参数" : "此导弹的制导类型尚未支持。";
   hideAlert($("#error-alert"));
 }
 
@@ -87,6 +92,18 @@ function applyScenario(values) {
   }
   if (!("loft_enabled" in values)) $("#loft-enabled-toggle").checked = false;
   if (values.target_course_reference) $("#target-course-reference-select").value = values.target_course_reference;
+}
+
+function invalidateResult() {
+  state.resultGeneration += 1;
+  setBusy(false);
+  state.result = null;
+  for (const chart of state.charts) chart.destroy();
+  state.charts = [];
+  $("#result-content").classList.add("hidden");
+  $("#empty-state").classList.remove("hidden");
+  $("#export-result").disabled = true;
+  $("#export-csv").disabled = true;
 }
 
 function collectScenario() {
@@ -102,7 +119,7 @@ function collectScenario() {
     if (key === "loft_enabled") continue;
     scenario[key] = ["observation_mode", "target_course_reference"].includes(key) ? value : (value === "" ? null : Number(value));
   }
-  scenario.observation_mode = $("#observation-mode-select").value;
+  scenario.observation_mode = "sensor_track";
   scenario.target_course_reference = $("#target-course-reference-select").value;
   scenario.loft_enabled = $("#loft-enabled-toggle").checked;
   return scenario;
@@ -110,7 +127,7 @@ function collectScenario() {
 
 function setBusy(busy) {
   $("#progress").classList.toggle("hidden", !busy);
-  $("#run-button").disabled = busy || !state.selected?.runnable;
+  $("#run-button").disabled = busy || (!state.selected?.runnable && state.modelMode === "general");
   $("#run-button .run-label").textContent = busy ? "正在计算" : "Calculate";
 }
 
@@ -118,27 +135,37 @@ async function runSimulation() {
   hideAlert($("#error-alert"));
   let scenario;
   try { scenario = collectScenario(); } catch (error) { showAlert($("#error-alert"), error.message); return; }
+  const generation = ++state.resultGeneration;
+  const modelMode = state.modelMode;
+  const missileId = state.selected.id;
   setBusy(true);
   try {
     const payload = await api("/api/simulate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ missile_id: state.selected.id, scenario })
+      body: JSON.stringify({ missile_id: state.selected.id, model_mode: state.modelMode, scenario })
     });
+    if (generation !== state.resultGeneration || modelMode !== state.modelMode || missileId !== state.selected?.id) return;
     state.result = payload.result;
     renderResult(payload.result);
   } catch (error) {
-    showAlert($("#error-alert"), error.message);
-  } finally { setBusy(false); }
+    if (generation === state.resultGeneration && modelMode === state.modelMode && missileId === state.selected?.id) {
+      showAlert($("#error-alert"), error.message);
+    }
+  } finally {
+    if (generation === state.resultGeneration && modelMode === state.modelMode && missileId === state.selected?.id) setBusy(false);
+  }
 }
 
 const EVENT_NAMES = { hit: "命中", proximity_fuse: "近炸", ground: "撞地", lifetime: "寿命", max_range: "射程", numerical_failure: "数值失败" };
 function renderResult(result) {
   $("#empty-state").classList.add("hidden");
   $("#result-content").classList.remove("hidden");
+  $("#export-result").disabled = false;
+  $("#export-csv").disabled = false;
   const s = result.summary;
   const scenarioLoftEnabled = s.scenario_loft_enabled ?? s.loft_enabled;
-  const items = [
+  const commonItems = [
     ["终止事件", EVENT_NAMES[s.termination_event] || s.termination_event, "", true],
     ["飞行时间", number(s.flight_time_s, 2), "s"],
     ["末端距离", number(s.terminal_distance_m, 1), "m"],
@@ -148,11 +175,13 @@ function renderResult(result) {
     ["最大速度", number(s.maximum_speed_kmh, 0), "km/h"],
     ["最大高度", number(s.maximum_altitude_m, 0), "m"],
     ["最大指令 G", number(s.maximum_commanded_g, 2), "G"],
-    ["最大实际 G", number(s.maximum_actual_g, 2), "G"],
+    ["最大实际 G", number(s.maximum_actual_g, 2), "G"]
+  ];
+  const generalOnlyItems = [
     ["场景 Loft 开关", scenarioLoftEnabled ? "开启" : "关闭", ""],
     ["Loft 实际状态", s.loft_enabled ? "按现有门槛计算" : "未运行", ""],
     ["发动机燃尽", number(s.burnout_time_s, 2), "s"],
-    ["观测模式", s.observation_mode || result.model?.observation_mode || "ideal_truth", ""],
+    ["观测模式", "导航 / 航迹层", ""],
     ["观测 Provider", s.observation_provider || result.model?.observation_provider || "—", ""],
     ["Track", s.track_mode || "—", ""],
     ["Seeker", s.seeker_display_state || s.seeker_state || "—", ""],
@@ -162,7 +191,10 @@ function renderResult(result) {
     ["首次复锁", s.first_reacquire_time_s == null ? "—" : number(s.first_reacquire_time_s, 3), "s"],
     ["最后拒绝原因", s.last_observation_reject_reason || s.last_radar_reject_reason || "—", ""]
   ];
+  const items = [...commonItems, ...generalOnlyItems];
   $("#summary-grid").innerHTML = items.map(([label, value, unit, primary]) => `<div class="summary-item${primary ? " primary" : ""}"><span>${label}</span><strong>${value}</strong>${unit ? `<small>${unit}</small>` : ""}</div>`).join("");
+  $("#export-result").disabled = false;
+  $("#export-csv").disabled = false;
   buildCharts(result);
 }
 
@@ -367,21 +399,41 @@ function download(name, content, type) {
 }
 function stamp() { return new Date().toISOString().replace(/[:.]/g, "-"); }
 function exportScenario() {
-  try { download(`scenario-${stamp()}.json`, JSON.stringify({ schema_version: 1, missile_id: state.selected?.id, preset: $("#preset-select").value, scenario: collectScenario() }, null, 2), "application/json"); }
+  try {
+    const exported = { schema_version: 3, missile_id: state.selected?.id, model_mode: "general", parameter_source: state.selected?.parameter_source || null, preset: $("#preset-select").value, scenario: collectScenario() };
+    download(`scenario-${stamp()}.json`, JSON.stringify(exported, null, 2), "application/json");
+  }
   catch (error) { showAlert($("#error-alert"), error.message); }
 }
 async function importScenario(file) {
   try {
     const parsed = JSON.parse(await file.text()), scenario = parsed.scenario || parsed;
     if (!scenario || typeof scenario !== "object" || Array.isArray(scenario)) throw new Error("场景 JSON 顶层必须是对象。 ");
+    hideAlert($("#scene-warning"));
+    if (parsed.model_mode && parsed.model_mode !== "general") throw new Error("此界面仅支持通用导航模型。");
+    scenario.observation_mode = "sensor_track";
+    if (scenario.target_course_reference === "launch_axis") throw new Error("此场景使用旧对比航向约定，请先转换为相对视线或世界航向。");
+    if (parsed.missile_id) {
+      const matchingProfile = state.profiles.find((profile) => profile.id === parsed.missile_id);
+      if (!matchingProfile) throw new Error(`导弹 ${parsed.missile_id} 不在当前参数库中；未导入场景。`);
+      if (parsed.parameter_source) {
+        const importedSource = parsed.parameter_source, currentSource = matchingProfile.parameter_source || {};
+        if (importedSource.version !== currentSource.version || importedSource.commit !== currentSource.commit) {
+          throw new Error(`场景参数来源为 ${importedSource.version || "未知"} / ${importedSource.commit || "未知"}，当前导弹为 ${currentSource.version || "未知"} / ${currentSource.commit || "未知"}。为避免同 ID 混用，已拒绝导入。`);
+        }
+      } else {
+        showAlert($("#scene-warning"), `此旧场景没有参数版本与 commit 记录；导弹 ${parsed.missile_id} 将使用当前参数 ${matchingProfile.parameter_source?.version || "未知"}。`);
+      }
+      $("#missile-select").value = matchingProfile.id;
+      selectMissile(matchingProfile.id);
+    }
     applyScenario(scenario); $("#preset-select").value = "custom";
-    if (parsed.missile_id && state.profiles.some((p) => p.id === parsed.missile_id)) { $("#missile-select").value = parsed.missile_id; selectMissile(parsed.missile_id); }
     hideAlert($("#error-alert"));
   } catch (error) { showAlert($("#error-alert"), `无法导入场景：${error.message}`); }
 }
 function exportCsv() {
-  if (!state.result) return; const headers = ["time_s","missile_x_m","missile_altitude_m","missile_z_m","target_x_m","target_altitude_m","target_z_m","missile_speed_kmh","target_speed_kmh","distance_to_target_m","commanded_g","actual_g","mach","thrust_n","drag_n","mass_kg","loft_active"];
-  const rows = state.result.samples.map((s) => [s.time_s,...s.position_m,...s.target_position_m,magnitude(s.velocity_mps)*3.6,magnitude(s.target_velocity_mps)*3.6,s.distance_to_target_m,Math.hypot(...s.commanded_acceleration_g),s.actual_overload_g,s.mach,s.thrust_n,s.drag_n,s.mass_kg,s.loft_active]);
+  if (!state.result) return; const headers = ["time_s","missile_x_m","missile_altitude_m","missile_z_m","target_x_m","target_altitude_m","target_z_m","missile_speed_kmh","target_speed_kmh","distance_to_target_m","commanded_g","actual_g","mach","thrust_n","drag_n","mass_kg","loft_active","model_mode","parameter_source_version","parameter_source_commit"];
+  const rows = state.result.samples.map((s) => [s.time_s,...s.position_m,...s.target_position_m,magnitude(s.velocity_mps)*3.6,magnitude(s.target_velocity_mps)*3.6,s.distance_to_target_m,Math.hypot(...s.commanded_acceleration_g),s.actual_overload_g,s.mach,s.thrust_n,s.drag_n,s.mass_kg,s.loft_active,state.result.model_mode || "general",state.result.missile.parameter_source?.version || "",state.result.missile.parameter_source?.commit || ""]);
   download(`trajectory-${state.result.missile.id}-${stamp()}.csv`, [headers, ...rows].map((row) => row.join(",")).join("\n") + "\n", "text/csv;charset=utf-8");
 }
 

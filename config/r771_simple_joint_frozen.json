@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "model_family": "r771_simple_joint_affine",
+  "status": "frozen_user_accepted",
+  "coefficient_names": [
+    "lift_slope_per_rad",
+    "affine_control_speed_slope",
+    "control_gain_s_minus2",
+    "restoring_gain_s_minus2"
+  ],
+  "coefficients": [14.606915444766543, 0.17017244388915495, 865.9202017326287, 31.833800106342316],
+  "fixed_reference_damping_s_minus1": 3.534664411413437,
+  "source_results": "outputs/r771_replay_batch_20260928/no_loft_control/simple_joint_calibration/results.json",
+  "source_candidate": "affine",
+  "source_version": "2.59.0.28",
+  "source_strict_fit_acceptance": false,
+  "fixed_plant_parameters": {
+    "mass0_kg": 190.0,
+    "mass_end_kg": 119.0,
+    "time_fire_s": 7.0,
+    "thrust_n": 23835.0,
+    "caliber_m": 0.2,
+    "length_m": 3.71,
+    "wing_area_mult": 1.5,
+    "density": "existing isa_density(height)"
+  },
+  "surface": {
+    "tail_arm_m": 0.4,
+    "reference_area_m2": 0.0471238898038469,
+    "inertia": "m*L^2/12",
+    "resultant": "Nw=qbar*S*Ca*(alpha+l*omega/V); Nb=Nw/cos(alpha)",
+    "angular_acceleration": "Ku*(1+b*(V/V0-1))*u-A*Ka*(alpha+l*omega/V)-B*Kw*omega",
+    "scaling": "A=(qbar/m)/(qbar0/m0); B=A*V0/V",
+    "moment": "Mcm=-l*Nb+Mref; Mref=I*qdot+l*Nb",
+    "reference_couple_location": "same equivalent aerodynamic surface"
+  },
+  "controller": {
+    "kp": 0.002125,
+    "ki": 0.006481,
+    "kd": 0.000023,
+    "integral_limit": 1.0,
+    "frequency_hz": 48,
+    "schedule": "time gain evaluated at interval end and held over interval",
+    "initial_memory": [0.0, 0.0, 0.0],
+    "memory_before_activation": "zero",
+    "first_active_interval_start_s": 0.2916666666666667
+  },
+  "simulation": {
+    "initial_state": "decoded creation fields",
+    "clock": "native b5 age, target packet timestamps mapped to this age",
+    "external_inputs": ["measured planar speed", "decoded target position and packet-derived velocity"],
+    "integrated_states": ["theta", "omega", "gamma", "x", "y", "PID memory"],
+    "dynamics": "creation-state continuous RK4",
+    "production_model_changed": false,
+    "native_game_law_identified": false
+  }
+}

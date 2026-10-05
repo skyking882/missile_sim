@@ -16,7 +16,7 @@ from .tracking import AlphaBetaGate, TrackMode, TrackSolution
 from .trajectory import TabulatedTargetModel, TabulatedTrajectory, TrajectoryPoint
 from .public_api import simulate
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 
 __all__ = [
     "EffectiveControllerEnvelope",

@@ -165,6 +165,33 @@ def _candidate_rate_inner_fin_angle(
     return requested_fin_angle, rate_error
 
 
+def scheduled_pid_values(pid: dict[str, Any], time_s: float) -> dict[str, float]:
+    """Sample an optional project PID schedule; scalar PID behavior is unchanged."""
+
+    schedule = pid.get("schedule")
+    if not schedule:
+        return {key: float(pid[key]) for key in ("p", "i", "d", "integral_limit")}
+    time_value = float(time_s)
+    if not math.isfinite(time_value):
+        raise ValueError("PID schedule time_s must be finite")
+    if time_value <= float(schedule[0]["time_s"]):
+        return {key: float(schedule[0][key]) for key in ("p", "i", "d", "integral_limit")}
+    if time_value >= float(schedule[-1]["time_s"]):
+        return {key: float(schedule[-1][key]) for key in ("p", "i", "d", "integral_limit")}
+    for index in range(1, len(schedule)):
+        right = schedule[index]
+        if time_value <= float(right["time_s"]):
+            left = schedule[index - 1]
+            fraction = (time_value - float(left["time_s"])) / (
+                float(right["time_s"]) - float(left["time_s"])
+            )
+            return {
+                key: float(left[key]) + fraction * (float(right[key]) - float(left[key]))
+                for key in ("p", "i", "d", "integral_limit")
+            }
+    return {key: float(schedule[-1][key]) for key in ("p", "i", "d", "integral_limit")}
+
+
 def update_control_feedback(
     state: Any,
     command_body_acceleration_g: tuple[float, float],
@@ -177,6 +204,7 @@ def update_control_feedback(
     plant_diagnostics: Any | None = None,
     midcourse_fin_fraction: tuple[float, float] = (0.0, 0.0),
     midcourse_weight: float = 0.0,
+    time_s: float = 0.0,
 ) -> dict[str, float]:
     """Return feedback-state updates; the force and moment are applied in dynamics.
 
@@ -213,7 +241,7 @@ def update_control_feedback(
         }
 
     control_cfg = config["control"]
-    pid = control_cfg["pid"]
+    pid = scheduled_pid_values(control_cfg["pid"], time_s)
     dt = max(float(dt_s), 1e-9)
     filter_tau = max(float(control_cfg.get("derivative_filter_time_constant_s", 0.03)), 1e-9)
     alpha = min(1.0, dt / (filter_tau + dt))
@@ -488,7 +516,7 @@ def update_control_feedback(
             fin_name,
             actual_name,
         )
-    if plant_semantics == "fin_torque_body_aoa" and "pitch" in pending_fins and "yaw" in pending_fins:
+    if plant_semantics in {"fin_torque_body_aoa", "rebuild_first_principles"} and "pitch" in pending_fins and "yaw" in pending_fins:
         pitch_fraction, yaw_fraction = limit_unit_disk(
             pending_fins["pitch"][0],
             pending_fins["yaw"][0],
@@ -497,7 +525,7 @@ def update_control_feedback(
         pending_fins["yaw"] = (yaw_fraction,) + pending_fins["yaw"][1:]
         updates["pitch_requested_fin_command"] = pitch_fraction
         updates["yaw_requested_fin_command"] = yaw_fraction
-    actuator_alpha = min(1.0, dt / (max(control_cfg["actuator_time_constant_s"], 1e-9) + dt))
+    actuator_alpha = dt / (max(control_cfg["actuator_time_constant_s"], 0.0) + dt)
     for axis, job in pending_fins.items():
         requested_fin, maximum_fin_angle, fin_angle_name, fin_name, actual_name = job
         desired_fin_angle = requested_fin * authority * maximum_fin_angle
@@ -510,6 +538,7 @@ def update_control_feedback(
             "fin_torque_body_aoa",
             "body_cm_tail_force_moment",
             "generalized_aero_moment",
+            "rebuild_first_principles",
         }:
             # The actuator owns only fin angle; the selected plant resolves
             # physical force/moment outputs.  Keep the old direct-G actuator

@@ -8,3 +8,4 @@ dist/
 outputs/
 data/raw/
 data/datamine/
+data/datamine_*/

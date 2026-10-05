@@ -348,6 +348,11 @@
         "kind": "calibrated",
         "source_field": "r77_1_level_20260824 alpha timeline",
         "notes": "由共享默认 0.15 rad 下调至 0.03 rad（三参数联合标定范围下界 [0.03, 0.15]），是 hold_time_s/blend_time_s/fin_error_ref_rad 联合网格标定的一部分，方法、数据源、目标定义与已知局限见同级 midcourse_lead_turn.hold_time_s 条目。fin_error_ref_rad 主要影响交接末段（航向误差已接近该阈值时）直接舵指令分量的衰减速度，对早期迎角平台峰值影响可忽略——发射后航向误差远大于 0.03-0.15 rad 的候选范围，直接舵分量在平台期本就已饱和于 1.0，这也是网格显示峰值迎角与该参数基本无关（全网格封顶于约 20.1-20.2°）的原因。"
+      },
+      "time_to_hit_gain_table": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.timeToHitToGain*",
+        "notes": "Raw knots preserved; an absent table means unit gain in the shared runtime."
       }
     },
     "sensor_model": {
@@ -471,7 +476,24 @@
           "notes": "保留主动雷达原始映射值。"
         }
       }
-    }
+    },
+    "loft_target_elevation_deg": -3.5,
+    "loft_angle_to_acceleration_multiplier": 17.5,
+    "loft_omega_max_deg_s": 0.5,
+    "time_to_hit_gain_table": [
+      [
+        10.0,
+        1.0
+      ],
+      [
+        25.0,
+        0.8
+      ],
+      [
+        50.0,
+        0.5
+      ]
+    ]
   },
   "control": {
     "pid": {
@@ -556,7 +578,7 @@
     "status": "experimental",
     "validated_cases": [],
     "known_limitations": [
-      "仅完成 profile contract smoke，不等同于 War Thunder/StatShark 求解器复现。",
+      "仅完成 profile contract smoke，不等同于 War Thunder/external reference 求解器复现。",
       "datamine 未声明的 CxAoA、CyK、Mach 气动修正和舵机动态未被虚构。",
       "reqAccelMax 是制导指令上限，不是时间域实际达到过载。",
       "loadFactorMax 是机体横向过载上限，写入 performance.load_factor_max_g。"

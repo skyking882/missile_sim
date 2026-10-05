@@ -1,0 +1,592 @@
+{
+  "schema_version": 1,
+  "missile_id": "su_r_77_1",
+  "display_name": "R-77-1",
+  "country": "USSR / Russia",
+  "category": "air_to_air",
+  "model_status": "experimental",
+  "model_family": {
+    "dynamics": "h2_reduced_order",
+    "propulsion": "staged_solid_rocket",
+    "aerodynamics": "conventional_fin",
+    "control": "aerodynamic_fin",
+    "guidance": "pn_loft"
+  },
+  "geometry": {
+    "initial_mass_kg": 190.0,
+    "caliber_m": 0.2,
+    "length_m": 3.71,
+    "wing_area_multiplier": 1.45,
+    "reference_area_mode": "caliber_times_wing_multiplier",
+    "fin_moment_arm_m": 0.175
+  },
+  "propulsion": {
+    "stages": [
+      {
+        "name": "boost",
+        "duration_s": 7.0,
+        "thrust_n": 24350.0,
+        "mass_lost_kg": 71.0,
+        "isp_s": 244.80370211561674,
+        "fire_delay_s": 0.0,
+        "parameter_sources": {
+          "duration_s": {
+            "kind": "datamine",
+            "source_field": "rocket.timeFire",
+            "notes": "直接读取顶层燃烧时间。"
+          },
+          "thrust_n": {
+            "kind": "datamine",
+            "source_field": "rocket.force",
+            "notes": "直接读取顶层推力。"
+          },
+          "mass_lost_kg": {
+            "kind": "derived",
+            "source_field": "rocket.mass - rocket.massEnd",
+            "notes": "由阶段开始质量和阶段末质量相减。"
+          },
+          "isp_s": {
+            "kind": "derived",
+            "source_field": "thrust_n / (mass_flow_kg_s * g0)",
+            "notes": "由推力、阶段失重和公共重力常数计算。"
+          }
+        }
+      }
+    ],
+    "mach_thrust_correction": null,
+    "parameter_sources": {
+      "stages": {
+        "kind": "datamine",
+        "source_field": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_77_1.blkx",
+        "notes": "阶段由顶层 timeFire/force 或嵌套 propulsion impulse 批量解析。"
+      },
+      "mach_thrust_correction": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "该条目未声明可直接映射的 Mach 推力修正。"
+      }
+    }
+  },
+  "aerodynamics": {
+    "cx_k": 1.65,
+    "cy_k": null,
+    "cx_vs_aoa": {
+      "model": "not_declared",
+      "coefficient_per_rad2": null
+    },
+    "max_cy_at_aoa": {
+      "value": null,
+      "aoa_rad": null
+    },
+    "fins_lateral_acceleration_g": 53.5864,
+    "fin_moment_arm_m": 0.175,
+    "fin_aoa_limit_rad": {
+      "horizontal": 0.460812,
+      "vertical": 0.460812
+    },
+    "mach_drag_correction": {
+      "model": "not_declared",
+      "parameters": null
+    },
+    "mach_lift_correction": {
+      "model": "not_declared",
+      "parameters": null
+    },
+    "drag_scale": 1.0,
+    "lift_area_scale": 1.45,
+    "packed_lift_force_eta_law": {
+      "coefficient": 0.574,
+      "eta_exponent": 0.242,
+      "eta_clamp": [
+        0.35,
+        2.65
+      ]
+    },
+    "parameter_sources": {
+      "cx_k": {
+        "kind": "datamine",
+        "source_field": "rocket.CxK",
+        "notes": "直接读取轴向阻力系数标度。"
+      },
+      "cy_k": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "datamine 未提供 CyK；保留 null，不写入数值假设。"
+      },
+      "cx_vs_aoa": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "datamine 未提供 CxAoA；仅保留模型槽位，未填拟合系数。"
+      },
+      "max_cy_at_aoa": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "datamine 未提供 CyMaxAoA；保留 null。"
+      },
+      "fins_lateral_acceleration_g": {
+        "kind": "datamine",
+        "source_field": "rocket.finsLatAccel",
+        "notes": "直接读取舵面横向加速度能力；部分条目缺失时为 null。"
+      },
+      "fin_moment_arm_m": {
+        "kind": "datamine",
+        "source_field": "rocket.distFromCmToStab",
+        "notes": "直接读取质心到稳定面力臂。"
+      },
+      "fin_aoa_limit_rad": {
+        "kind": "datamine",
+        "source_field": "rocket.finsAoaHor/finsAoaVer",
+        "notes": "直接读取水平/垂直舵面 AoA 限制，原始值按弧度保留。"
+      },
+      "mach_drag_correction": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "datamine 未提供可直接映射的 Mach 阻力修正表。"
+      },
+      "mach_lift_correction": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "datamine 未提供可直接映射的 Mach 升力修正表。"
+      },
+      "drag_scale": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "中性候选标度 1.0；不是 datamine 识别结果。"
+      },
+      "lift_area_scale": {
+        "kind": "datamine",
+        "source_field": "rocket.wingAreaMult",
+        "notes": "直接读取翼面积标度。"
+      },
+      "packed_lift_force_eta_law": {
+        "kind": "fitted",
+        "source_field": null,
+        "notes": "2026-08-24 本弹(su_r_77_1)平射回放 46 帧拟合：k_force(η)=0.574·clamp(η,0.35,2.65)^0.242，逐帧力斜率由 0.45 升至 0.74（η 0.35→2.62），非常数，力律与力矩律(packed_lift_slope_scale)已拆分。单次飞行候选值，未跨弹验证；该飞行内 Mach 数与 η 高度共线，函数形式究竟是 η 幂律还是 Mach 曲线尚不可分辨，待高空判别性回放收敛。旧 30° R-77(su_r_77)慢速回放数据集拟合的平坦 k≈0.577 与本律在中段 η 存在潜在冲突，待重新分析。"
+      }
+    }
+  },
+  "performance": {
+    "maximum_speed_mps": 2000.0,
+    "maximum_distance_m": 120000.0,
+    "lifetime_s": 120.0,
+    "maximum_mach": 4.0,
+    "minimum_distance_m": 30.0,
+    "range_reference_m": 120000.0,
+    "load_factor_max_g": 50.0,
+    "limit_semantics": {
+      "maximum_speed_mps": "hard_limit",
+      "maximum_distance_m": "event_threshold",
+      "lifetime_s": "hard_limit"
+    },
+    "parameter_sources": {
+      "maximum_speed_mps": {
+        "kind": "datamine",
+        "source_field": "rocket.endSpeed",
+        "notes": "直接读取速度上限字段。"
+      },
+      "maximum_distance_m": {
+        "kind": "datamine",
+        "source_field": "rocket.maxDistance",
+        "notes": "直接读取最大距离事件字段。"
+      },
+      "lifetime_s": {
+        "kind": "datamine",
+        "source_field": "rocket.timeLife",
+        "notes": "直接读取寿命字段。"
+      },
+      "maximum_mach": {
+        "kind": "datamine",
+        "source_field": "rocket.machMax",
+        "notes": "直接读取 Mach 上限字段。"
+      },
+      "minimum_distance_m": {
+        "kind": "datamine",
+        "source_field": "rocket.minDistance",
+        "notes": "直接读取最小距离字段。"
+      },
+      "range_reference_m": {
+        "kind": "datamine",
+        "source_field": "rocket.rangeMax",
+        "notes": "直接读取显示/性能参考距离。"
+      },
+      "load_factor_max_g": {
+        "kind": "datamine",
+        "source_field": "rocket.loadFactorMax",
+        "notes": "直接读取机体横向过载上限；缺失时保留 null，由运行时回退 reqAccelMax。"
+      }
+    }
+  },
+  "guidance": {
+    "guidance_type": "pn_loft",
+    "maximum_lateral_acceleration_g": 50.0,
+    "maximum_angular_rate_deg_s": 60.0,
+    "pn_gain": 4.0,
+    "lock_range_m": 16000.0,
+    "lofting_enabled": true,
+    "lofting_elevation_deg": 24.0,
+    "loft_exit_distance_m": null,
+    "loft_exit_time_to_go_s": null,
+    "flight_time_gain_table": [
+      [
+        0.3,
+        0.0
+      ],
+      [
+        0.31,
+        1.0
+      ]
+    ],
+    "proximity_radius_m": 10.0,
+    "seeker_type": "radar",
+    "midcourse_lead_turn": {
+      "mode": "pcc_alpha",
+      "tau_capture_s": 0.3,
+      "capture_alpha_max_deg": 23.7,
+      "release_washout_time_s": 0.0,
+      "los_rate_filter_time_constant_s": 0.0,
+      "hold_time_s": 1.4,
+      "blend_time_s": 0.7,
+      "fin_error_ref_rad": 0.03
+    },
+    "parameter_sources": {
+      "midcourse_lead_turn.mode": {
+        "kind": "identified",
+        "source_field": "r77_1_level_20260824 four-model release discriminant",
+        "notes": "2026-08-26 判别（docs/CAPTURE_RELEASE_DISCRIMINANT.md、scripts/capture_release_discriminant.py）：饱和 PN 零假设被证伪（R_PN 峰值 0.54 于 TRK 时刻、单调下降、与 N 取值无关），发射捕获平台的释放为 ε 驱动 ⇒ 发射捕获采用 PCC-α（预测碰撞航向捕获 + 显式 α 限幅，docs/PCC_ALPHA_V0.md）。本 mode 下 hold_time_s / blend_time_s / fin_error_ref_rad 三个定时器交接参数不再被消费（保留仅作 v1.0.2 §1e 标定记录）；释放时刻由 R_cap=|V·sinε/τ_c|/a_env 下穿 1 的物理事件产生，不再由时间表指定。"
+      },
+      "midcourse_lead_turn.tau_capture_s": {
+        "kind": "calibrated",
+        "source_field": "r77_1_level_20260824 alpha-plateau release bracket",
+        "notes": "区间识别而非点标定：由「最后饱和帧/最先解饱帧」的 Q(t)=V·sinε/a_env 反算，本回放约束 τ_c ∈ ≈[0.23, 0.42] s（帧分类取 t_s=1.9/t_u=2.1；取 t_s=2.1/t_u=2.3 则区间移至 ≈[0.04, 0.23]，分类规则待预注册——见 docs/CAPTURE_RELEASE_DISCRIMINANT.md 措辞收紧段）。0.30 s 为区间内 nominal。跨飞行普适性未验：多场回放区间求交集为可证伪判据（不同高度平射为最廉价判别实验）。"
+      },
+      "midcourse_lead_turn.release_washout_time_s": {
+        "kind": "calibrated",
+        "source_field": "r77_1_level_20260824 post-release alpha shoulder",
+        "notes": "已否决为最终机制（2026-08-26 复审）：标量 washout 能局部拟合总迎角肩部，但把幅值记忆锁死在旧水平捕获方向上，注入约 15–20° 额外航向角（ΔΨ≈a_r·τ_r/V），必然产生游戏中不存在的 4.5–6.5 s 解卷绕（G 峰 31 vs 游戏 17）并迫使 epsilon_exit_deg 25° 掩盖真缺陷。0.95 s 仅保留为 ablation 参考值；正式配置回 0.0。下一步按序：α→G force-closure audit → 幅值/方向分离（polar release）→ 垂直面判别（需带高度列的回放）。 原标定记录：PCC-α v0.1（docs/PCC_ALPHA_V0.md “v0.1” 节）。拟合目标仅取释放后肩部三点 α(t=2.5/2.9/3.4 s)=18.4/14.5/10.5°（回放逐字读数），判据为平方误差和；网格 τ_release∈{0.6,0.8,1.0,1.2,1.5,1.8} × τ_LOS∈{0,0.2,0.3,0.5}，随后在 τ_release∈[0.85,1.15]×τ_LOS∈[0,0.15] 局部细化，A7 场景（8 km/30°/6300 m 平射/ideal_truth）。网格最优（仍能命中的点）为 1.0/0.0（SSE 7.05）；细化后取 0.95 s，因为真正的约束边界不是 SSE 而是 A6 40° 双近炸锚点：τ_release≤0.98 才近炸，1.00 时脱靶 12.8 m，而 ±3° 肩部验收带要求 τ_release≥0.92——0.95 在该窗口内两侧都有余量。所得肩部误差 −0.40/−0.76/−2.77°，近炸 7.46 s/10 m（游戏 ~7.2–7.4），单次 CAPTURE→HOMING 无回跳。已知代价（非拟合项、如实报告）：4.5–6.5 s 卸载谷显著变差（G@4.9 16.9 vs 游戏 2.0，v0 为 8.5），因为本机制把释放后过载全部施加在捕获方向上，会把速度矢量打过碰撞航向约 19°；判别文档已声明该段 G 无法在水平/垂直/符号间归属，故此常数的跨飞行普适性未验，垂直面有仪器的捕获回放为下一步判别实验。上升侧固定为 0.05 s（作动器量级，不参与标定）。"
+      },
+      "midcourse_lead_turn.los_rate_filter_time_constant_s": {
+        "kind": "calibrated",
+        "source_field": "r77_1_level_20260824 A7 endgame (negative result)",
+        "notes": "PCC-α v0.1 机制 B（视线角速率矢量一阶低通，作为导引头跟踪回路带宽的替身）。同一网格标定，结果为 0.0（关闭）：τ≥0.15 s 时末段（>2 km/s 接近速度）的角速率滞后直接丢失拦截（脱靶 100–370 m）；τ≤0.10 s 只换来约 1–2 个 SSE 单位，同时把 5.5–7.2 s 段最大过载推离回放，并使航向偏移余量不足 1.5°。机制保留在代码中（默认 0.0，全弹种逐位不变），待 observation_mode 换成真实导引头模型后再评估。"
+      },
+      "midcourse_lead_turn.capture_alpha_max_deg": {
+        "kind": "identified",
+        "source_field": "r77_1_level_20260824 alpha plateau",
+        "notes": "回放钳位平台实测 23.7°（S008/S009 逐字读数；α 钳住而 G 随 q 爬升 ⇒ 饱和在 α/舵通道而非 G 通道）。物理出处未定：满舵配平 α（datamine fin_aoa_limit=26.4° 在旁）vs 自动驾驶仪 α 限幅，二者判别待做；在此之前作为按弹测量常数使用。包络 a_env = 力通道打包升力斜率×α_max + T·sinα_max/(m·g)，与 physical_normal_g 反馈同为轨迹法向含推力基准（h2_dynamics.capture_alpha_envelope_g）。"
+      },
+      "guidance_type": {
+        "kind": "derived",
+        "source_field": "model_family.guidance",
+        "notes": "由原始制导结构和 loft 标志映射到显式 v1 模型族；不支持类型保持原值，不做 PN 退化。"
+      },
+      "maximum_lateral_acceleration_g": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.reqAccelMax",
+        "notes": "直接读取制导横向指令上限，不等同于实战达到过载。"
+      },
+      "maximum_angular_rate_deg_s": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.radarSeeker.rateMax",
+        "notes": "直接读取 seeker rateMax；语义是 seeker 角速率上限。"
+      },
+      "pn_gain": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.propNavMult",
+        "notes": "直接读取比例导引增益；非 PN 制导 profile 仅保留原始可用字段。"
+      },
+      "lock_range_m": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.lockDistance",
+        "notes": "直接读取锁定距离。"
+      },
+      "lofting_enabled": {
+        "kind": "derived",
+        "source_field": "rocket.guidance.guidanceAutopilot.loftEnabled",
+        "notes": "存在 true 时映射为 pn_loft，否则按未启用处理。"
+      },
+      "lofting_elevation_deg": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.loftElevation",
+        "notes": "直接读取 loft 仰角；未声明时使用 0 度占位。"
+      },
+      "loft_exit_distance_m": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "datamine 未提供与此字段语义一致的退出距离。"
+      },
+      "loft_exit_time_to_go_s": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "datamine 未提供与此字段语义一致的剩余时间门槛。"
+      },
+      "flight_time_gain_table": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.timeToGain*",
+        "notes": "按索引读取飞行时间控制增益表；缺失时保留 null，由运行时显式回退。"
+      },
+      "proximity_radius_m": {
+        "kind": "datamine",
+        "source_field": "rocket.proximityFuse.radius",
+        "notes": "优先读取 proximityFuse.radius；缺失时使用 shutterDamageRadius 作为代理。"
+      },
+      "seeker_type": {
+        "kind": "datamine",
+        "source_field": "rocket.guidanceType",
+        "notes": "直接读取 seeker 制导类型标签。"
+      },
+      "midcourse_lead_turn.hold_time_s": {
+        "kind": "calibrated",
+        "source_field": "r77_1_level_20260824 alpha timeline",
+        "notes": "2026-08-24：发射捕获交接形状由「纯线性衰减」改为「保持-释放」：w(t) 在 [lock_delay_s, lock_delay_s+hold_time_s] 区间恒为 1，此后才在 blend_time_s 内线性衰减到 0（hold_time_s=0 与旧形状逐位一致，见 src/aim120_model/guidance.py 的 midcourse_blend_weight）。hold_time_s=1.4 s 与 blend_time_s=0.7 s、fin_error_ref_rad=0.03 rad 三参数联合标定，唯一数据源是 R-77-1 平射回放（data/replays/r77_1_level_20260824.tsv）的 alpha(t) 时间线，按 dt=0.02 s 采样拟合三个目标：T1 迎角平台 [1.2,1.9]s 内 ≥21°（回放 21.7-23.7°）；T2 首次跌破 17° 的时刻 = 2.05±0.15 s；T3 t=3.4 s 迎角 = 10.5±2.0°（回放 10.5°）。方法：粗网格 hold∈{0.9,1.1,1.3,1.5}×blend∈{0.3,0.5,0.7}×fin_error_ref_rad∈{0.05,0.08,0.10,0.15}（48 组）按 T1-T3 残差平方和最小选优，随后在最优点周围局部细化一轮；G、速度、命中/引信等观测量全部未参与拟合，留作独立留出验证（结果见 docs/UPDATE_V1.0.2.md）。诚实披露：网格显示 T1 在给定三参数范围内不可达——峰值迎角在全部网格点上都封顶于约 20.1-20.2°（与标定前基线 19.9° 一致），封顶原因在这三个交接参数之外，本次标定未触碰；T2 与 T3 通过 hold_time_s 此消彼长，本次选取的最优点（残差平方和 1.26）贴近 T3（模型 10.48° vs 目标 10.5°），T2 落在 2.50 s（超出 2.05±0.15 s 容差 0.30 s）；损失函数是三目标残差（T1 用「未达 21° 的缺口」、T2 用秒、T3 用度）的未加权平方和，未做容差归一化。回放中导引头状态自 t=0.9 s 起已为 TRK，故这整段窗口是自动驾驶仪 launch capture handover（发射捕获交接）记忆时长，不是导引头 IOG 持续时间，命名/注释均按此区分，不称 IOG。lock_delay_s 维持共享默认 0.8 s 不变。"
+      },
+      "midcourse_lead_turn.blend_time_s": {
+        "kind": "calibrated",
+        "source_field": "r77_1_level_20260824 alpha timeline",
+        "notes": "由共享默认 0.5 s 改为 0.7 s，是 hold_time_s/blend_time_s/fin_error_ref_rad 三参数联合网格标定的一部分，方法、数据源、目标定义、粗网格/局部细化流程与已知局限（T1 不可达、T2/T3 此消彼长）见同级 midcourse_lead_turn.hold_time_s 条目，不重复展开。此前(2026-08-24 前)取值 1.3 s 是仅覆盖 blend_time_s 单参数的旧标定，已被本次三参数联合标定取代。"
+      },
+      "midcourse_lead_turn.fin_error_ref_rad": {
+        "kind": "calibrated",
+        "source_field": "r77_1_level_20260824 alpha timeline",
+        "notes": "由共享默认 0.15 rad 下调至 0.03 rad（三参数联合标定范围下界 [0.03, 0.15]），是 hold_time_s/blend_time_s/fin_error_ref_rad 联合网格标定的一部分，方法、数据源、目标定义与已知局限见同级 midcourse_lead_turn.hold_time_s 条目。fin_error_ref_rad 主要影响交接末段（航向误差已接近该阈值时）直接舵指令分量的衰减速度，对早期迎角平台峰值影响可忽略——发射后航向误差远大于 0.03-0.15 rad 的候选范围，直接舵分量在平台期本就已饱和于 1.0，这也是网格显示峰值迎角与该参数基本无关（全网格封顶于约 20.1-20.2°）的原因。"
+      },
+      "time_to_hit_gain_table": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.timeToHitToGain*",
+        "notes": "Raw knots preserved; an absent table means unit gain in the shared runtime."
+      }
+    },
+    "sensor_model": {
+      "active_radar": true,
+      "inertial_navigation": true,
+      "use_target_velocity": true,
+      "lock_after_launch": true,
+      "lock_timeout_s": 0.75,
+      "break_lock_max_time_s": 100.0,
+      "inertial_drift_speed_mps": 2.0,
+      "datalink": true,
+      "reconnect_datalink": false,
+      "radar_seeker": {
+        "band": 8.0,
+        "active": true,
+        "angle_gate_rate_deg_s": 30.0,
+        "prolongation_time_max_s": 1.0,
+        "multipath_effect": [
+          0.0,
+          1.0,
+          60.0,
+          0.0
+        ],
+        "side_lobes_attenuation_db": -30.0,
+        "lock_angle_max_deg": 55.0,
+        "angle_max_deg": 55.0,
+        "rate_max_deg_s": 60.0,
+        "doppler_speed_gate": {
+          "filter_alpha": 0.8,
+          "filter_beta": 0.05,
+          "search_range_mps": 300.0
+        },
+        "dist_gate": {
+          "filter_alpha": 0.8,
+          "filter_beta": 0.05,
+          "search_range_m": 5000.0
+        },
+        "transmitter": {
+          "power": 100.0,
+          "antenna": {
+            "angle_half_sens_deg": 15.0,
+            "side_lobes_sensitivity_db": -30.0
+          }
+        },
+        "receiver": {
+          "rcs_m2": 2.0,
+          "range_m": 16000.0,
+          "range_max_m": 25000.0,
+          "time_gain_control": false,
+          "antenna": {
+            "angle_half_sens_deg": 15.0,
+            "side_lobes_sensitivity_db": -30.0
+          }
+        },
+        "doppler_speed": {
+          "presents": true,
+          "min_mps": -3000.0,
+          "max_mps": 3000.0,
+          "width_mps": 20.0,
+          "ref_width_mps": 80.0,
+          "signal_width_min_mps": 5.0
+        },
+        "distance": {
+          "presents": true,
+          "min_m": 300.0,
+          "max_m": 150000.0,
+          "width_m": 300.0,
+          "signal_width_min_m": 300.0,
+          "ref_width_m": 1200.0
+        }
+      },
+      "parameter_sources": {
+        "active_radar": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.radarSeeker.active",
+          "notes": "直接读取主动雷达标志。"
+        },
+        "inertial_navigation": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.inertialNavigation",
+          "notes": "直接读取惯性导航标志。"
+        },
+        "use_target_velocity": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.useTargetVel",
+          "notes": "直接读取目标速度使用标志。"
+        },
+        "lock_after_launch": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.lockAfterLaunch",
+          "notes": "直接读取发射后锁定标志。"
+        },
+        "lock_timeout_s": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.lockTimeOut",
+          "notes": "直接读取锁定超时字段；本阶段只保留。"
+        },
+        "break_lock_max_time_s": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.breakLockMaxTime",
+          "notes": "直接读取惯性保持最大时间。"
+        },
+        "inertial_drift_speed_mps": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.inertialGuidance.inertialNavigationDriftSpeed",
+          "notes": "直接读取惯性导航漂移速度。"
+        },
+        "datalink": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.inertialGuidance.datalink",
+          "notes": "直接读取数据链标志。"
+        },
+        "reconnect_datalink": {
+          "kind": "assumed",
+          "source_field": null,
+          "notes": "原始字段缺失，按计划固定为 false。"
+        },
+        "radar_seeker": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.radarSeeker",
+          "notes": "保留主动雷达原始映射值。"
+        }
+      }
+    },
+    "loft_target_elevation_deg": -3.5,
+    "loft_angle_to_acceleration_multiplier": 17.5,
+    "loft_omega_max_deg_s": 0.5,
+    "time_to_hit_gain_table": [
+      [
+        10.0,
+        1.0
+      ],
+      [
+        25.0,
+        0.8
+      ],
+      [
+        50.0,
+        0.5
+      ]
+    ]
+  },
+  "control": {
+    "pid": {
+      "p": 0.0071,
+      "i": 0.005,
+      "d": 0.00015,
+      "integral_limit": 1.0
+    },
+    "base_indicated_speed_kmh": 1800.0,
+    "fin_command_limit": 1.0,
+    "actuator_time_constant_s": null,
+    "max_pitch_yaw_rate_deg_s": null,
+    "identified_controller": null,
+    "parameter_sources": {
+      "pid.p": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.accelControlProp",
+        "notes": "直接读取比例控制项。"
+      },
+      "pid.i": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.accelControlIntg",
+        "notes": "直接读取积分控制项。"
+      },
+      "pid.d": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.accelControlDiff",
+        "notes": "直接读取微分控制项。"
+      },
+      "pid.integral_limit": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.accelControlIntgLim",
+        "notes": "直接读取积分限幅。"
+      },
+      "base_indicated_speed_kmh": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.baseIndSpeed",
+        "notes": "直接读取自动驾驶仪基准指示空速；原始数值按 km/h 候选语义保留，确切求解公式尚未确认。"
+      },
+      "fin_command_limit": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "标准化舵面命令中性上限 1.0；datamine 未声明该接口量。"
+      },
+      "actuator_time_constant_s": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "datamine 未提供独立舵机时间常数。"
+      },
+      "max_pitch_yaw_rate_deg_s": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "datamine 未提供导弹俯仰/偏航速率上限。"
+      },
+      "identified_controller": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "没有外部识别控制器结果；不得把 PID 与独立识别层混合。"
+      }
+    }
+  },
+  "provenance": {
+    "source_name": "War Thunder public datamine",
+    "source_version": "2.57.1.107",
+    "source_commit": "3f20645862c538b46c94e3f60ee30da9dfacd81a",
+    "retrieved_date": "2026-08-22",
+    "source_files": [
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_77_1.blkx",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_77_1_default.blkx",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_rvv_sd.blkx",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_rvv_sd_default.blkx"
+    ],
+    "source_sha256": {
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_77_1.blkx": "4c1d20e5a9d8aa24159d0887ee747184ac6fc39d541d358fe47c89245cc328a5",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_77_1_default.blkx": "4c1d20e5a9d8aa24159d0887ee747184ac6fc39d541d358fe47c89245cc328a5",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_rvv_sd.blkx": "4c1d20e5a9d8aa24159d0887ee747184ac6fc39d541d358fe47c89245cc328a5",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_rvv_sd_default.blkx": "4c1d20e5a9d8aa24159d0887ee747184ac6fc39d541d358fe47c89245cc328a5"
+    },
+    "notes": "批处理导入；canonical source=aces.vromfs.bin_u/gamedata/weapons/rocketguns/su_r_77_1.blkx；raw bulletName='su_r_77_1'。按 bulletName 去重，保留所有 default、平台和吊舱变体路径。本 profile 是实验性数据层，不代表端到端轨迹已验证；缺失字段保留 null 或中性占位。"
+  },
+  "validation": {
+    "status": "experimental",
+    "validated_cases": [],
+    "known_limitations": [
+      "仅完成 profile contract smoke，不等同于 War Thunder/external reference 求解器复现。",
+      "datamine 未声明的 CxAoA、CyK、Mach 气动修正和舵机动态未被虚构。",
+      "reqAccelMax 是制导指令上限，不是时间域实际达到过载。",
+      "loadFactorMax 是机体横向过载上限，写入 performance.load_factor_max_g。"
+    ]
+  },
+  "runtime": {
+    "implemented": true,
+    "config_path": null,
+    "notes": "使用公共 Python profile_h2_universal_v2 模型层并叠加本 JSON 的导弹参数；仍保持 experimental 状态。"
+  }
+}

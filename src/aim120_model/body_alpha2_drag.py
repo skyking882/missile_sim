@@ -108,7 +108,7 @@ class BodyAlpha2Parameters:
     """H5 parameters at Mach 1.5.
 
     ``k_residual_1p5`` is the CxAoA=0 residual alpha-squared coefficient and
-    ``s_cx_aoa_1p5`` is the observed coefficient slope per StatShark field
+    ``s_cx_aoa_1p5`` is the observed coefficient slope per external reference field
     unit.  Both have units m²/rad².
     """
 

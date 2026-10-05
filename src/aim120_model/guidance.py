@@ -293,13 +293,13 @@ _PCC_LOS_RATE_KEY = "pcc_los_rate_filtered"
 def pcc_filter_step_s(time_s: float, guidance_state: dict[str, Any]) -> float:
     """Return the elapsed time since the PCC filters last advanced.
 
-    ``guidance_command`` runs TWICE per timestamp in the H2 run loop (once in
-    the step loop, once in ``_sample`` at the same t), so every stateful PCC
-    filter shares this one guard: the first call at a new timestamp consumes
-    the real step, the repeat call at the same timestamp gets 0.0 and
-    therefore re-reads an unchanged filter state.  The first call of a run
-    also gets 0.0, which seeds each filter at its raw value instead of at
-    zero (no spurious start-of-flight transient).
+    The H2 run loop evaluates ``guidance_command`` exactly once per timestamp
+    (telemetry reuses that command), but every stateful PCC filter still
+    shares this one guard: the first call at a new timestamp consumes the
+    real step, and any repeated call at the same timestamp — e.g. a legacy or
+    external caller — gets 0.0 and therefore re-reads an unchanged filter
+    state.  The first call of a run also gets 0.0, which seeds each filter at
+    its raw value instead of at zero (no spurious start-of-flight transient).
     """
 
     last = guidance_state.get(_PCC_FILTER_TIME_KEY)
@@ -547,6 +547,7 @@ def guidance_command(
     enabled: bool,
     guidance_state: dict[str, Any] | None = None,
     plant_envelope_g: float | None = None,
+    axial_specific_force_g: float = 0.0,
 ) -> GuidanceOutput:
     """Build the existing PN/loft command from a copied track solution.
 
@@ -683,7 +684,7 @@ def guidance_command(
             release_washout_time_s > 0.0 or los_rate_filter_time_constant_s > 0.0
         )
         # One shared dt per timestamp for every PCC filter (see
-        # pcc_filter_step_s: guidance_command runs twice per timestamp).
+        # pcc_filter_step_s: repeated same-timestamp calls read, not advance).
         pcc_filter_dt_s = (
             pcc_filter_step_s(time_s, guidance_state) if pcc_filters_live else 0.0
         )
@@ -725,7 +726,9 @@ def guidance_command(
             commanded = sub(commanded, scale(v_hat, dot(commanded, v_hat)))
             commanded = clamp_norm(commanded, max_accel)
     else:
-        midcourse_weight = midcourse_blend_weight(time_s, midcourse_cfg)
+        midcourse_weight = (
+            midcourse_blend_weight(time_s, midcourse_cfg) if midcourse_active else 0.0
+        )
         midcourse_command = scale(midcourse_accel, midcourse_weight) if midcourse_active else (0.0, 0.0, 0.0)
         commanded = add_vectors(add_vectors(pn, loft), midcourse_command)
         commanded = sub(commanded, scale(v_hat, dot(commanded, v_hat)))
@@ -740,113 +743,12 @@ def guidance_command(
         midcourse_weight = 0.0
     axes = body_axes_for_state(state)
     if pcc_active:
-        # a_n^-1 step of PCC-alpha: the packed force law is linear in alpha,
-        # so alpha_cmd = alpha_max * clip(R_cap, 0, 1), and this plant trims
-        # at alpha = delta (I*omega_dot = K(delta-alpha) - C*omega), so the
-        # fin-angle command that realizes alpha_cmd IS alpha_cmd.  Route it
-        # through the existing direct fin path (weight=1 engages control.py's
-        # tracking-mode integrator for bumpless handover); the accel-PID alone
-        # is known to be far too sluggish to reach the launch-capture plateau
-        # (the original v1.0.2 Sec.1 finding).  While saturated (R>=1) this
-        # holds alpha_max; as R falls below 1 the commanded alpha releases
-        # continuously -- the platform release is this fraction shrinking, not
-        # a schedule.
-        alpha_full_rad = deg_to_rad(float(midcourse_cfg["capture_alpha_max_deg"]))
-        pitch_fin_limit_rad = math.radians(
-            max(float(config["aerodynamics"]["horizontal_fin_aoa_limit_deg"]), 1e-9)
-        )
-        capture_now = capture_mode == PCC_CAPTURE
-        if capture_now:
-            demand_ratio = clamp(capture_ratio, 0.0, 1.0)
-            demand_hat = midcourse_e_hat
-        else:
-            # v0.1: HOMING's own command run through the SAME a_n^-1 inversion,
-            # so the washout below has something to relax INTO.  Unused when
-            # release_washout_time_s == 0 (the v0 branch routes nothing here).
-            demand_ratio = (
-                clamp(norm(commanded) / envelope_mps2, 0.0, 1.0) if envelope_mps2 else 0.0
-            )
-            demand_hat = normalize(commanded, fallback=(0.0, 0.0, 0.0))
-        fin_fraction_mag = clamp(
-            alpha_full_rad * demand_ratio / pitch_fin_limit_rad, 0.0, 1.0
-        )
-        raw_fin_fraction = limit_unit_disk(
-            dot(demand_hat, axes.up) * fin_fraction_mag,
-            dot(demand_hat, axes.right) * fin_fraction_mag,
-        )
-        release_memory_mode = str(midcourse_cfg.get("release_memory_mode", "scalar"))
-        if (
-            release_washout_time_s > 0.0
-            and guidance_state is not None
-            and release_memory_mode == "polar"
-        ):
-            # 2026-08-26c 'polar release' ablation (docs/PCC_ALPHA_V0.md): the
-            # magnitude memory is kept but the direction slews quickly to the
-            # CURRENT total demand -- built from the specific-force vector
-            # (kinematic command minus gravity), whose >= 1 g vertical share
-            # keeps the target direction defined when PN's demand vanishes.
-            gravity_ref = (0.0, -float(config["atmosphere"]["gravity_mps2"]), 0.0)
-            sf_ref = sub(commanded, gravity_ref)
-            direction_target = (dot(sf_ref, axes.up), dot(sf_ref, axes.right))
-            lagged_fraction = pcc_polar_washout_fin_fraction(
-                raw_fin_fraction,
-                direction_target,
-                pcc_filter_dt_s,
-                release_washout_time_s,
-                guidance_state,
-            )
-            midcourse_weight = pcc_washout_weight(
-                1.0 if capture_now else 0.0,
-                pcc_filter_dt_s,
-                release_washout_time_s,
-                guidance_state,
-            )
-            midcourse_fin_fraction = limit_unit_disk(
-                midcourse_weight * lagged_fraction[0],
-                midcourse_weight * lagged_fraction[1],
-            )
-        elif release_washout_time_s > 0.0 and guidance_state is not None:
-            # v0.1 release washout (docs/PCC_ALPHA_V0.md).  v0 dropped the
-            # routed command to zero the instant the state machine handed off,
-            # which collapsed alpha in ~0.6 s; the replay's shoulder decays over
-            # ~1.5 s and no PN-derived signal can supply it (the true lambda-dot
-            # is ~0 there), so the capture channel keeps the memory.
-            #
-            # Two states, both with the same time constant:
-            #   * the alpha-inverted demand itself is LAGGED, so the routed fin
-            #     command is continuous through the handoff (the demand steps,
-            #     the lag does not) and then relaxes into what PN is asking for
-            #     -- not into a frozen vector.  Relaxing into PN is what keeps
-            #     the residual from flying the airframe past the collision
-            #     course: once the demand reverses, the lag follows it down.
-            #   * the direct-routing weight crossfades 1 -> 0, and it multiplies
-            #     the routed fraction.  So CAPTURE is exactly v0 (w=1, routed =
-            #     alpha_max*R), the handoff instant is bumpless (w still 1),
-            #     PID/PN authority (1-w) grows back at the same rate the routed
-            #     command fades, and at w=0 the direct term is gone rather than
-            #     double-counting PN's own feed-forward.
-            # The handoff / recapture gates themselves are untouched.
-            lagged_fraction = pcc_washout_fin_fraction(
-                raw_fin_fraction, pcc_filter_dt_s, release_washout_time_s, guidance_state
-            )
-            midcourse_weight = pcc_washout_weight(
-                1.0 if capture_now else 0.0,
-                pcc_filter_dt_s,
-                release_washout_time_s,
-                guidance_state,
-            )
-            midcourse_fin_fraction = (
-                midcourse_weight * lagged_fraction[0],
-                midcourse_weight * lagged_fraction[1],
-            )
-        elif capture_now:
-            midcourse_fin_fraction = raw_fin_fraction
-            midcourse_weight = 1.0
-        else:
-            midcourse_fin_fraction = (0.0, 0.0)
-        capture_routed_alpha_rad = (
-            math.hypot(*midcourse_fin_fraction) * pitch_fin_limit_rad
-        )
+        # PCC supplies the alpha-limited acceleration command computed above.
+        # The existing accelControl PID turns its measured load error into fin
+        # deflection. Do not equate desired body AoA with a fin-angle command:
+        # actual AoA follows from the force, moment, and actuator dynamics.
+        midcourse_fin_fraction = (0.0, 0.0)
+        midcourse_weight = 0.0
     elif midcourse_active and midcourse_weight > 0.0:
         # Direct IOG fin routing: same PIP lead-turn geometry as the
         # acceleration term above, projected onto the body pitch/yaw axes and
@@ -871,8 +773,6 @@ def guidance_command(
     # clamped to reqAccelMax so a 38 g kinematic command plus 1 g hold
     # does not become a 39 g controller demand.
     raw_required = clamp_norm(sub(commanded, gravity_vector), max_accel)
-    body_pitch_sf_g = mps2_to_g(dot(raw_required, axes.up), gravity_mps2)
-    body_yaw_sf_g = mps2_to_g(dot(raw_required, axes.right), gravity_mps2)
     wind_basis = cg_wind_normal_basis(state, config)
     required_specific_force = clamp_norm(
         sub(
@@ -898,11 +798,24 @@ def guidance_command(
     candidate = plant_semantics in {
         "body_cm_tail_force_moment",
         "generalized_aero_moment",
+        "rebuild_first_principles",
     }
     if candidate:
         controller_command = wind_command
     elif plant_semantics == "fin_torque_body_aoa":
-        controller_command = (body_pitch_sf_g, body_yaw_sf_g)
+        # PN controls the normal acceleration, leaving axial acceleration to
+        # propulsion and drag. Complete the requested specific-force vector
+        # with the measured axial component before projecting onto body axes.
+        # Otherwise an achieved normal command still leaves an alpha-dependent
+        # PID error whenever the missile accelerates or decelerates along V.
+        completed_required = add_vectors(
+            required_specific_force,
+            scale(wind_basis.forward, axial_specific_force_g * gravity_mps2),
+        )
+        controller_command = (
+            mps2_to_g(dot(completed_required, axes.up), gravity_mps2),
+            mps2_to_g(dot(completed_required, axes.right), gravity_mps2),
+        )
     else:
         # Frozen H1/H2 compatibility: kinematic body command, no gravity term.
         controller_command = (body_pitch_g, body_yaw_g)

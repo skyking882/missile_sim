@@ -303,6 +303,7 @@ class SensorTrackProvider:
     """Compose radar, per-tick datalink, and deterministic INS propagation."""
 
     provider_name = "radar_datalink_ins_v1"
+    supports_decoys = True
 
     def __init__(
         self,
@@ -336,6 +337,11 @@ class SensorTrackProvider:
         reconnect_value = sensor_model.get("reconnect_datalink", sensor_model.get("reconnectDatalink"))
         self.reconnect_datalink = False if reconnect_value is None else bool(reconnect_value)
         self.radar_has_tracked_once = False
+        # Opt-in (enable_launcher_radar): the datalink lasts only while the launching
+        # aircraft's own radar still holds the target; off by default.
+        self.launcher_radar: tuple[Vector, Vector, float] | None = None
+        self.datalink_lost_time_s: float | None = None
+        self.datalink_lost_reason = ""
         self.update_count = 0
         self.datalink_update_count = 0
         self.last_detection: RadarDetection | None = None
@@ -343,6 +349,8 @@ class SensorTrackProvider:
         self.observation_reject_reason = ""
         self.first_lock_loss_time_s: float | None = None
         self.first_reacquire_time_s: float | None = None
+        self.first_decoy_track_time_s: float | None = None
+        self.decoy_track_ticks = 0
 
     @property
     def seeker_state(self) -> SeekerState:
@@ -371,7 +379,36 @@ class SensorTrackProvider:
     def radar_notch_half_width_mps(self) -> float:
         return self.radar.notch_half_width_mps
 
-    def _refresh_datalink_state(self, time_s: float) -> None:
+    def enable_launcher_radar(self, position: Vector, velocity: Vector, gimbal_deg: float) -> None:
+        """Tie the datalink to the launcher's radar track (user-reported game rule, D).
+
+        The launcher flies straight on at its launch velocity. Its radar loses the
+        target, and the datalink drops for good, once the target leaves the
+        ``gimbal_deg`` cone about the launcher's velocity, or sits in the ground
+        clutter notch as seen from the launcher: the seeker's clutter rule from the
+        launcher's position, and a ground radial speed within the seeker's notch
+        half-width (the launcher radar's own width is not in the game files used).
+        """
+        self.launcher_radar = (tuple(position), tuple(velocity), math.radians(gimbal_deg))
+
+    def _launcher_loses_target(self, time_s: float, target_truth: TargetState) -> str:
+        position, velocity, gimbal = self.launcher_radar
+        launcher = add(position, scale(velocity, time_s))
+        relative = sub(target_truth.position, launcher)
+        range_m = norm(relative)
+        if range_m <= 1.0e-9:
+            return ""
+        los = scale(relative, 1.0/range_m)
+        speed = norm(velocity)
+        if speed > 1.0e-9 and math.acos(clamp(dot(velocity, los)/speed, -1.0, 1.0)) > gimbal:
+            return "launcher_gimbal"
+        look_down = target_truth.position[1] < launcher[1]
+        if self.radar._on_clutter(look_down, launcher, range_m, relative) \
+                and abs(dot(target_truth.velocity, los)) <= self.radar.notch_half_width_mps:
+            return "launcher_clutter_notch"
+        return ""
+
+    def _refresh_datalink_state(self, time_s: float, target_truth: TargetState | None = None) -> None:
         if not self.datalink_enabled:
             self.datalink_connected = False
             return
@@ -379,6 +416,11 @@ class SensorTrackProvider:
             self.datalink_connected = False
         if self.radar_has_tracked_once and not self.reconnect_datalink:
             self.datalink_connected = False
+        if self.launcher_radar is not None and self.datalink_connected and target_truth is not None:
+            reason = self._launcher_loses_target(time_s, target_truth)
+            if reason:
+                self.datalink_connected = False
+                self.datalink_lost_time_s, self.datalink_lost_reason = time_s, reason
 
     @staticmethod
     def _datalink_solution(time_s: float, target_truth: TargetState) -> TrackSolution:
@@ -401,11 +443,21 @@ class SensorTrackProvider:
         dt_s: float,
         missile_state: Any,
         target_truth: TargetState,
+        decoys: list[Any] | None = None,
+        target_rcs_m2: float = 1.0,
     ) -> TrackSolution:
         time_s = float(time_s)
         self.update_count += 1
-        self._refresh_datalink_state(time_s)
-        detection, radar_solution = self.radar.update(time_s, dt_s, missile_state, target_truth)
+        self._refresh_datalink_state(time_s, target_truth)
+        if decoys is None:
+            detection, radar_solution = self.radar.update(time_s, dt_s, missile_state, target_truth)
+        else:
+            detection, radar_solution = self.radar.update(time_s, dt_s, missile_state, target_truth,
+                                                          decoys=decoys, target_rcs_m2=target_rcs_m2)
+            if detection.valid and radar_solution is not None and self.radar.last_reflector != "target":
+                self.decoy_track_ticks += 1
+                if self.first_decoy_track_time_s is None:
+                    self.first_decoy_track_time_s = time_s
         self.last_detection = detection
         self.observation_reject_reason = "" if detection.valid else detection.reason
         if detection.valid and radar_solution is not None and radar_solution.mode is TrackMode.RADAR_TRACK:

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "runtime_name": "profile_h2_rebuild_first_principles_v1",
+  "enable_supported_profiles": true,
+  "plant_model": "rebuild_first_principles_v1",
+  "fin_force_q_scaling": true,
+  "fin_force_q_ratio_max": 4.0,
+  "rebuild_force_moment_candidate": {
+    "alpha_force_gain": 2.0,
+    "delta_force_gain": -1.0,
+    "alpha_moment_gain": -1.0,
+    "delta_moment_gain": 1.0,
+    "rate_moment_gain": 0.0,
+    "alpha_dot_moment_gain": 0.0
+  },
+  "midcourse_lead_turn": {
+    "enabled": false
+  },
+  "boundary": "Rebuild v1: shared linear CN(alpha,delta) and Cm(alpha,delta) with raw fin force and moment channels; PN and raw acceleration PID retained, launch-capture handover and replay-derived R-77 terms disabled. Nominal normalized gains are transparent shared hypotheses, not datamine coefficients: alpha_force_gain=2 represents equal unit body/fixed-surface and tail alpha-force contributions, while alpha_moment_gain=-1 represents tail-only restoring moment with zero body moment; delta_force_gain=-1 and delta_moment_gain=1 are the matching fin-control hypotheses. Force uses initial-mass reference with q/q_base; I=mL^2/12; unprovided rate and alpha-dot terms are zero hypotheses only. Loft fields are read per missile from the local raw blkx; loftTargetElevation is preserved but unresolved because the current first-order loft command does not consume it."
+}

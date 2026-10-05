@@ -181,7 +181,7 @@ def compare_force_directions(rows: Sequence[Mapping[str, Any]]) -> Dict[str, Any
             and comparisons["flow_normal"]["projection_rms_n"] <= comparisons["body_normal"]["projection_rms_n"]
             else None
         ),
-        "interpretation": "Projection comparison is not a causal StatShark formula claim.",
+        "interpretation": "Projection comparison is not a causal external reference formula claim.",
     }
 
 

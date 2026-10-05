@@ -130,7 +130,7 @@ def test_public_loft_switch_defaults_off_and_blocks_profile_loft() -> None:
 
     normalized = validate_scenario(scenario)
     assert normalized["loft_enabled"] is False
-    result = simulate(aim120a, scenario)
+    result = simulate(aim120a, scenario, model_mode="legacy_h2")
 
     assert result["summary"]["scenario_loft_enabled"] is False
     assert result["summary"]["profile_lofting_enabled"] is True
@@ -148,7 +148,7 @@ def test_public_loft_switch_explicit_on_runs_existing_gate() -> None:
         "max_simulation_time_s": 1.0,
     })
 
-    result = simulate(aim120a, scenario)
+    result = simulate(aim120a, scenario, model_mode="legacy_h2")
 
     assert result["summary"]["scenario_loft_enabled"] is True
     assert result["summary"]["loft_enabled"] is True
@@ -159,7 +159,7 @@ def test_unified_simulate_returns_summary_markers_and_target_trajectory_without_
     profiles, _ = scan_library(ROOT / "missiles", ROOT)
     aim120a = next(profile for profile in profiles if profile["id"] == "aim-120a")
     before = {path.relative_to(ROOT) for path in (ROOT / "outputs").rglob("*") if path.is_file()}
-    result = simulate(aim120a, _scenario())
+    result = simulate(aim120a, _scenario(), model_mode="legacy_h2")
     after = {path.relative_to(ROOT) for path in (ROOT / "outputs").rglob("*") if path.is_file()}
     assert before == after
     assert result["summary"]["termination_event"] == "lifetime"
@@ -178,7 +178,7 @@ def test_unified_simulate_rejects_unsupported_engine_and_control_types() -> None
         "physics": {"engine_type": "unknown", "control_type": "unknown"},
     }
     try:
-        simulate(profile, _scenario())
+        simulate(profile, _scenario(), model_mode="legacy_h2")
     except UnsupportedPhysicsError as exc:
         assert "发动机类型" in str(exc)
     else:
@@ -193,6 +193,9 @@ def test_gui_contains_interactive_colored_3d_scene() -> None:
     assert 'id="loft-enabled-toggle"' in html
     assert "默认关闭" in html
     assert "sensor_track" in html
+    assert "ideal_truth" not in html
+    assert 'id="model-mode-select"' not in html
+    assert 'scenario.observation_mode = "sensor_track"' in javascript
     assert 'id="reset-3d"' in html
     assert "发动机切段" in html
     assert "燃尽" in html
@@ -217,7 +220,7 @@ def test_all_supported_profiles_are_runnable_through_universal_adapter() -> None
     assert sum(item["runnable"] for item in public) == 116
     assert sum(not item["runnable"] for item in public) == 4
     pl12 = next(profile for profile in profiles if profile.get("missile_id") == "cn_pl12")
-    result = simulate(pl12, _scenario())
+    result = simulate(pl12, _scenario(), model_mode="legacy_h2")
     assert result["model"]["runtime_adapter"] == "profile_h2_fin_torque_aoa_v12"
     assert result["model"]["runtime_assumptions"]
     assert result["missile"]["status"] == "experimental"
@@ -260,7 +263,7 @@ def test_universal_control_mapping_keeps_representative_profiles_controllable() 
     indexed = {profile.get("missile_id"): profile for profile in profiles}
 
     for missile_id in ("il_derby", "su_r_27er", "su_r_77", "us_aim7f_sparrow"):
-        result = simulate(indexed[missile_id], _off_axis_38_scenario())
+        result = simulate(indexed[missile_id], _off_axis_38_scenario(), model_mode="legacy_h2")
         assert result["summary"]["minimum_distance_m"] < 100.0
 
 
@@ -285,7 +288,7 @@ def test_r77_high_demand_case_tracks_without_permanent_integral_error() -> None:
     profiles, errors = scan_library(ROOT / "missiles", ROOT)
     assert errors == []
     r77 = next(profile for profile in profiles if profile.get("missile_id") == "su_r_77")
-    result = simulate(r77, _r77_high_demand_scenario())
+    result = simulate(r77, _r77_high_demand_scenario(), model_mode="legacy_h2")
 
     # Rate-inner candidate still pulls on this lofted 45 deg case instead of
     # freezing on a wound-up I term.  Peak path G is no longer q-boosted.
@@ -298,7 +301,7 @@ def test_heading_minus20_case_keeps_aim120a_intercept_under_rate_inner() -> None
     assert errors == []
     indexed = {profile.get("missile_id"): profile for profile in profiles}
     results = {
-        missile_id: simulate(indexed[missile_id], _heading_minus20_scenario())
+        missile_id: simulate(indexed[missile_id], _heading_minus20_scenario(), model_mode="legacy_h2")
         for missile_id in ("us_aim_120a", "cn_pl12", "su_r_77", "jp_aam4")
     }
 
@@ -316,7 +319,7 @@ def test_sensor_track_step_budget_reaches_requested_time_after_stage_splits() ->
     scenario = _heading_minus20_scenario()
     scenario["observation_mode"] = "sensor_track"
     scenario["max_simulation_time_s"] = 7.0
-    result = simulate(r_darter, scenario)
+    result = simulate(r_darter, scenario, model_mode="legacy_h2")
 
     assert result["summary"]["termination_event"] == "lifetime"
     assert result["summary"]["termination_detail"] == "reached_scenario_time_limit"
@@ -331,7 +334,7 @@ def _command_g(sample: dict) -> float:
 def test_fuse_terminal_sample_does_not_rebuild_one_over_r_command() -> None:
     profiles, _ = scan_library(ROOT / "missiles", ROOT)
     aim120a = next(profile for profile in profiles if profile["missile_id"] == "us_aim_120a")
-    result = simulate(aim120a, _off_axis_38_scenario())
+    result = simulate(aim120a, _off_axis_38_scenario(), model_mode="legacy_h2")
     assert result["summary"]["termination_event"] == "proximity_fuse"
     last = result["samples"][-1]
     previous = result["samples"][-2]

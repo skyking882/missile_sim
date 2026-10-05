@@ -172,7 +172,7 @@ def coverage_report(
             "max": max((item[1] for item in merged), default=None),
         },
         "adjacent_overlap": adjacent_overlap_report(rows, minimum_overlap_width_mach),
-        "support_status": "reference_data_present" if rows else "blocked_missing_statshark_reference_time_series",
+        "support_status": "reference_data_present" if rows else "blocked_missing_external reference_reference_time_series",
     }
 
 

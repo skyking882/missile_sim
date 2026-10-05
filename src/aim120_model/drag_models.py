@@ -53,6 +53,29 @@ INTERPOLATED_CX_1943_X1_10 = "interpolated_cx_1943_x1_10"
 
 
 def mach_multiplier(mach: float, settings: dict[str, Any]) -> float:
+    if settings.get("model") == "lookup_table":
+        raw = settings.get("parameters")
+        if not isinstance(raw, (list, tuple)) or len(raw) < 2:
+            raise ValueError("mach multiplier lookup table must contain at least two knots")
+        table = tuple((float(row[0]), float(row[1])) for row in raw)
+        previous = -math.inf
+        for knot_mach, multiplier in table:
+            if not math.isfinite(knot_mach) or knot_mach <= previous:
+                raise ValueError("mach multiplier table knots must be finite and strictly increasing")
+            if not math.isfinite(multiplier) or multiplier <= 0.0:
+                raise ValueError("mach multiplier table values must be finite and positive")
+            previous = knot_mach
+        if not math.isfinite(mach) or mach <= table[0][0]:
+            return table[0][1]
+        if mach >= table[-1][0]:
+            return table[-1][1]
+        for index in range(1, len(table)):
+            mach_hi, value_hi = table[index]
+            if mach <= mach_hi:
+                mach_lo, value_lo = table[index - 1]
+                fraction = (mach - mach_lo) / (mach_hi - mach_lo)
+                return value_lo + fraction * (value_hi - value_lo)
+        return table[-1][1]
     width = max(float(settings.get("width", 0.45)), 1e-9)
     center = float(settings.get("center", 1.0))
     base = float(settings.get("base", 1.0))
@@ -176,4 +199,3 @@ def drag_force_from_cda(dynamic_pressure_pa: float, cda_m2: float, v_hat: Vector
 
 def drag_power_w(force_n: Vector, air_velocity_mps: Vector) -> float:
     return dot(force_n, air_velocity_mps)
-

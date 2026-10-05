@@ -1,0 +1,193 @@
+{
+  "guidance_schedule": {
+    "knots_s": [
+      0.3,
+      0.55,
+      0.8,
+      1.05,
+      1.3,
+      1.6,
+      1.9,
+      2.15,
+      2.4,
+      2.75,
+      3.1
+    ],
+    "pn_only_after_s": 3.5,
+    "pre_gain_request_knots_g": [
+      33.92101993797994,
+      46.32087179307953,
+      38.33846842080706,
+      33.75272271675925,
+      37.18674774028336,
+      33.141544618013185,
+      30.876487878376494,
+      23.81003541039058,
+      16.77125083164844,
+      11.065609374182863,
+      4.391636248167714
+    ],
+    "raw_time_gain_table": [
+      [
+        0.3,
+        0.0
+      ],
+      [
+        0.31,
+        1.0
+      ]
+    ],
+    "semantics": "linear interpolation; before first gain knot and after last knot hold endpoint values; pre-gain request transitions to live PN with cubic smoothstep between the last fitted knot and pn_only_after_s"
+  },
+  "integration": {
+    "control_dt_s": 0.02,
+    "plant_dt_s": 0.002
+  },
+  "label": "R-77-1 固定测试拟合（2.57.1.107）",
+  "mode_id": "r77_1_fixed_257_request_fit_v1",
+  "model_config": {
+    "aerodynamics": {
+      "cx_k": 1.65,
+      "cx_vs_aoa": 21.79814
+    },
+    "atmosphere": {
+      "gravity_mps2": 9.80665
+    },
+    "drag_model": {
+      "alpha_drag_area_basis_mode": "caliber_area",
+      "alpha_drag_cap_rad": 1.2,
+      "alpha_drag_mach_shape": false,
+      "alpha_drag_scale": 1.0,
+      "area_basis_mode": "caliber_times_wing_multiplier",
+      "cx_vs_mach": [
+        [
+          0.8,
+          0.173
+        ],
+        [
+          0.9,
+          0.209
+        ],
+        [
+          1.0,
+          0.33
+        ],
+        [
+          1.1,
+          0.402
+        ],
+        [
+          1.2,
+          0.413
+        ],
+        [
+          1.4,
+          0.396
+        ],
+        [
+          1.6,
+          0.38
+        ],
+        [
+          1.8,
+          0.358
+        ],
+        [
+          1.93,
+          0.352
+        ],
+        [
+          2.01,
+          0.342
+        ],
+        [
+          2.29,
+          0.314
+        ],
+        [
+          2.66,
+          0.288
+        ],
+        [
+          3.1,
+          0.27
+        ],
+        [
+          3.5,
+          0.25
+        ],
+        [
+          4.0,
+          0.231
+        ]
+      ],
+      "drag_scale": 1.0,
+      "shape_mode": "interpolated_cx_1943_x1_10"
+    },
+    "geometry": {
+      "caliber_m": 0.2,
+      "initial_mass_kg": 190.0,
+      "length_m": 3.71,
+      "reference_area_mode": "caliber_times_wing_multiplier",
+      "wing_area_multiplier": 1.45
+    },
+    "performance": {
+      "lifetime_s": 120.0
+    },
+    "propulsion": {
+      "stages": [
+        {
+          "duration_s": 7.0,
+          "isp_s": 244.80370211561674,
+          "mass_lost_kg": 71.0,
+          "name": "boost",
+          "thrust_n": 24350.0
+        }
+      ]
+    }
+  },
+  "parameters": {
+    "acceleration_pid_integral_limit": 1.0,
+    "acceleration_pid_kd": 0.00015,
+    "acceleration_pid_ki": 0.005,
+    "acceleration_pid_kp": 0.0071,
+    "capture_time_constant_s": 0.3,
+    "command_limit_g": 50.0,
+    "fin_force_area_per_rad": 2.73404068,
+    "fin_lateral_acceleration_limit_g": 53.5864,
+    "fuse_arming_time_s": 1.7,
+    "fuse_radius_m": 10.0,
+    "guidance_delay_s": 0.0,
+    "horizontal_fin_limit_rad": 0.460812,
+    "initial_alpha_deg": 11.0,
+    "initial_body_rate_rad_s": 0.0,
+    "length_m": 3.71,
+    "lift_area_per_rad": 0.6377433086787281,
+    "navigation_gain": 4.0,
+    "rate_damping_derivative_m4": 14.41,
+    "release_angle_deg": 15.0,
+    "release_time_constant_s": 2.5,
+    "restoring_force_area_per_rad": 0.8302193831854519,
+    "stability_distance_m": 0.175,
+    "vertical_fin_limit_rad": 0.460812
+  },
+  "scenario": {
+    "initial_distance_m": 8000,
+    "launch_altitude_m": 6300,
+    "launch_speed_kmh": 1200,
+    "target_azimuth_deg": 30,
+    "target_course_reference": "absolute_world",
+    "target_heading_deg": 180,
+    "target_speed_kmh": 1200
+  },
+  "schema_version": 1,
+  "source_artifacts": {
+    "accepted_forward_tsv": "outputs/r77_1_fixed_pid_request_trajectory.tsv",
+    "accepted_forward_tsv_sha256": "aa0a9bcd26849848dbbc96893d6a246f7eeff34e691ab6b550cd809cc2a342a1",
+    "fit_json": "outputs/r77_1_fixed_pid_request.json",
+    "fit_json_sha256": "8e56a8a837a881d8e89a75ef7bd0619951d1dd4d20e6738d81d273e1bc497944",
+    "raw_pid_block_sha256": "4abbeb1f18bea802a30aef1e5f3f6c7e572081f640d370df78ff8c175b959c4f"
+  },
+  "source_commit": "3f20645862c538b46c94e3f60ee30da9dfacd81a",
+  "source_version": "2.57.1.107"
+}

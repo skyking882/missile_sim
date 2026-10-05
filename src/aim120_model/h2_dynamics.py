@@ -26,7 +26,7 @@ from .aerodynamics import (
     quaternion_from_pitch_yaw,
 )
 from .control import base_indicated_speed_schedule
-from .drag_models import area_basis, drag_force_from_cda
+from .drag_models import area_basis, drag_force_from_cda, mach_multiplier
 from .dynamics import SimState, state_is_finite
 from .math3d import Vector, add, cross, dot, is_finite_vector, limit_unit_disk, norm, normalize, scale, sub
 from .propulsion import PiecewisePropulsion, PropulsionSample
@@ -270,6 +270,7 @@ def capture_alpha_envelope_g(
     thrust_n: float,
     alpha_max_rad: float,
     config: dict[str, Any],
+    mach: float | None = None,
 ) -> float:
     """Trajectory-normal achievable G at ``alpha_max`` for the PCC-alpha capture law.
 
@@ -287,6 +288,12 @@ def capture_alpha_envelope_g(
     """
 
     aero_cfg = config["aerodynamics"]
+    lift_mach = aero_cfg.get("mach_lift", {})
+    explicit_lift_multiplier = (
+        mach_multiplier(float(mach), lift_mach)
+        if mach is not None and lift_mach.get("model") == "lookup_table"
+        else 1.0
+    )
     gravity = float(config["atmosphere"]["gravity_mps2"])
     schedule = base_indicated_speed_schedule(dynamic_pressure_pa, config)
     fin_limit_rad = math.radians(max(float(aero_cfg["horizontal_fin_aoa_limit_deg"]), 1e-9))
@@ -309,7 +316,7 @@ def capture_alpha_envelope_g(
         slope_g_per_rad = (
             float(aero_cfg["fins_lateral_acceleration_g"]) * schedule.fin_force_scale * force_k
         ) / fin_limit_rad
-    aero_g = slope_g_per_rad * max(float(alpha_max_rad), 0.0)
+    aero_g = slope_g_per_rad * explicit_lift_multiplier * max(float(alpha_max_rad), 0.0)
     thrust_g = max(float(thrust_n), 0.0) * math.sin(max(float(alpha_max_rad), 0.0)) / (
         mass_kg * gravity
     )
@@ -384,12 +391,17 @@ def forces_for_state_h2(
     plant_semantics = str(config["control"].get("plant_semantics", "direct_fin_g"))
     legacy_fin_torque_plant = plant_semantics == "fin_torque_body_aoa"
     body_cm_tail_plant = plant_semantics == "body_cm_tail_force_moment"
-    generalized_aero_plant = plant_semantics == "generalized_aero_moment"
+    rebuild_first_principles_plant = plant_semantics == "rebuild_first_principles"
+    generalized_aero_plant = plant_semantics in {
+        "generalized_aero_moment",
+        "rebuild_first_principles",
+    }
     if plant_semantics not in {
         "direct_fin_g",
         "fin_torque_body_aoa",
         "body_cm_tail_force_moment",
         "generalized_aero_moment",
+        "rebuild_first_principles",
     }:
         raise ValueError(f"unknown plant_semantics: {plant_semantics}")
     axes = body_axes_for_state(state)
@@ -730,6 +742,12 @@ def forces_for_state_h2(
             else:
                 force_k = packed_lift_slope_scale
                 scheduled_fins_g_force = fins_g * speed_schedule.fin_force_scale * force_k
+            # Only a datamine-explicit CyMachMult table affects packed FORCE.
+            # Gaussian/scalar fallback curves remain diagnostic compatibility
+            # paths and do not silently enter this empirically fitted plant.
+            lift_mach = config["aerodynamics"].get("mach_lift", {})
+            if lift_mach.get("model") == "lookup_table":
+                scheduled_fins_g_force *= mach_multiplier(aero.mach, lift_mach)
         if body_cm_tail_plant:
             pitch_fin_limit = float(config["control"]["fin_actuator_travel"]["pitch_limit_rad"])
             yaw_fin_limit = float(config["control"]["fin_actuator_travel"]["yaw_limit_rad"])
@@ -923,20 +941,43 @@ def forces_for_state_h2(
                 state.actual_yaw_acceleration_g * gravity * mass,
             ),
         )
-    if legacy_fin_torque_plant:
-        # Spec §4: s_cap = min(1, n_max g / |F_N/m|) applies to packed lift
-        # only.  Drag along -v̂ and thrust along f̂ are not scaled.
+    if legacy_fin_torque_plant or rebuild_first_principles_plant:
+        # The datamine loadFactorMax is an output normal-force cap.  Rebuild
+        # applies it to the combined alpha+delta normal force; the legacy
+        # packed plant keeps its historical control-force-only behavior.
         load_factor_max_g = config.get("performance", {}).get("load_factor_max_g")
         if load_factor_max_g is None:
             load_factor_max_g = config.get("guidance", {}).get("maximum_lateral_acceleration_g")
         if load_factor_max_g is not None:
             cap = max(float(load_factor_max_g), 0.0)
             if cap > 0.0:
-                packed_lift_n = norm(control_force)
+                packed_lift_n = (
+                    norm(control_force)
+                    if legacy_fin_torque_plant
+                    else norm(_add_many(body_normal_force_vector, control_force))
+                )
                 cap_n = cap * gravity * mass
                 if packed_lift_n > cap_n:
                     load_scale = cap_n / packed_lift_n
-                    control_force = scale(control_force, load_scale)
+                    if rebuild_first_principles_plant:
+                        body_normal_force_vector = scale(body_normal_force_vector, load_scale)
+                        control_force = scale(control_force, load_scale)
+                        generalized_body_force_vector = scale(
+                            generalized_body_force_vector, load_scale
+                        )
+                        generalized_delta_force_vector = scale(
+                            generalized_delta_force_vector, load_scale
+                        )
+                        generalized_pitch_body_static_moment *= load_scale
+                        generalized_yaw_body_static_moment *= load_scale
+                        generalized_pitch_delta_moment *= load_scale
+                        generalized_yaw_delta_moment *= load_scale
+                        generalized_pitch_alpha_force *= load_scale
+                        generalized_yaw_alpha_force *= load_scale
+                        generalized_pitch_delta_force *= load_scale
+                        generalized_yaw_delta_force *= load_scale
+                    else:
+                        control_force = scale(control_force, load_scale)
                     pitch_fin_translation_equivalent_g *= load_scale
                     yaw_fin_translation_equivalent_g *= load_scale
                     pitch_tail_force_n *= load_scale
@@ -981,8 +1022,14 @@ def forces_for_state_h2(
     wind_basis = cg_wind_normal_basis(state, config)
     wind_pitch_g = dot(specific_force, wind_basis.up) / gravity
     wind_yaw_g = dot(specific_force, wind_basis.right) / gravity
-    trajectory_pitch_g = dot(specific_force, aero.flow_normal_pitch) / gravity
-    trajectory_yaw_g = dot(specific_force, aero.flow_normal_yaw) / gravity
+    # HUD trajectory load and controller feedback both refer to CG airflow,
+    # even when another plant evaluates forces using a local station flow.
+    if plant_semantics == "direct_fin_g":
+        trajectory_pitch_g = dot(specific_force, aero.flow_normal_pitch) / gravity
+        trajectory_yaw_g = dot(specific_force, aero.flow_normal_yaw) / gravity
+    else:
+        trajectory_pitch_g = wind_pitch_g
+        trajectory_yaw_g = wind_yaw_g
     axial_g = dot(specific_force, aero.air_velocity_hat) / gravity
     lateral_g = math.hypot(pitch_g, yaw_g)
     trajectory_lateral_g = math.hypot(trajectory_pitch_g, trajectory_yaw_g)
@@ -1083,9 +1130,9 @@ def forces_for_state_h2(
         )
         pitch_natural_frequency = math.sqrt(pitch_stiffness_s2)
         yaw_natural_frequency = math.sqrt(yaw_stiffness_s2)
-        # Spec §5: C = 2 ζ √(K I) with ζ=1, so C/I = 2 ω_n.  The spring
-        # no longer includes ω·Δ/V, so this is the full critical-damping
-        # term rather than a remainder.
+        # The fin/alpha spring alone has no rate dissipation and produced a
+        # persistent angular oscillation. Keep the established critical-rate
+        # closure for this reduced-order plant until a measured Cm_q is known.
         pitch_tail_rate_damping = 0.0
         yaw_tail_rate_damping = 0.0
         pitch_residual_rate_damping = 2.0 * pitch_natural_frequency
@@ -1326,6 +1373,7 @@ def _uses_quaternion_candidate(config: dict[str, Any]) -> bool:
     return config["control"].get("plant_semantics") in {
         "body_cm_tail_force_moment",
         "generalized_aero_moment",
+        "rebuild_first_principles",
         "fin_torque_body_aoa",
     }
 

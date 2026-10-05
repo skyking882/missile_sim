@@ -1,7 +1,9 @@
 import copy
 import math
+from dataclasses import replace
 from pathlib import Path
 
+from aim120_model.aerodynamics import body_axes_for_state
 from aim120_model.config import load_model_config
 from aim120_model.dynamics import SimState
 from aim120_model.guidance import estimate_time_to_go_s, guidance_command, pn_acceleration
@@ -118,6 +120,37 @@ def test_frozen_h2_controller_command_stays_kinematic_without_gravity_term():
     assert abs(output.controller_specific_force_command_g[0]) < 1e-9
 
 
+def test_body_feedback_has_zero_error_when_normal_acceleration_is_achieved():
+    config = copy.deepcopy(CONFIG)
+    config["control"]["plant_semantics"] = "fin_torque_body_aoa"
+    config["guidance"]["lofting_enabled"] = False
+    config["guidance"]["midcourse"] = {"enabled": False}
+    config["guidance"]["flight_time_gain_table"] = [[0.0, 1.0]]
+    config["guidance"]["time_to_hit_gain_table"] = [[0.0, 1.0]]
+    state = replace(make_state(), pitch=math.radians(20.0), yaw=math.radians(15.0))
+    axes = body_axes_for_state(state)
+    gravity = config["atmosphere"]["gravity_mps2"]
+    # This geometry commands (0, 30, 20) m/s^2 by PN. The achieved normal
+    # acceleration should give zero controller error for either sign of the
+    # independent axial acceleration, despite the nonzero pitch and yaw.
+    factor = 1000.0 / (config["guidance"]["pn_gain"] * 150.0)
+    target = TargetState(
+        (1000.0, 3000.0, 0.0), (150.0, 30.0 * factor, 20.0 * factor)
+    )
+    for axial_acceleration in (100.0, -40.0):
+        output = guidance_command(
+            state, target, 1.0, config, True,
+            axial_specific_force_g=axial_acceleration / gravity,
+        )
+        achieved_specific_force = (axial_acceleration, 30.0 + gravity, 20.0)
+        measured = (
+            dot(achieved_specific_force, axes.up) / gravity,
+            dot(achieved_specific_force, axes.right) / gravity,
+        )
+        assert norm(sub(output.commanded_acceleration_mps2, (0.0, 30.0, 20.0))) < 1e-9
+        assert max(abs(c - m) for c, m in zip(output.controller_specific_force_command_g, measured)) < 1e-9
+
+
 def _midcourse_config(**overrides):
     config = copy.deepcopy(CONFIG)
     settings = {
@@ -186,4 +219,3 @@ def test_midcourse_lead_turn_dominates_at_launch_and_fades_after_blend_window():
 
     after_blend = guidance_command(state, target, 2.0, config, enabled=True)
     assert after_blend.midcourse_weight == 0.0
-

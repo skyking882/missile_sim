@@ -57,6 +57,29 @@ def _boolean(mapping: dict[str, Any], *keys: str, default: bool) -> bool:
     return bool(default)
 
 
+def _multipath_table(value: Any) -> tuple[tuple[float, float], ...]:
+    """``multipathEffect`` flat [x0, y0, x1, y1, ...] -> nodes with strictly increasing x."""
+    if not isinstance(value, (list, tuple)) or len(value) < 2 or len(value) % 2:
+        raise ValueError("profile has no usable radar_seeker.multipath_effect table")
+    numbers = [float(v) for v in value if not isinstance(v, bool)]
+    if len(numbers) != len(value) or not all(math.isfinite(v) for v in numbers):
+        raise ValueError("radar_seeker.multipath_effect must hold finite numbers")
+    nodes = tuple(zip(numbers[::2], numbers[1::2]))
+    if any(b[0] <= a[0] for a, b in zip(nodes, nodes[1:])):
+        raise ValueError("radar_seeker.multipath_effect heights must increase")
+    return nodes
+
+
+def _interpolate(nodes: tuple[tuple[float, float], ...], x: float) -> float:
+    """Piecewise linear, held at the end nodes."""
+    if x <= nodes[0][0]:
+        return nodes[0][1]
+    for (x0, y0), (x1, y1) in zip(nodes, nodes[1:]):
+        if x <= x1:
+            return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+    return nodes[-1][1]
+
+
 class RadarSeekerObserver:
     """Generate a copied radar track from target truth and deterministic gates."""
 
@@ -114,6 +137,34 @@ class RadarSeekerObserver:
         )
         clutter_width = abs(_number(doppler_cfg, "ref_width_mps", "refWidth", default=0.0))
         self.notch_half_width_mps = target_width / 2.0 + clutter_width / 2.0
+        # Resolution cell for the opt-in decoy path only (D: reflectors closer
+        # than one width in range and Doppler, inside the half-power beam, are
+        # unresolved and the stronger RCS/R^4 return captures the track).
+        distance_cfg = self.radar_config.get("distance")
+        distance_cfg = distance_cfg if isinstance(distance_cfg, dict) else {}
+        receiver_antenna = receiver.get("antenna")
+        receiver_antenna = receiver_antenna if isinstance(receiver_antenna, dict) else {}
+        self.resolution_range_m = abs(_number(distance_cfg, "width_m", "width", default=300.0))
+        self.resolution_doppler_mps = max(target_width, 1.0e-9)
+        self.beam_half_rad = deg_to_rad(_number(receiver_antenna, "angle_half_sens_deg", "angleHalfSens", default=15.0))
+        self.last_reflector = "target"
+        # "look_down" (default): any reflector below the missile sits on clutter.
+        # "geometric_mainlobe" (opt-in, D): only when the beam's lower edge reaches
+        # flat ground no farther than the reflector, i.e. ground is behind it.
+        # "look_down_angle" (opt-in, C/D): the line of sight must point at least
+        # clutter_min_depression_deg below the horizon (player reports: notch
+        # needs look-down, not co-altitude; terrain is not modelled).
+        self.clutter_model = "look_down"
+        self.clutter_min_depression_rad = deg_to_rad(2.0)
+        # Opt-in (C, player reports): with no ground clutter behind a beaming
+        # target the seeker leaves Doppler (PD) operation, so any chaff bundle
+        # unresolved in range and angle captures the track; without chaff the
+        # target is still tracked. Decoy path only.
+        self.cw_on_clear_beam = False
+        self.cw_ticks = 0
+        # Opt-in multipath (see enable_multipath); None leaves measurements on truth.
+        self.multipath_gain: float | None = None
+        self.multipath_nodes: tuple[tuple[float, float], ...] = ()
 
         self._state = SeekerState.SEARCH
         self._last_detection_time_s: float | None = None
@@ -147,6 +198,29 @@ class RadarSeekerObserver:
         self.doppler_gate = AlphaBetaGate(self.doppler_gate.alpha, self.doppler_gate.beta, self.doppler_gate.search_range)
         self.last_detection = None
         self.last_solution = None
+
+    def enable_multipath(self, gain: float) -> None:
+        """Opt-in surface multipath on the measured position (D, see the evidence ledger).
+
+        ``multipathEffect`` is read as (height above the surface in m, strength)
+        nodes: the 2.37 changelog ends the effect 60 m above the surface (B) and
+        the AAM tables are [0, 1, 60, 0]. The seeker measures the angle centroid
+        of the reflector and its flat-surface image at -height: the point
+        ``gain * strength`` of the way to the image. Gain 0.5 at full strength
+        aims at the surface below the reflector; gain 1 at the image. Gates and
+        range stay on the true reflector. Flat surface at y = 0, no noise.
+        """
+        if isinstance(gain, bool) or not isinstance(gain, (int, float)) or not 0.0 <= gain <= 1.0:
+            raise ValueError("multipath gain must be between 0 and 1")
+        self.multipath_nodes = _multipath_table(self.radar_config.get("multipath_effect",
+                                                                      self.radar_config.get("multipathEffect")))
+        self.multipath_gain = float(gain)
+
+    def _multipath(self, position: Vector, velocity: Vector) -> tuple[Vector, Vector]:
+        height = float(position[1])
+        shrink = 1.0 - 2.0 * self.multipath_gain * _interpolate(self.multipath_nodes, height)
+        return ((float(position[0]), height * shrink, float(position[2])),
+                (float(velocity[0]), float(velocity[1]) * shrink, float(velocity[2])))
 
     def _effective_dt(self, time_s: float, dt_s: float) -> float:
         if self._last_detection_time_s is not None and time_s > self._last_detection_time_s:
@@ -215,7 +289,11 @@ class RadarSeekerObserver:
         dt_s: float,
         missile_state: SimState,
         target_truth: TargetState,
+        decoys: list[Any] | None = None,
+        target_rcs_m2: float = 1.0,
     ) -> tuple[RadarDetection, TrackSolution | None]:
+        if decoys is not None:
+            return self._update_with_decoys(float(time_s), dt_s, missile_state, target_truth, decoys, target_rcs_m2)
         time_s = float(time_s)
         if not self.active:
             detection = self._detection(False, "inactive", 0.0, 0.0, 0.0, 0.0, 0.0, False)
@@ -305,7 +383,8 @@ class RadarSeekerObserver:
             self.last_detection = detection
             return self._invalid_result(detection, time_s)
 
-        if look_down and abs(ground_radial_mps) <= self.notch_half_width_mps:
+        if self._on_clutter(look_down, missile_state.position, range_m, relative) \
+                and abs(ground_radial_mps) <= self.notch_half_width_mps:
             detection = self._detection(False, "ground_clutter_notch", **detection_kwargs)
             self.last_detection = detection
             return self._invalid_result(detection, time_s)
@@ -321,16 +400,19 @@ class RadarSeekerObserver:
 
         self.distance_gate.update(range_m, effective_dt)
         self.doppler_gate.update(range_rate_mps, effective_dt)
+        measured, measured_velocity = target_truth.position, target_truth.velocity
+        if self.multipath_gain is not None:
+            measured, measured_velocity = self._multipath(measured, measured_velocity)
         if self.use_target_velocity:
-            velocity = tuple(float(value) for value in target_truth.velocity)
+            velocity = tuple(float(value) for value in measured_velocity)
         elif self._last_measurement_position is None or self._last_measurement_time_s is None or time_s <= self._last_measurement_time_s:
             velocity = (0.0, 0.0, 0.0)
         else:
             velocity = scale(
-                sub(target_truth.position, self._last_measurement_position),
+                sub(measured, self._last_measurement_position),
                 1.0 / (time_s - self._last_measurement_time_s),
             )
-        position = tuple(float(value) for value in target_truth.position)
+        position = tuple(float(value) for value in measured)
         solution = TrackSolution(
             position=position,
             velocity=velocity,
@@ -351,6 +433,154 @@ class RadarSeekerObserver:
         self._search_gates_reset = False
         self.last_detection = detection
         self.last_solution = solution
+        return detection, solution
+
+    def _clear_beam(self, missile_state, target_truth, kwargs) -> bool:
+        """Target beaming (inside the notch window) with no ground clutter behind it."""
+        if abs(kwargs["ground_radial_mps"]) > self.notch_half_width_mps:
+            return False
+        relative = sub(target_truth.position, missile_state.position)
+        return not self._on_clutter(kwargs["look_down"], missile_state.position, kwargs["range_m"], relative)
+
+    def _on_clutter(self, look_down, missile_position, range_m, relative) -> bool:
+        if self.clutter_model == "look_down":
+            return look_down
+        if self.clutter_model == "look_down_angle":
+            return -relative[1] / max(range_m, 1.0e-12) >= math.sin(self.clutter_min_depression_rad)
+        # Flat earth, y up: the beam's lower edge (LOS depression + half-power
+        # half-angle) reaches the ground at slant range h / sin(edge). Ground
+        # within one range cell beyond the reflector counts as behind it.
+        depression = math.asin(clamp(-relative[1] / max(range_m, 1.0e-12), -1.0, 1.0))
+        edge = depression + self.beam_half_rad
+        if edge <= 0.0:
+            return False
+        return max(0.0, float(missile_position[1])) / math.sin(edge) <= range_m + self.resolution_range_m
+
+    def _reflector_check(self, effective_dt, missile_state, position, velocity, track_hold, searching):
+        """The single-target gates applied to one reflector -> (reason, detection kwargs, LOS)."""
+        relative = sub(position, missile_state.position)
+        range_sq = dot(relative, relative)
+        range_m = math.sqrt(max(0.0, range_sq))
+        if not math.isfinite(range_m) or range_m <= 1.0e-12:
+            return "invalid_geometry", dict(range_m=range_m, range_rate_mps=0.0, ground_radial_mps=0.0,
+                                            off_boresight_deg=180.0, los_rate_deg_s=math.inf, look_down=False), None
+        los_hat = normalize(relative)
+        relative_velocity = sub(velocity, missile_state.velocity)
+        range_rate_mps = dot(relative_velocity, los_hat)
+        ground_radial_mps = dot(velocity, los_hat)
+        look_down = position[1] < missile_state.position[1]
+        forward = body_axes_for_state(missile_state).forward
+        off_boresight_rad = math.acos(clamp(dot(forward, los_hat), -1.0, 1.0))
+        los_rate_rad_s = norm(cross(relative, relative_velocity)) / max(range_sq, 1.0e-12)
+        kwargs = dict(range_m=range_m, range_rate_mps=range_rate_mps, ground_radial_mps=ground_radial_mps,
+                      off_boresight_deg=rad_to_deg(off_boresight_rad), los_rate_deg_s=rad_to_deg(los_rate_rad_s),
+                      look_down=look_down)
+        if not all(math.isfinite(kwargs[k]) for k in ("range_rate_mps", "ground_radial_mps", "off_boresight_deg", "los_rate_deg_s")):
+            return "invalid_geometry", kwargs, None
+        range_limit_m = min(self.lock_range_m, self.receiver_range_max_m) if searching else self.receiver_range_max_m
+        if range_m > range_limit_m:
+            return "range_gate", kwargs, los_hat
+        if off_boresight_rad > (self.lock_angle_max_rad if searching else self.angle_max_rad):
+            return "angle_gate", kwargs, los_hat
+        if los_rate_rad_s > self.rate_max_rad_s:
+            return "rate_gate", kwargs, los_hat
+        if track_hold and self._last_accepted_los is not None and math.isfinite(self.angle_gate_rate_rad_s):
+            if math.acos(clamp(dot(self._last_accepted_los, los_hat), -1.0, 1.0)) / effective_dt > self.angle_gate_rate_rad_s:
+                return "angle_gate_rate", kwargs, los_hat
+        if range_rate_mps < self.doppler_min_mps or range_rate_mps > self.doppler_max_mps:
+            return "doppler_out_of_bounds", kwargs, los_hat
+        if self._on_clutter(look_down, missile_state.position, range_m, relative) \
+                and abs(ground_radial_mps) <= self.notch_half_width_mps:
+            return "ground_clutter_notch", kwargs, los_hat
+        if not self.distance_gate.accepts(range_m, effective_dt):
+            return "distance_gate", kwargs, los_hat
+        if not self.doppler_gate.accepts(range_rate_mps, effective_dt):
+            return "doppler_gate", kwargs, los_hat
+        return "", kwargs, los_hat
+
+    def _update_with_decoys(self, time_s, dt_s, missile_state, target_truth, decoys, target_rcs_m2):
+        """Opt-in multi-reflector path (D).
+
+        Every reflector passes the same gates as the single-target path. The
+        track associates with the candidate nearest the alpha-beta prediction
+        (strongest at first acquisition); reflectors unresolved from it in
+        range, Doppler and beam then compete, and the largest RCS/R^4 return
+        is measured. The aircraft's own gate failure is reported when nothing
+        passes.
+        """
+        if not self.active:
+            return self.update(time_s, dt_s, missile_state, target_truth)
+        track_age_s = math.inf if self._last_detection_time_s is None else max(0.0, time_s - self._last_detection_time_s)
+        track_hold = self._last_detection_time_s is not None and track_age_s <= self.prolongation_time_max_s
+        if self._last_detection_time_s is not None and not track_hold and not self._search_gates_reset:
+            self.distance_gate = AlphaBetaGate(self.distance_gate.alpha, self.distance_gate.beta, self.distance_gate.search_range)
+            self.doppler_gate = AlphaBetaGate(self.doppler_gate.alpha, self.doppler_gate.beta, self.doppler_gate.search_range)
+            self._last_accepted_los = None
+            self._last_measurement_position = None
+            self._last_measurement_time_s = None
+            self._search_gates_reset = True
+        effective_dt = self._effective_dt(time_s, dt_s)
+        reflectors = [("target", tuple(target_truth.position), tuple(target_truth.velocity), float(target_rcs_m2))]
+        reflectors += [(d.kind, tuple(d.position), tuple(d.velocity), float(d.rcs_m2)) for d in decoys]
+        checked = [(r, *self._reflector_check(effective_dt, missile_state, r[1], r[2], track_hold, not track_hold))
+                   for r in reflectors]
+        candidates = [(r, kw, los) for r, reason, kw, los in checked if not reason]
+        if not candidates:
+            _, reason, kwargs, _ = checked[0]
+            detection = self._detection(False, reason, **kwargs)
+            self.last_detection = detection
+            return self._invalid_result(detection, time_s)
+
+        def power(item):
+            return item[0][3] / max(item[1]["range_m"], 1.0) ** 4
+
+        if self.distance_gate.initialized and self.doppler_gate.initialized:
+            predicted_range = self.distance_gate.predict(effective_dt)
+            predicted_rate = self.doppler_gate.predict(effective_dt)
+            anchor = min(candidates, key=lambda c: ((c[1]["range_m"] - predicted_range) / self.resolution_range_m) ** 2
+                         + ((c[1]["range_rate_mps"] - predicted_rate) / self.resolution_doppler_mps) ** 2)
+        else:
+            anchor = max(candidates, key=power)
+
+        def unresolved(c):
+            return (abs(c[1]["range_m"] - anchor[1]["range_m"]) <= self.resolution_range_m
+                    and abs(c[1]["range_rate_mps"] - anchor[1]["range_rate_mps"]) <= self.resolution_doppler_mps
+                    and math.acos(clamp(dot(c[2], anchor[2]), -1.0, 1.0)) <= self.beam_half_rad)
+
+        competing = [c for c in candidates if unresolved(c)]
+        target_reason, target_kwargs, _ = checked[0][1], checked[0][2], checked[0][3]
+        if self.cw_on_clear_beam and self._clear_beam(missile_state, target_truth, target_kwargs):
+            self.cw_ticks += 1
+            decoys = [c for c in candidates if c[0][0] != "target"
+                      and abs(c[1]["range_m"] - anchor[1]["range_m"]) <= self.resolution_range_m
+                      and math.acos(clamp(dot(c[2], anchor[2]), -1.0, 1.0)) <= self.beam_half_rad]
+            if decoys:
+                competing = decoys  # No Doppler: a bundle in the range/angle cell wins.
+        (kind, position, truth_velocity, _), kwargs, los_hat = max(competing, key=power)
+        if self.multipath_gain is not None:
+            position, truth_velocity = self._multipath(position, truth_velocity)
+        self.distance_gate.update(kwargs["range_m"], effective_dt)
+        self.doppler_gate.update(kwargs["range_rate_mps"], effective_dt)
+        if self.use_target_velocity:
+            velocity = truth_velocity
+        elif self._last_measurement_position is None or self._last_measurement_time_s is None or time_s <= self._last_measurement_time_s:
+            velocity = (0.0, 0.0, 0.0)
+        else:
+            velocity = scale(sub(position, self._last_measurement_position), 1.0 / (time_s - self._last_measurement_time_s))
+        solution = TrackSolution(position=position, velocity=velocity, sample_time_s=time_s, solution_time_s=time_s,
+                                 mode=TrackMode.RADAR_TRACK, valid=True, source="radar")
+        detection = self._detection(True, "", **kwargs)
+        self._state = SeekerState.TRACK
+        self._last_detection_time_s = time_s
+        self._last_accepted_los = tuple(float(value) for value in los_hat)
+        self._last_measurement_position = position
+        self._last_measurement_time_s = time_s
+        self._last_position = position
+        self._last_velocity = velocity
+        self._search_gates_reset = False
+        self.last_detection = detection
+        self.last_solution = solution
+        self.last_reflector = kind
         return detection, solution
 
 

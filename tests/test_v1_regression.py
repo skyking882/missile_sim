@@ -9,7 +9,8 @@ CASES = load_cases(ROOT / "configs" / "aim120a_v1_cases.json")
 
 
 def test_frozen_release_version_is_consistent():
-    assert __version__ == "1.0.1"
+    assert __version__ == (ROOT / "VERSION").read_text().strip()
+    assert f'version = "{__version__}"' in (ROOT / "pyproject.toml").read_text()
     assert CONFIG["release_version"] == "1.0.0"
 
 
