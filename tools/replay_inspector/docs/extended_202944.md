@@ -75,6 +75,6 @@
 
 ## 复现
 
-`build_backend.sh` 包含新增的字段保留、原始片段保留和安全标量绑定。当前完整补丁为 `upstream-with-extended.patch`。在 WSL 中把 `PYTHONPATH` 指向 `/root/wt-replay-trial-20260927/build/python/main`，运行 `inspect_extended.py --game ... --replay ... --output 新目录`，然后运行 `analyze_extended.py 输出目录 --target-name TargetAI_0`。
+`build_backend.sh` 包含新增的字段保留、原始片段保留和安全标量绑定，全部以修补脚本形式应用。在 WSL 中把 `PYTHONPATH` 指向 `/root/wt-replay-trial-20260927/build/python/main`，运行 `inspect_extended.py --game ... --replay ... --output 新目录`，然后运行 `analyze_extended.py 输出目录 --target-name TargetAI_0`。
 
 本次分析器明确限定为该单发回放；目标通过实体名称指定。不能把该目标选择直接用于多枚导弹、多目标回放。

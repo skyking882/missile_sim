@@ -2,9 +2,9 @@
 
 从 War Thunder `.wrpl` 回放提取导弹实体、坐标和姿态，保留创建记录、同步原始位流，再导出几何估计和逐列来源标签。这是独立的离线工具，不接入或改变 `missile_sim` 的飞行动力学模型。
 
-后端使用 [LivingTheDagor/WrplReplayParser](https://github.com/LivingTheDagor/WrplReplayParser)，固定源码版本 `221be5cac8e772ab41eefb0e7dac35ce6fb5c39b`。构建脚本自动应用本目录的修补脚本；`upstream-with-extended.patch` 是对应的完整历史补丁快照，不要在运行修补脚本后再次应用。
+后端使用 [LivingTheDagor/WrplReplayParser](https://github.com/LivingTheDagor/WrplReplayParser)，固定源码版本 `221be5cac8e772ab41eefb0e7dac35ce6fb5c39b`。构建脚本自动应用本目录的修补脚本。
 
-仓库不包含游戏资源、回放、原生后端二进制、解析日志或实验导出数据。运行时需要自己的本地游戏安装和回放，游戏资源只读。上游代码由构建时另行获取，其原有版权和许可适用；补丁快照保留原文件版权标识。
+仓库不包含游戏资源、回放、原生后端二进制、解析日志或实验导出数据。运行时需要自己的本地游戏安装和回放，游戏资源只读。上游代码在构建时另行获取，不随本仓库分发，其原有版权和许可适用（BSD 3-Clause；上游含 Gaijin Dagor Engine 派生代码，另按 Dagor Engine 的 BSD 3-Clause 许可）。修补脚本中用于定位和替换的少量上游源码片段同样适用这些许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ## 范围与字段可信度
 
