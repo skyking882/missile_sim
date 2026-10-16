@@ -31,7 +31,7 @@ python3 scripts/run_test_functions.py   # 无 pytest 时的标准库后备测试
 ## 数据纪律
 
 - **不要对 `data/datamine*/` 执行 checkout、pull 或 reset。** 适配器直接读取这些目录里的 blkx，一旦工作区移动，模型输入会在没有任何提示的情况下改变。要换版本，应新建版本化参数集并更新 catalog。
-- 不同游戏版本的回放和参数不能混在一起标定。现有 5 组回放录制于 2.57。
+- 不同游戏版本的回放和参数不能混在一起标定。`data/replays/` 里的 5 组试飞数据（2026-08-23/24 的 tsv）录制于 2.57。WT_overlay 用来重飞对照的 5 局实战回放（2026-10-08，`WT_overlay/outputs/engagements/wt_real_v3/`）录制于 2.59.0.54（回放头 `game_version` 解码），当前参数集为 2.59.0.27。
 - 回放 `overload_g` 是轨迹法向 G，包含推力分量；`displayed_distance_km` 是镜头到导弹的距离，不是弹目距离；α 小于约 1.5° 时显示值有偏差。细节见 `data/replays/README.md`。
 - `dt=0.02 s` 同时是控制节拍。改 dt 会同时改变制导、PID 和舵机的更新频率，结果是另一个离散控制系统，不能当作同一模型换了积分精度。做收敛性检验时，应固定控制节拍，只扫描 plant 子步。
 - `outputs/`、`dist/`、`data/raw/`、`data/datamine/` 不进 Git。开源发布由 `scripts/build_open_source_release.py` 按白名单打包。

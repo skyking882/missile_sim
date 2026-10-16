@@ -139,6 +139,39 @@ PID 自动驾驶仪
 
 全部发射角使用同一 PN 与普通并联 PID。单面的有效力和力矩按固定参考工况与各弹几何尺度迁移，不增加角度专用捕获控制器。
 
+通用 surface 运行时先把请求投影到垂直于当前速度的平面，再限幅；PID 在同一平面比较实际加速度，最后分解到弹体系。动压补偿采用 `max(1, (baseIndSpeed / IAS_kmh)²)`：保留低速增益，不在高速额外削弱控制量。P/I/D、气动和力矩参数不因此改变。PN 倍率仍来自所选参数集；活动 2.59.0.27 的 R-77-1 为 N=6。
+
+### 发射状态与雷达几何
+
+`create_surface_missile` 可同时接收独立的 `launch_velocity_mps` 和 `launch_quaternion_xyzw`。载机速度、升力法向和迎角可通过 `launch_quaternion_xyzw_from_velocity_normal` 构造初始姿态。起控延迟只关闭控制输出，气动力、恢复/阻尼力矩和姿态仍继续积分；没有在此新增弹射速度或载机角速度继承假设。
+
+导引头按自身配置分别限制 yaw/pitch，再以可达天线轴判断圆锥波束。载机雷达可用 `launcher_radar_geometry` 提供自己的轴限位、波束半角和姿态；旧的单一 gimbal 参数缺少波束信息，不自动附加 15°。
+
+### 回放与完整 rate 输入
+
+`simulate`、`simulate_surface` 和 `create_surface_missile` 均接受 `guidance_input(t, own_position, own_velocity)`，返回 `TrackSolution`。该入口直接替换观测输入，目标真值仍只供终止事件和遥测使用，不传给这个回调，也不再次对已估计的数据链做 αβ。
+
+`aim120_model.angular_guidance` 提供可直接接入的 `AngularObservation`、`RecordedSeekerSample` 和 `RecordedSeekerHistory`。所有位置必须先换到同一原点，所有时间均相对离架时刻。`AngularObservation` 使用模型世界坐标和 `n_dot = n × rate`；PN 使用负的完整 rate，保留沿 LOS 分量。原生回放转换请使用 `AngularObservation.from_native`：direction、位置和速度为 `(x, y, -z)`，旋转向量 rate 为 `(-x, -y, z)`。
+
+```python
+from aim120_model.angular_guidance import AngularObservation
+
+# angular 是同一时刻的方向、完整 rate、距离、闭合速度，以及回放导弹自身状态。
+# from_native 的输入位置需先转换到与模型一致的原点。
+angular = AngularObservation.from_native(**native_angular_state)
+runtime = create_surface_missile(
+    profile, **launch_options,
+    guidance_input=lambda t, p, v: angular.track_for(t, p, v),
+)
+# 上面演示单条观测接口；整段回放应传入 RecordedSeekerHistory(samples)。
+```
+
+角输入先重建同一目标的绝对位置和速度，再按当前仿真导弹重新计算相对运动，同时保留轴向 rate 状态。因此仿真导弹偏离回放后，不会把“相对另一枚导弹的速度”直接当作当前输入。仅有飞机轨迹时仍走位置/速度 PN；本接口不假装能从轨迹唯一生成未知的轴向状态。
+
+历史输入恢复经校验的 float32 物理帧时间，48 Hz 是当前物理/控制时钟，不是雷达测量频率。INS→TRK 之间先按旧 Ps/Vs 外推，到切换时刻才接管。默认边界为首条保存的 TRK；若另有截获时刻，可显式传入 `capture_times_s={first_saved_TRK_time: capture_time}` 和回放导弹的 `reference_motion(t)`。缺失首段用旧 INS 与首条 TRK 的目标速度状态约束，只在截获后补值，不用后两条 TRK 倒推。此补值使用新段首个已保存轴向 rate，是离线重建假设，不是已证实的 WT 初始化算法。同模式保存点之间插值，越过最后记录后按末状态外推；开头缺少状态会报错。
+
+**回放飞机速度规则（仅记录）**：载机和目标飞机优先按真实位置历史及对应时间差分获得速度，避免使用可能受约 500 m/s 字段量程限制的速度；保留原始字段及速度来源。导弹自身速度不能因此一概替换。本库此次不修改回放导入器，这条规则由回放调用层负责。
+
 历史 H2 方程和参数说明保留在：
 
 [`docs/UPDATE_V1.0.1.md`](docs/UPDATE_V1.0.1.md)
@@ -309,6 +342,8 @@ tests/              回归测试
 
 更详细的技术说明：
 
+- [`docs/MODEL_STATUS_20261016.md`](docs/MODEL_STATUS_20261016.md)：当前模型、并行线程进展、验证边界和未解决问题
+- [`docs/WT_RATE_RECONSTRUCTION_PROGRESS_20261016.md`](docs/WT_RATE_RECONSTRUCTION_PROGRESS_20261016.md)：#118/#148 完整 rate、坐标变换、普通更新与捕获策略审计
 - [`docs/UPDATE_V1.0.1.md`](docs/UPDATE_V1.0.1.md)：完整方程、参数解释和证据链
 - [`V1_FREEZE.md`](V1_FREEZE.md)：历史 v1.0.0 冻结记录（不是当前 2.59 模型卡）
 

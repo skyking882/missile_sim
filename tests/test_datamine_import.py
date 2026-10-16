@@ -11,6 +11,46 @@ from import_datamine_missiles import _global_ballistics_parameters, _pid_schedul
 from aim120_model.profile_adapter import build_h2_candidate_config
 
 
+def _timeout_profile(tmp_path, ap_fields, *, enabled=False):
+    source = ROOT / "data/datamine_2.59.0.27/aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120c_5.blkx"
+    raw = json.loads(source.read_text())
+    autopilot = raw["rocket"]["guidance"]["guidanceAutopilot"]
+    for key in list(autopilot):
+        if key.startswith("timeToGain"):
+            del autopilot[key]
+    autopilot.update(ap_fields)
+    path = tmp_path / source.name
+    path.write_text(json.dumps(raw))
+    return _profile(raw, raw["rocket"], path, [path], tmp_path, "a" * 40,
+                    "2.59.0.27", "2026-10-09", "us_aim_120c_5", "us_aim_120c_5", [],
+                    autopilot_timeout_delay=enabled)["guidance"]
+
+
+def test_timeout_delay_is_opt_in_and_retains_assumed_semantics(tmp_path):
+    assert _timeout_profile(tmp_path, {"timeOut": 0.6})["flight_time_gain_table"] is None
+    guidance = _timeout_profile(tmp_path, {"timeOut": 0.6}, enabled=True)
+    assert guidance["flight_time_gain_table"] == [[0.6, 0.0], [0.61, 1.0]]
+    source = guidance["parameter_sources"]["flight_time_gain_table"]
+    assert source["kind"] == "assumed"
+    assert source["source_field"].endswith(".timeOut")
+
+
+@pytest.mark.parametrize("fields, expected", [
+    ({"timeOut": 0.6, "timeToGain0": [0.3, 0], "timeToGain1": [0.31, 1]}, [[0.3, 0.0], [0.31, 1.0]]),
+    ({"timeOut": 0.6, "timeToGain0": ["unparsed", 0]}, None),
+])
+def test_timeout_delay_does_not_replace_declared_gain_fields(tmp_path, fields, expected):
+    guidance = _timeout_profile(tmp_path, fields, enabled=True)
+    assert guidance["flight_time_gain_table"] == expected
+    assert not (guidance["parameter_sources"]["flight_time_gain_table"]["source_field"] or "").endswith(".timeOut")
+
+
+@pytest.mark.parametrize("timeout", [-0.1, float("inf"), "0.6", True])
+def test_timeout_delay_rejects_invalid_enabled_field(tmp_path, timeout):
+    with pytest.raises(ValueError, match="timeOut must be finite and nonnegative"):
+        _timeout_profile(tmp_path, {"timeOut": timeout}, enabled=True)
+
+
 def test_explicit_lift_fields_and_indexed_pid_survive_import(tmp_path):
     raw = json.loads((ROOT / "data/datamine/aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120a.blkx").read_text())
     rocket = raw["rocket"]

@@ -30,6 +30,11 @@ class Reflector:
     position: Vector
     velocity: Vector
     rcs_m2: float
+    identity: object | None = None
+    release_identity: object | None = None
+    release_time_s: float | None = None
+    release_position: Vector | None = None
+    release_velocity: Vector | None = None
 
 
 @dataclass(frozen=True)
@@ -95,6 +100,7 @@ class ChaffingTarget:
         self._pending = program.release_times()
         self._bundles: list[tuple[float, Vector, Vector]] = []
         self.released = 0
+        self.capture_mode = False
 
     def state_at(self, time_s: float):
         return self.inner.state_at(time_s)
@@ -120,13 +126,16 @@ class ChaffingTarget:
             self.released += 1
         out = []
         tau = self.spec.stop_time_constant_s
-        for t0, p0, v0 in self._bundles:
+        for index, (t0, p0, v0) in enumerate(self._bundles):
             age = time_s - t0
             rcs = self.spec.rcs_ratio * self.spec.envelope(age)
-            if age < 0 or rcs <= 0:
+            if age < 0 or (rcs <= 0 and not (self.capture_mode and age < self.spec.lifetime_s)):
                 continue
             decay = math.exp(-age / tau)
-            out.append(Reflector("chaff", add(p0, scale(v0, tau * (1 - decay))), scale(v0, decay), rcs))
+            out.append(Reflector("chaff", add(p0, scale(v0, tau * (1 - decay))), scale(v0, decay), rcs,
+                                 identity=("chaff", index), release_identity=("chaff", t0),
+                                 release_time_s=t0, release_position=p0,
+                                 release_velocity=add(v0, (0.0, self.spec.eject_speed_mps, 0.0))))
         return out
 
 
