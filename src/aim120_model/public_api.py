@@ -317,44 +317,8 @@ def _stage_markers(config: dict[str, Any]) -> list[dict[str, Any]]:
     return markers
 
 
-def simulate(
-    missile_profile: dict[str, Any],
-    scenario: dict[str, Any],
-    *,
-    model_mode: str = "general",
-    target_factory: Callable[[Any], Any] | None = None,
-    early_miss_s: float | None = None,
-    clutter_model: str | None = None,
-    clutter_min_depression_deg: float | None = None,
-    cw_on_clear_beam: bool = False,
-    multipath_gain: float | None = None,
-    launcher_radar_gimbal_deg: float | None = None,
-    require_seeker_lock: bool = False,
-) -> dict[str, Any]:
-    """Run one missile and return a JSON-serializable, read-only result.
-
-    This function performs no filesystem writes and is the only GUI calculation
-    entry point. Opt-in, general runtime only: ``target_factory`` wraps the
-    scenario target (see ``evasive_target.evasive_target_factory``);
-    ``early_miss_s`` ends an unpowered missile that has been opening from a
-    faster target for that long with ``termination_event == "early_miss"``;
-    ``clutter_model="geometric_mainlobe"`` replaces the any-look-down clutter
-    notch condition with a flat-earth main-beam ground intersection;
-    ``"look_down_angle"`` requires the line of sight to point at least
-    ``clutter_min_depression_deg`` (default 2) below the horizon;
-    ``cw_on_clear_beam`` lets any chaff bundle capture a beaming target that
-    has no ground clutter behind it (decoy path only);
-    ``multipath_gain`` (0–1) moves the radar seeker's measured position toward
-    the target's flat-surface image by gain times the profile's
-    ``multipath_effect`` strength at the target height (see
-    ``RadarSeekerObserver.enable_multipath``).
-    ``launcher_radar_gimbal_deg`` drops the datalink for good once the launcher's
-    own radar would lose the target (outside that cone, or in the clutter notch
-    seen from the launcher; see ``SensorTrackProvider.enable_launcher_radar``);
-    ``require_seeker_lock`` lets the proximity fuse fire only after the seeker
-    has tracked the target at least once.
-    """
-
+def _validate_surface_options(early_miss_s,clutter_model,clutter_min_depression_deg,multipath_gain,
+                              launcher_radar_gimbal_deg,launcher_support,launcher_radar_geometry=None):
     if early_miss_s is not None and (isinstance(early_miss_s, bool) or not isinstance(early_miss_s, (int, float))
                                      or not math.isfinite(early_miss_s) or early_miss_s <= 0):
         raise SimulationInputError("提前脱靶判定时间必须是正数。")
@@ -372,6 +336,144 @@ def simulate(
             isinstance(launcher_radar_gimbal_deg, bool) or not isinstance(launcher_radar_gimbal_deg, (int, float))
             or not 0 < launcher_radar_gimbal_deg <= 180):
         raise SimulationInputError("载机雷达扫描半角应在 0–180° 之间。")
+    from .radar_geometry import validate_launcher_radar_geometry
+    try:
+        validate_launcher_radar_geometry(launcher_radar_geometry)
+    except ValueError as exc:
+        raise SimulationInputError(str(exc)) from exc
+    if launcher_radar_geometry is not None and (launcher_radar_gimbal_deg is not None or launcher_support is not None):
+        raise SimulationInputError('launcher_radar_geometry cannot combine with launcher_radar_gimbal_deg or launcher_support')
+    if launcher_support is not None:
+        if not callable(launcher_support):
+            raise SimulationInputError('launcher_support 必须是可调用对象。')
+        if launcher_radar_gimbal_deg is not None:
+            raise SimulationInputError('launcher_support 与 launcher_radar_gimbal_deg 不能同时使用。')
+
+
+def simulate(
+    missile_profile: dict[str, Any],
+    scenario: dict[str, Any],
+    *,
+    model_mode: str = "general",
+    target_factory: Callable[[Any], Any] | None = None,
+    early_miss_s: float | None = None,
+    clutter_model: str | None = None,
+    clutter_min_depression_deg: float | None = None,
+    cw_on_clear_beam: bool = False,
+    multipath_gain: float | None = None,
+    launcher_radar_gimbal_deg: float | None = None,
+    launcher_radar_geometry: dict[str, Any] | None = None,
+    require_seeker_lock: bool = False,
+    launcher_support: Callable[[float, Any], str | tuple[str, tuple, tuple]] | None = None,
+    seeker_search: dict[str, Any] | None = None,
+    min_altitude_m: float | None = None,
+    chaff_capture: dict[str, Any] | None = None,
+    track_gate_model: dict[str, Any] | None = None,
+    target_observer: str | None = None,
+    angular_observer: str | None = None,
+    launch_quaternion_xyzw: tuple[float, float, float, float] | None = None,
+    guidance_input: Callable | None = None,
+    infrared_seeker: Any | None = None,
+) -> dict[str, Any]:
+    """Run one missile and return a JSON-serializable, read-only result.
+
+    ``infrared_seeker`` accepts InfraredSeekerConfig for optical sensor_track
+    profiles. This opt-in includes game-style FOV gating, tracking suspension and
+    deterministic flares via target.flares_at. Game-data assembly reads aircraft
+    heat, global conversion/aspect constants and band ranges automatically;
+    downstream range/velocity are truth-assisted simulation closure. None retains
+    the existing observation path and output schema.
+
+    This function performs no filesystem writes and is the only GUI calculation
+    entry point. Opt-in, general runtime only: ``target_factory`` wraps the
+    scenario target (see ``evasive_target.evasive_target_factory``);
+    ``early_miss_s`` ends an unpowered missile that has been opening from a
+    faster target for that long with ``termination_event == "early_miss"``;
+    ``clutter_model="geometric_mainlobe"`` replaces the any-look-down clutter
+    notch condition with a flat-earth main-beam ground intersection;
+    ``"look_down_angle"`` requires the line of sight to point at least
+    ``clutter_min_depression_deg`` (default 2) below the horizon;
+    ``cw_on_clear_beam`` lets any chaff bundle capture a beaming target that
+    has no ground clutter behind it (decoy path only);
+    ``multipath_gain`` (0–1) moves the radar seeker's measured position toward
+    the target's flat-surface image by gain times the profile's
+    ``multipath_effect`` strength at the target height (see
+    ``RadarSeekerObserver.enable_multipath``).
+    ``launcher_radar_gimbal_deg`` drops the datalink for good once the launcher's
+    own radar would lose the target (outside its body yaw/pitch limits, or in the clutter notch
+    seen from the launcher; see ``SensorTrackProvider.enable_launcher_radar``);
+    ``launcher_radar_geometry`` supplies explicit yaw/pitch degree-limit pairs,
+    beam_half_angle_deg and a fixed body-to-world orientation_quaternion_xyzw.
+    It uses the launcher's own circular beam after mechanical clipping; the
+    scalar gimbal option has no aircraft beam/roll data and adds no beam width.
+    ``require_seeker_lock`` lets the proximity fuse fire only after the seeker
+    has tracked the target at least once. Callback support also accepts
+    (reason, position, velocity) with native y-up estimates; empty reason uses
+    that estimate in datalink, seeker search and INS. ``launcher_support(t, target_truth)``
+    optionally supplies external launcher support at seconds since launch;
+    return an empty string for support or a nonempty permanent loss reason.
+    It requires the radar sensor_track provider and is mutually exclusive with
+    ``launcher_radar_gimbal_deg``.
+    ``seeker_search`` opts active-radar sensor_track into deterministic scanning,
+    per-profile tx/rx antenna gain and RCS detection range, and acquisition dwell.
+    An empty object uses D-grade scan defaults and zero additional dwell.
+    This missile's lock_timeout_s independently sets the launch startup delay.
+    Target models may expose rcs_m2 (default 1) with or without decoys_at.
+    None leaves existing results and output keys unchanged. Other observers keep
+    their existing behavior and report the scan as not_applicable when requested.
+    ``track_gate_model`` enables predicted range/speed/angle return competition,
+    notch tracking hazard, narrow initial/reacquisition windows, and datalink
+    pointing after own lock; None preserves current behavior. In the object,
+    datalink_after_lock defaults to True and acquire_half_deg to 5; False/None
+    respectively restore the original tracking-gate acquisition/support rules.
+    It requires active radar sensor_track and cannot combine with chaff_capture.
+    ``chaff_capture`` enables one seeded vg_soft trial per timestamped chaff release.
+    None retains the legacy decoy model; only active radar sensor_track supports it.
+    See the evidence ledger for calibrated versus assumed parameters.
+    ``min_altitude_m=50.0`` floors propagated INS estimates at 50 m in native
+    y-up coordinates and zeros estimated vertical velocity on clipping, including
+    drift. Pass it as a top-level keyword (or in WT_overlay's LAUNCH_OPTIONS).
+    None disables the floor. Requires the general surface sensor_track runtime;
+    direct radar/datalink observations keep their measured state unchanged.
+    ``target_observer='unified_alpha_beta'`` opts the radar sensor_track provider
+    into one world position-only observer (.8/.05, explicit experiment). Echo
+    velocities never enter its state. Timestamped DL callbacks may return
+    (reason, tracking.DatalinkObservation); old estimate tuples supply only an
+    initial prior in this mode. No estimate means no truth fallback. Same-object
+    reacquisition retains history; a new reflector starts with zero velocity.
+    ``angular_observer='q_capture'`` enables the empirical full-rate observer
+    for active radar sensor_track: previous body posture Q at acquisition,
+    received LOS prediction/correction with fixed gain 11.23 /s, and prediction
+    through missed echoes. It requires no replay rate/direction. None retains
+    the existing observer. It cannot be combined with target_observer or
+    guidance_input. This is a game approximation, not recovered WT code.
+    ``launch_quaternion_xyzw`` overrides only the initial body-to-world
+    attitude (forward/up/right body axes, scalar-last xyzw, normalized).
+    The scenario velocity direction remains defined by launch pitch/heading.
+    ``guidance_input(t, own_position, own_velocity) -> TrackSolution`` replaces
+    the built-in observer. AngularObservation/RecordedSeekerHistory in
+    angular_guidance support complete rate, causal acquisition boundaries and
+    changing missile-relative motion. Full rate uses runtime world axes and
+    n_dot = n x rate; all three components enter PN. None retains the built-in
+    observation path. Only the general surface runtime supports this input.
+    """
+
+    _validate_surface_options(early_miss_s,clutter_model,clutter_min_depression_deg,multipath_gain,
+                              launcher_radar_gimbal_deg,launcher_support,launcher_radar_geometry)
+    from .radar_seeker import validate_seeker_search, validate_chaff_capture, validate_track_gate_model
+    from .observation import validate_min_altitude, validate_target_observer
+    try:
+        validate_seeker_search(seeker_search)
+        validate_chaff_capture(chaff_capture)
+        validate_track_gate_model(track_gate_model)
+        if chaff_capture is not None and track_gate_model is not None:
+            raise ValueError("track_gate_model and chaff_capture are mutually exclusive")
+        validate_min_altitude(min_altitude_m)
+        validate_target_observer(target_observer)
+        from .q_angular_observer import validate_angular_observer
+        validate_angular_observer(angular_observer)
+    except ValueError as exc:
+        raise SimulationInputError(str(exc)) from exc
     if model_mode == "general" and "model_family" in missile_profile:
         if missile_profile.get("_runtime_unsupported"):
             raise UnsupportedPhysicsError("不支持的制导或物理类型：" + "、".join(missile_profile["_runtime_unsupported"]))
@@ -379,13 +481,19 @@ def simulate(
         try:
             return simulate_surface(missile_profile, scenario, target_factory, early_miss_s, clutter_model,
                                     clutter_min_depression_deg, bool(cw_on_clear_beam), multipath_gain,
-                                    launcher_radar_gimbal_deg, bool(require_seeker_lock))
+                                    launcher_radar_gimbal_deg, bool(require_seeker_lock),launcher_support,
+                                    seeker_search,min_altitude_m=min_altitude_m,chaff_capture=chaff_capture,track_gate_model=track_gate_model,target_observer=target_observer,
+                                    launch_quaternion_xyzw=launch_quaternion_xyzw,launcher_radar_geometry=launcher_radar_geometry,
+                                    guidance_input=guidance_input,angular_observer=angular_observer,infrared_seeker=infrared_seeker)
         except ValueError as exc:
             raise SimulationInputError(str(exc)) from exc
     if model_mode not in {"general", "legacy_h2"}:
         raise SimulationInputError(f"未知模型模式：{model_mode}。")
+    if min_altitude_m is not None:
+        raise SimulationInputError('min_altitude_m needs the general surface sensor_track runtime')
     if target_factory is not None or early_miss_s is not None or clutter_model is not None or cw_on_clear_beam \
-            or multipath_gain is not None or launcher_radar_gimbal_deg is not None or require_seeker_lock:
+            or multipath_gain is not None or launcher_radar_gimbal_deg is not None or launcher_radar_geometry is not None or require_seeker_lock or launcher_support is not None \
+            or seeker_search is not None or chaff_capture is not None or track_gate_model is not None or target_observer is not None or angular_observer is not None or launch_quaternion_xyzw is not None or guidance_input is not None or infrared_seeker is not None:
         raise SimulationInputError("外部目标模型、提前脱靶判定、杂波、多径、载机雷达和导引头锁定条件只支持通用 surface 运行时。")
 
     base_config = _validate_profile(missile_profile)
@@ -468,9 +576,16 @@ def simulate(
     }
 
 
+from .surface_runtime import (create_surface_missile, launch_quaternion_xyzw_from_velocity_normal,
+                              launch_quaternion_xyzw_from_dagor)
+
+
 __all__ = [
     "SimulationInputError",
     "UnsupportedPhysicsError",
     "simulate",
+    "create_surface_missile",
+    "launch_quaternion_xyzw_from_velocity_normal",
+    "launch_quaternion_xyzw_from_dagor",
     "validate_scenario",
 ]

@@ -2,6 +2,8 @@
   "integration_substeps": 4,
   "pn_candidate": "ideal_relative_velocity_normal",
   "pid_error_units": "m/s^2",
+  "pid_error_frame": "velocity_normal_projected_body",
+  "pid_pressure_gain_convention": "floor_one",
   "effective_parameters": {
     "cd_base_inverse_mach": [
       0.1649275802232184,
@@ -18,6 +20,14 @@
     "loft_common_scale": 1.225
   },
   "loft_gate_convention": "absolute_los",
+  "loft_pitch_target_convention": "plus_los",
+  "parameter_sources": {
+    "loft_pitch_target_convention": {
+      "kind": "assumed",
+      "source_field": "rocket.guidance.guidanceAutopilot.loftElevation",
+      "notes": "plus_los preserves the existing convention; opt-in absolute is a C-grade interpretation identified from the 2026-10-08 WT replays, not official field semantics. Loft gates and calibrated coefficients are unchanged."
+    }
+  },
   "time_to_hit_convention": "linear_closing",
   "restoring_angle_convention": "total_incidence_vector",
   "schema_version": 1,

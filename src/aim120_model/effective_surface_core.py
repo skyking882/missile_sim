@@ -111,6 +111,9 @@ class EffectiveSurfaceGame:
 
     def __init__(self, raw: dict[str, Any], config: dict[str, Any], creation: dict[str, Any]):
         self.raw, self.config, self.creation = raw, config, creation
+        self.loft_pitch_target_convention = config.get("loft_pitch_target_convention", "plus_los")
+        if self.loft_pitch_target_convention not in ("plus_los", "absolute"):
+            raise ValueError(f"Unknown loft pitch target convention: {self.loft_pitch_target_convention}")
         self.p = config["effective_parameters"]
         self.autopilot = raw["guidance"]["guidanceAutopilot"]
         self.atmosphere = StandardAtmosphere()
@@ -205,14 +208,21 @@ class EffectiveSurfaceGame:
                       "drag_aoa_n": dynamic*self.area*cda, "lift_n": norm(lift), "mach": mach}
         return deriv, diagnostic
 
-    def guidance(self, t: float, state: tuple[float, ...]) -> V3:
-        pos, vel, q = state[:3], state[3:6], state[6:10]
+    def guidance_kinematics(self, t: float, state: tuple[float, ...]):
+        """Relative motion and PN rotation state, in runtime world axes."""
+        pos, vel = state[:3], state[3:6]
         target = add(self.target0, scale(self.target_velocity, t))
         relative = sub(target, pos)
         relative_v = sub(self.target_velocity, vel)
         distance = norm(relative)
-        rhat = unit(relative)
         los_omega = scale(cross(relative, relative_v), 1/distance**2)
+        return relative, relative_v, los_omega
+
+    def guidance(self, t: float, state: tuple[float, ...]) -> V3:
+        vel, q = state[3:6], state[6:10]
+        relative, relative_v, los_omega = self.guidance_kinematics(t, state)
+        distance = norm(relative)
+        rhat = unit(relative)
         closing = -dot(relative_v, rhat)
         nav = self.autopilot["propNavMult"]
         hit_points = self.autopilot.get("_hit_gain") or [self.autopilot[f"timeToHitToGain{i}"] for i in range(3)]
@@ -238,7 +248,9 @@ class EffectiveSurfaceGame:
         if self.autopilot["loftEnabled"] and self.creation["scenario_exact"]["loft_state"] == "config":
             los_elevation = math.degrees(math.atan2(relative[1], math.hypot(relative[0], relative[2])))
             velocity_elevation = math.degrees(math.atan2(vel[1], math.hypot(vel[0], vel[2])))
-            omega_deg_s = math.degrees(norm(los_omega))
+            # Loft gates on LOS direction motion, not rotation about that LOS.
+            # The complete PN state may also contain an independent axial part.
+            omega_deg_s = math.degrees(norm(cross(relative, relative_v))/distance**2)
             gate = self.config.get("loft_gate_convention", "relative_flight_path")
             if gate == "relative_flight_path":
                 elevation_for_gate = los_elevation-velocity_elevation
@@ -255,10 +267,23 @@ class EffectiveSurfaceGame:
             if self.loft_phase == "climb":
                 forward = axes(normalized(q))[0]
                 pitch = math.degrees(math.asin(clamp(forward[1], -1., 1.)))
-                bias = self.p["loft_common_scale"]*self.autopilot["loftAngleToAccelMult"]*(self.autopilot["loftElevation"]+los_elevation-pitch)
+                pitch_error = (self.autopilot["loftElevation"]+los_elevation-pitch
+                               if self.loft_pitch_target_convention == "plus_los"
+                               else self.autopilot["loftElevation"]-pitch)
+                bias = self.p["loft_common_scale"]*self.autopilot["loftAngleToAccelMult"]*pitch_error
                 velocity_tangent = unit(vel)
                 vertical = sub((0., 1., 0.), scale(velocity_tangent, velocity_tangent[1]))
                 request = add(request, scale(vertical, bias/norm(vertical)) if norm(vertical) > 0. else (0., 0., 0.))
+        return self.limit_acceleration_request(request, state)
+
+    def limit_acceleration_request(self, request: V3, state: tuple[float, ...]) -> V3:
+        """Limit the requested acceleration in the selected feedback plane."""
+        if self.config.get("pid_error_frame", "body") == "velocity_normal_projected_body":
+            # Discard speed-change demand before it consumes the turn budget.
+            # update_control compares feedback in this same velocity plane,
+            # then resolves the remaining error onto the two body axes.
+            tangent = unit(state[3:6])
+            request = sub(request, scale(tangent, dot(request, tangent)))
         maximum = self.autopilot["reqAccelMax"]*G
         length = norm(request)
         return scale(request, maximum/length) if length > maximum else request
@@ -289,6 +314,11 @@ class EffectiveSurfaceGame:
         density = self.atmosphere.sample(state[1]).density_kg_m3
         indicated_speed_kmh = speed*3.6*math.sqrt(density/1.225)
         speed_gain = (self.autopilot["baseIndSpeed"]/indicated_speed_kmh)**2
+        pressure_gain = self.config.get("pid_pressure_gain_convention", "inverse_square")
+        if pressure_gain == "floor_one":
+            speed_gain = max(1., speed_gain)
+        elif pressure_gain != "inverse_square":
+            raise ValueError(f"Unknown PID pressure gain convention: {pressure_gain}")
         kp, ki, kd, limit = (self.autopilot[k] for k in ("accelControlProp", "accelControlIntg", "accelControlDiff", "accelControlIntgLim"))
         gain_convention = self.config.get("pid_gain_convention", "post_gain")
         output = []

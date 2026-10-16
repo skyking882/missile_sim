@@ -686,10 +686,20 @@ def _profile(
     bullet_name: str,
     raw_bullet_name: str,
     unsupported_features: list[str],
+    *,
+    autopilot_timeout_delay: bool = False,
 ) -> dict[str, Any]:
     guidance = rocket.get("guidance") or {}
     autopilot, autopilot_path = _autopilot(guidance)
     flight_time_gain_table = _indexed_gain_table(autopilot, "timeToGain")
+    timeout_delay_used = False
+    if autopilot_timeout_delay and not any(str(key).startswith("timeToGain") for key in autopilot):
+        if "timeOut" in autopilot:
+            timeout_s = _number(autopilot["timeOut"])
+            if timeout_s is None or timeout_s < 0.0:
+                raise ValueError(f"{autopilot_path}.timeOut must be finite and nonnegative")
+            flight_time_gain_table = [[timeout_s, 0.0], [timeout_s + 0.01, 1.0]]
+            timeout_delay_used = True
     seeker, seeker_path = _seeker(rocket)
     stages, propulsion_sources = _stages(rocket)
     source_files = [_relative(path, repo) for path in variants]
@@ -804,9 +814,10 @@ def _profile(
             "loft_exit_time_to_go_s": _source("assumed", None, "datamine 未提供与此字段语义一致的剩余时间门槛。"),
             "time_to_hit_gain_table": _source("datamine" if _indexed_gain_table(autopilot, "timeToHitToGain") else "assumed", f"{autopilot_path}.timeToHitToGain*", "Raw knots retained; absent table uses unit gain."),
             "flight_time_gain_table": _source(
-                "datamine" if flight_time_gain_table is not None else "assumed",
-                f"{autopilot_path}.timeToGain*" if flight_time_gain_table is not None else None,
-                "按索引读取飞行时间控制增益表；缺失时保留 null，由运行时显式回退。",
+                "assumed" if timeout_delay_used else "datamine" if flight_time_gain_table is not None else "assumed",
+                f"{autopilot_path}.timeOut" if timeout_delay_used else f"{autopilot_path}.timeToGain*" if flight_time_gain_table is not None else None,
+                "Opt-in: timeOut interpreted as startup control delay (C, 2026-10-08 WT replay); 0.01 s transition is assumed (D), not an identified ramp."
+                if timeout_delay_used else "按索引读取飞行时间控制增益表；缺失时保留 null，由运行时显式回退。",
             ),
             "proximity_radius_m": _source(proximity_kind, proximity_source, "优先读取 proximityFuse.radius；缺失时使用 shutterDamageRadius 作为代理。"),
             "seeker_type": _source("datamine", "rocket.guidanceType", "直接读取 seeker 制导类型标签。"),
@@ -969,7 +980,7 @@ def _profile(
     }
 
 
-def import_profiles(project_dir: Path, repo: Path) -> dict[str, Any]:
+def import_profiles(project_dir: Path, repo: Path, *, autopilot_timeout_delay: bool = False) -> dict[str, Any]:
     rocket_dir = repo / "aces.vromfs.bin_u" / "gamedata" / "weapons" / "rocketguns"
     if not rocket_dir.is_dir():
         raise FileNotFoundError(f"找不到 rocketguns 目录：{rocket_dir}")
@@ -1044,6 +1055,7 @@ def import_profiles(project_dir: Path, repo: Path) -> dict[str, Any]:
                 bullet_name,
                 canonical_raw_bullet_name,
                 features,
+                autopilot_timeout_delay=autopilot_timeout_delay,
             )
         except Exception as exc:
             parse_errors.append(f"{bullet_name}: profile 生成失败：{exc}")
@@ -1127,6 +1139,8 @@ def import_profiles(project_dir: Path, repo: Path) -> dict[str, Any]:
         ],
     }
     manifest_path = project_dir / "data" / "aam_non_tvc_manifest.json"
+    if autopilot_timeout_delay:
+        manifest["selection"]["autopilot_timeout_delay"] = True
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return manifest
@@ -1136,10 +1150,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="批量导入 datamine 空对空非 TVC 导弹")
     parser.add_argument("--project-dir", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--repo", type=Path, default=None)
+    parser.add_argument("--autopilot-timeout-delay", action="store_true",
+                        help="opt-in: interpret guidanceAutopilot.timeOut as startup delay only when timeToGain* is absent; use a separate --project-dir to preserve the baseline")
     args = parser.parse_args(argv)
     project_dir = args.project_dir.resolve()
     repo = (args.repo or project_dir / "data" / "datamine").resolve()
-    manifest = import_profiles(project_dir, repo)
+    manifest = import_profiles(project_dir, repo, autopilot_timeout_delay=args.autopilot_timeout_delay)
     print(json.dumps({
         "candidate_file_count": manifest["candidate_file_count"],
         "unique_entity_count": manifest["unique_entity_count"],
