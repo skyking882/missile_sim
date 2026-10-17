@@ -1,0 +1,57 @@
+name: INS TRK refinement followup review
+on:
+  push:
+    branches: ['audit/ins-trk-causality-20261017']
+    paths: ['.github/workflows/ins-trk-refinement-followup.yml','audits/ins_trk_refinement_20261017/followup_review.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  followup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Restore actual frozen inputs and all three completed tracks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39069993344 --repo skyking882/missile_sim --name missile-sim-ins-trk-mechanism-final-20261017 --dir prior
+          for task in quant phase temporal; do
+            gh run download 39073430131 --repo skyking882/missile_sim --name "ins-trk-refinement-$task" --dir "tracks/$task"
+          done
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Run checked candidates and independent numerical review
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 audits/ins_trk_refinement_20261017/refine.py tests 2>&1 | tee tests.log
+          /usr/bin/python3 -u audits/ins_trk_refinement_20261017/followup_review.py --input prior --results tracks --out followup > followup.log 2>&1
+          cat followup.log
+          python3 tools/verify_bundle.py > followup/unchanged-original-bundle.json
+      - name: Assemble bounded working evidence with rerunnable source layout
+        if: always()
+        run: |
+          mkdir -p delivery/audits/ins_trk_refinement_20261017 delivery/audits/ins_trk_causality_20261017 delivery/audits/capture_held_20261017 delivery/evidence/data/main/evidence delivery/evidence/data/main/input
+          cp audits/ins_trk_refinement_20261017/* delivery/audits/ins_trk_refinement_20261017/
+          cp audits/ins_trk_causality_20261017/explore.py delivery/audits/ins_trk_causality_20261017/
+          cp audits/capture_held_20261017/audit.py delivery/audits/capture_held_20261017/
+          cp prior/data/main/evidence/capture_events.json.gz prior/data/main/evidence/anchor_full_histories.json.gz delivery/evidence/data/main/evidence/
+          cp prior/data/main/input/cohort.json.gz delivery/evidence/data/main/input/
+          cp -r tracks delivery/
+          cp -r followup delivery/ || true
+          cp tests.log followup.log delivery/ || true
+          git rev-parse HEAD > delivery/source-commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ins-trk-refinement-reviewed
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
