@@ -1,0 +1,11 @@
+# Cross-mode consistency check, exploratory — 2026-10-17
+
+Motivation: ordinary gap fits and the separately fitted innovation weight alpha(T)=1-L/T imply a single-h correction gain different from the old constant0.926. For reset n=m, seed s=Q wold, one ordinary predict/correct step has linearized transverse retention kappa=1-alpha(h)*h*g(h), g(h)=1/(.078525+h/2). This could explain the near0.8 capture map without separately fitting a capture coefficient.
+
+Freeze every ordinary leave-scene-out fold from run39074045118 before scoring the244 existing phase-zero events (79R77). For each capture, use only the coefficient learned on OTHER scenes. Compare four ordinary-derived coefficients: constant-alpha, fractional-fixed-lag, rational-lag, and implicit-velocity effective alpha. Fixed0.8 is a control, not fitted here. Tau was fitted in earlier work on existing scenes; this is not a completely independent blind discovery or fully nested validation across the entire research history.
+
+Current recorded target n is a diagnostic projection/reset ray. Current rate/Ps/Vs are not allowed as predictor inputs, and current n is expressly not a prediction. Score both the linear retention map and the exact one-step spherical feedback, report maximum difference between them and any induced difference between the reset ray and resulting direction. Do not claim unique call-order identification: P(n)Q=Q P(Q^T n) is an algebraic equivalence. Test that identity separately.
+
+Linear cell feasibility uses previous rate cells and current rate cells at fixed Q/n; it is a compatibility test, not hidden-state prediction. The exact nonlinear feedback is scored at decoded rates only; do not label its score a full nonlinear quantization proof. Keep all79 events and all prior six exceptions.
+
+The routine will generate a bounded JSON and a markdown numerical receipt for the delivery. No production or native/raw files change. Reproduction comparisons keep structure and integer values exact; float metric/refit differences are reported separately with1e-5absolute+1e-9relative tolerance. This is numerical reproducibility tolerance, not a threshold for accepting a physical model. Gzip metadata timestamps are not compared.
