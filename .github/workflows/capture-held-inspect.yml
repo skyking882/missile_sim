@@ -1,0 +1,54 @@
+name: Capture held input inspection
+on:
+  push:
+    branches: ['audit/capture-held-20261017']
+    paths: ['.github/workflows/capture-held-inspect.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Download previously verified immutable reference artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39055471867 --repo skyking882/missile_sim --name psvs-frozen-decoder-reference-2dc243b --dir reference
+      - name: Inspect actual schemas and decoder sources
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import gzip,json,hashlib
+          root=Path('reference')
+          paths=sorted(root.rglob('*'))
+          print('=== RELEVANT FILE INVENTORY ===')
+          for p in paths:
+              if p.is_file() and ('outputs/' in str(p)):
+                  print(str(p),p.stat().st_size)
+          manifest=list(root.rglob('selected-files.json'))
+          if manifest:
+              entries=json.loads(manifest[0].read_text()); base=manifest[0].parent/'files'
+              for x in entries:
+                  p=base/x['path']
+                  assert p.stat().st_size==x['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==x['sha256'],str(p)
+              print('CHECKED_REFERENCE_FILES',len(entries))
+          chosen=[]
+          for p in paths:
+              if p.is_file() and p.suffix=='.py' and 'outputs/' in str(p) and any(x in str(p) for x in ('decode_missile_seeker','server_q_matrix','trk_innovation','sindy_server_lomo')):
+                  chosen.append(p)
+          for p in chosen:
+              print('=== SOURCE',p,'===')
+              print(p.read_text()[:26000])
+          for p in paths:
+              if p.is_file() and p.name in ('server_dataset.json.gz','missile_seeker_fieldmap.json'):
+                  op=gzip.open if p.suffix=='.gz' else open
+                  with op(p,'rt') as f:d=json.load(f)
+                  print('=== SCHEMA',p,'===')
+                  print(str(type(d)), list(d)[:30] if isinstance(d,dict) else len(d))
+                  if isinstance(d,dict):
+                      for k,v in d.items():
+                          print(k, type(v).__name__, str(v)[:4500])
+                  else:print(str(d[:1])[:10000])
+          PY
