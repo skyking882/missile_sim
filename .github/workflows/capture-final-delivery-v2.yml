@@ -1,0 +1,97 @@
+name: Capture held numerical delivery
+on:
+  push:
+    branches: ['audit/capture-held-20261017']
+    paths: ['.github/workflows/capture-final-delivery-v2.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Retrieve completed artifacts separately
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39063537273 --repo skyking882/missile_sim --name capture-held-reviewed-20261017 --dir delivery/core
+          gh run download 39063829423 --repo skyking882/missile_sim --name capture-clock-followup-20261017 --dir delivery/followup
+          gh run download 39064289649 --repo skyking882/missile_sim --name held-phase-diagnostic-20261017 --dir delivery/phase
+          gh run download 39064401588 --repo skyking882/missile_sim --name capture-censored-prior-20261017 --dir delivery/censored_prior
+      - name: Install numerical tools and local YAML reader
+        run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy python3-yaml
+      - name: Prepare delivery and verify source manifest
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 tools/verify_bundle.py > delivery/unchanged-original-bundle.json
+          cp audits/capture_held_20261017/RESULTS.md delivery/
+          git rev-parse HEAD > delivery/delivery-source-commit.txt
+          mkdir delivery/workflows
+          cp .github/workflows/capture-*.yml .github/workflows/held-phase-diagnostic.yml delivery/workflows/
+          /usr/bin/python3 - <<'PY'
+          import hashlib,json,subprocess,yaml
+          from pathlib import Path
+          root=Path('delivery/core');rows=json.loads((root/'MANIFEST.json').read_text())
+          for r in rows:
+              p=root/r['path'];assert p.stat().st_size==r['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==r['sha256']
+          Path('delivery/core-manifest-verification.json').write_text(json.dumps({'checked':len(rows),'all_match':True},indent=2))
+          # Reuse only the local, checked-in README/entrypoint generation step.
+          steps=yaml.safe_load(Path('.github/workflows/capture-final-delivery.yml').read_text())['jobs']['package']['steps']
+          script=next(s['run'] for s in steps if s.get('name')=='Create portable small-data reproduction entry point')
+          subprocess.run(['bash','-euo','pipefail','-c',script],check=True)
+          readme=Path('delivery/README.md');txt=readme.read_text();txt=txt.replace('Exact JSON comparison is strict and may flag last-bit numerical differences with a different SciPy/NumPy platform.','Floating values are compared with absolute tolerance 1e-9 plus relative tolerance 1e-12; integer/text/key/list structure remains exact. Exact JSON agreement, maximum deviations and mismatching paths are reported separately. The first attempted exact reproduction failed for the censored-prior output and was not misreported as exact equality.')
+          readme.write_text(txt)
+          print('CORE_MANIFEST_VERIFIED',len(rows))
+          PY
+          cp audits/capture_held_20261017/reproduce_small.sh delivery/
+      - name: Reproduce six result sets and measure differences
+        env:
+          PYTHON3: /usr/bin/python3
+        run: |
+          set -euo pipefail
+          bash delivery/reproduce_small.sh "$RUNNER_TEMP/reproduced-capture" 2>&1 | tee delivery/reproduction.log
+          cp "$RUNNER_TEMP/reproduced-capture/reproduction-verification.json" delivery/
+      - name: Independent own-motion clock check
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          /usr/bin/python3 - <<'PY'
+          import subprocess,yaml
+          from pathlib import Path
+          steps=yaml.safe_load(Path('.github/workflows/capture-final-delivery.yml').read_text())['jobs']['package']['steps']
+          script=next(s['run'] for s in steps if s.get('name')=='Independent own-motion clock diagnostic on the fixed anchors')
+          subprocess.run(['bash','-euo','pipefail','-c',script],check=True)
+          PY
+      - name: Verify final hashes and unchanged original bundle
+        run: |
+          set -euo pipefail
+          python3 tools/verify_bundle.py > delivery/unchanged-original-bundle-after.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,zipfile
+          root=Path('delivery');rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for r in rows:
+              p=root/r['path'];assert p.stat().st_size==r['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==r['sha256']
+          print('FINAL_DELIVERY',json.dumps({'files_checked':len(rows),'bytes':sum(r['bytes'] for r in rows),'hashes_match':True}),flush=True)
+          PY
+      - name: Retain actual reproduction failure diagnostics if any
+        if: failure()
+        run: |
+          cp "$RUNNER_TEMP/reproduced-capture/reproduction-verification.json" delivery/ || true
+          cp "$RUNNER_TEMP/reproduced-capture/tests.log" delivery/ || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-capture-held-20261017
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
