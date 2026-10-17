@@ -1,0 +1,78 @@
+name: PSV raw replay validation
+on:
+  push:
+    branches: ['audit/psvs-raw-validation-20261017']
+    paths: ['.github/workflows/psvs-raw-validation.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: psvs-raw-validation-20261017
+  cancel-in-progress: false
+jobs:
+  verify-build-extract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out immutable source bundle
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 9f28aebc3a92c5018f9a80526d24067c6b82bab8
+          persist-credentials: false
+      - name: Verify raw bytes and all supplied checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit-output
+          git rev-parse HEAD | tee audit-output/source-commit.txt
+          python3 tools/verify_bundle.py | tee audit-output/verification.json
+          git archive HEAD -o audit-output/frozen-source.tar
+          sha256sum audit-output/frozen-source.tar > audit-output/frozen-source.tar.sha256
+      - name: Retain verified source for independent local computation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: psvs-frozen-source-9f28aeb
+          path: |
+            audit-output/frozen-source.tar
+            audit-output/frozen-source.tar.sha256
+            audit-output/source-commit.txt
+            audit-output/verification.json
+          compression-level: 0
+          retention-days: 7
+      - name: Install platform build dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y cmake g++-13 python3-dev libunwind-dev liblzma-dev
+      - name: Build bundled native decoder without fetching replacement parser sources
+        shell: bash
+        env:
+          CC: gcc-13
+          CXX: g++-13
+          PYTHON3: /usr/bin/python3
+        run: |
+          set -euo pipefail
+          bash tools/build_backend_bundle.sh 2>&1 | tee audit-output/build.log
+      - name: Extract all five sessions, one parser process per session
+        shell: bash
+        run: |
+          set -euo pipefail
+          for session in 2026.10.08_11.49.38 2026.10.08_12.11.04 2026.10.08_12.03.42 2026.10.08_12.23.06 2026.10.08_12.45.12; do
+            /usr/bin/python3 tools/extract_server.py "$session" --module-dir build/backend/python/main --output "audit-output/extracted/$session" 2>&1 | tee "audit-output/extract-$session.log"
+          done
+          python3 tools/verify_bundle.py | tee audit-output/verification-after.json
+      - name: Retain derived fields, histories and diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: psvs-linux-derived-9f28aeb
+          path: |
+            audit-output/*.log
+            audit-output/*.json
+            audit-output/source-commit.txt
+            audit-output/extracted/*/weapon_raw.jsonl.gz
+            audit-output/extracted/*/unit_history.json.gz
+            audit-output/extracted/*/getFmProbe.json.gz
+            audit-output/extracted/*/getFmVelocity.json.gz
+            audit-output/extracted/*/getUnitMpiProbe.json.gz
+            audit-output/extracted/*/summary.json
+            audit-output/extracted/*/parser.log
+          compression-level: 0
+          retention-days: 7
