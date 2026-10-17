@@ -1,0 +1,37 @@
+name: Capture clock followup
+on:
+  push:
+    branches: ['audit/capture-held-20261017']
+    paths: ['.github/workflows/capture-clock-followup.yml','audits/capture_held_20261017/clock_followup.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  followup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39063145573 --repo skyking882/missile_sim --name capture-held-audit-20261017 --dir completed
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Timer-defined strata and exploratory additional models
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: /usr/bin/python3 -u audits/capture_held_20261017/clock_followup.py --results completed/audit-results --out followup-results
+      - name: Verify original bundle remains unchanged
+        run: |
+          python3 tools/verify_bundle.py > followup-results/unchanged-bundle.json
+          cp audits/capture_held_20261017/*.py followup-results/
+          git rev-parse HEAD > followup-results/source-commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: capture-clock-followup-20261017
+          path: followup-results/
+          retention-days: 14
+          compression-level: 1
