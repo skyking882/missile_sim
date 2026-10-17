@@ -61,7 +61,10 @@ def angles(n):
     n=unit(n)
     return np.array([math.atan2(-n[2],n[0]),math.asin(np.clip(n[1],-1,1))])
 
-def matrix(h,a,b):
+def matrix(bank,heading,pitch):
+    # Native Euler fields are (bank, heading, pitch), not (heading, pitch, bank).
+    # Verified against frozen scripts/analyze_r771_h110_blackbox.py and dataset Q.
+    h,a,b=heading,pitch,bank
     ch,sh=math.cos(h),math.sin(h);ca,sa=math.cos(a),math.sin(a);cb,sb=math.cos(b),math.sin(b)
     return np.array([[ch*ca,-ch*sa*cb+sh*sb,ch*sa*sb+sh*cb],[sa,ca*cb,-ca*sb],[-sh*ca,sh*sa*cb+ch*sb,-sh*sa*sb+ch*cb]])
 
