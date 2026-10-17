@@ -1,0 +1,166 @@
+name: Capture held verified delivery
+on:
+  push:
+    branches: ['audit/capture-held-20261017']
+    paths: ['.github/workflows/capture-final-delivery.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Retrieve completed experiments without overwriting their provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39063537273 --repo skyking882/missile_sim --name capture-held-reviewed-20261017 --dir delivery/core
+          gh run download 39063829423 --repo skyking882/missile_sim --name capture-clock-followup-20261017 --dir delivery/followup
+          gh run download 39064289649 --repo skyking882/missile_sim --name held-phase-diagnostic-20261017 --dir delivery/phase
+          gh run download 39064401588 --repo skyking882/missile_sim --name capture-censored-prior-20261017 --dir delivery/censored_prior
+      - name: Check original artifacts and bundle, record source
+        run: |
+          set -euo pipefail
+          python3 tools/verify_bundle.py > delivery/unchanged-original-bundle.json
+          cp audits/capture_held_20261017/RESULTS.md delivery/RESULTS.md
+          git rev-parse HEAD > delivery/delivery-source-commit.txt
+          mkdir delivery/workflows
+          cp .github/workflows/capture-*.yml .github/workflows/held-phase-diagnostic.yml delivery/workflows/
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery/core');rows=json.loads((root/'MANIFEST.json').read_text())
+          for row in rows:
+              p=root/row['path']
+              assert p.stat().st_size==row['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==row['sha256'],str(p)
+          Path('delivery/core-manifest-verification.json').write_text(json.dumps({'checked':len(rows),'all_match':True},indent=2))
+          print('CORE_MANIFEST_VERIFIED',len(rows))
+          PY
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Create portable small-data reproduction entry point
+        run: |
+          cat > delivery/reproduce_small.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          root=$(cd -- "$(dirname -- "$0")" && pwd)
+          py=${PYTHON3:-python3}
+          out=${1:-"$root/rerun"}
+          test ! -e "$out" || { echo 'Choose a new output directory' >&2; exit 2; }
+          mkdir -p "$out"
+          out=$(cd -- "$out" && pwd)
+          export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+          "$py" "$root/core/test_contract.py" 2>&1 | tee "$out/tests.log"
+          "$py" "$root/followup/clock_followup.py" --results "$root/core" --out "$out/followup" > "$out/followup.log"
+          work="$out/work"
+          mkdir -p "$work/completed" "$work/audits/capture_held_20261017" "$work/phase-results" "$work/prior-results"
+          ln -s "$root/core" "$work/completed/audit-results"
+          cp "$root/core/audit.py" "$work/audits/capture_held_20261017/audit.py"
+          (cd "$work" && "$py" "$root/phase/phase_diagnostic.py") > "$out/phase.log"
+          (cd "$work" && "$py" "$root/censored_prior/censored_capture.py") > "$out/censored_prior.log"
+          "$py" - "$root" "$out" <<'PY'
+          import gzip,json,sys
+          from pathlib import Path
+          root,out=map(Path,sys.argv[1:])
+          pairs=[('followup/followup.json','followup/followup.json'),('followup/fresh_return_predictions.json.gz','followup/fresh_return_predictions.json.gz'),('followup/anchor_time_diagnostics.json.gz','followup/anchor_time_diagnostics.json.gz'),('phase/phase_results.json','work/phase-results/phase_results.json'),('censored_prior/censored_capture_results.json','work/prior-results/censored_capture_results.json'),('censored_prior/censored_capture_events.json.gz','work/prior-results/censored_capture_events.json.gz')]
+          def load(p):
+              with (gzip.open(p,'rt') if p.suffix=='.gz' else p.open()) as f:return json.load(f)
+          rows=[]
+          for a,b in pairs:
+              equal=load(root/a)==load(out/b);rows.append(dict(reference=a,reproduced=b,json_exact_match=equal))
+              if not equal:raise AssertionError('Numerical difference from packaged environment: '+a)
+          (out/'reproduction-verification.json').write_text(json.dumps(rows,indent=2))
+          print(json.dumps({'checked_result_sets':len(rows),'all_json_exact_match':True},indent=2))
+          PY
+          SH
+          cat > delivery/README.md <<'MD'
+          # Capture / held / clipping replay audit
+
+          Start with RESULTS.md. All measurements are from the five supplied War Thunder game replay sessions. Production dev and original raw bytes were not changed. The scripts are research diagnostics, not a complete autonomous seeker implementation.
+
+          core/: preregistered main audit, reviewed raw-derived events, all failure cases, both full anchor histories, six tests and the original manifest. followup/: timer-continuity and split-clock diagnostics. phase/: exploratory additional effective angular propagation, with counterexamples to universal double-time or a fixed cap. censored_prior/: exploratory reconstruction of clipped capture angles from past Ps/Vs, including the failing prior cases. Workflows preserve the exact original execution commands and source-run IDs.
+
+          ## Reproduce included small-data experiments
+          Python 3 with NumPy and SciPy is required. The original Linux run used Ubuntu Python3.12, NumPy1.26.4 and SciPy1.11.4. No network requests are made by the reproduction script itself.
+
+          ```bash
+          bash reproduce_small.sh /absolute/path/to/new-output
+          ```
+
+          It executes the six tests and reproduces six result sets from the packaged event data. Exact JSON comparison is strict and may flag last-bit numerical differences with a different SciPy/NumPy platform. Gzip byte streams are not compared, since gzip timestamps may differ. Recorded numerical outputs are never overwritten.
+
+          ## Re-run raw decoding and the original main analysis
+          The small delivery does not duplicate the 167MB WRPL bundle or approximately 900MB frozen reference and Linux extraction artifacts. Restore those from the immutable source bundle and the source workflows documented in RESULTS.md, then run:
+
+          ```bash
+          python3 core/audit.py --reference /path/to/frozen-reference --derived /path/to/linux-derived --out /path/to/new-raw-audit
+          ```
+
+          Successful primitive checks are asserted before candidate scoring. The source cohort and decoding map come from the reference artifact. The current Ps/Vs/n/w are labels; serialized angle/range and own-state fields are conditional inputs, not already-proven independent measurements. One-step fits and whole held-episode propagation are explicitly separated in RESULTS.md.
+
+          MANIFEST.json hashes all delivery files except itself. Each original experiment's source commit remains in its own directory. No font files, runtime credentials or Git metadata are included.
+          MD
+      - name: Re-run delivered scripts and compare six numerical result sets
+        env:
+          PYTHON3: /usr/bin/python3
+        run: |
+          set -euo pipefail
+          bash delivery/reproduce_small.sh "$RUNNER_TEMP/reproduced-capture" 2>&1 | tee delivery/reproduction.log
+          cp "$RUNNER_TEMP/reproduced-capture/reproduction-verification.json" delivery/
+      - name: Independent own-motion clock diagnostic on the fixed anchors
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          cat > delivery/own_clock_check.py <<'PY'
+          import gzip,json,sys
+          from pathlib import Path
+          import numpy as np
+          root=Path(__file__).resolve().parent
+          sys.path.insert(0,str(root/'core'))
+          import audit as A
+          hist=json.load(gzip.open(root/'core/anchor_full_histories.json.gz','rt'))
+          groups={};rows=[];eps=2*10/32767
+          for uid,rs in hist.items():
+              for a,b in zip(rs,rs[1:]):
+                  T=(b['tick']-a['tick'])/48
+                  if not(0<T<=8/48 and a['code']==b['code']==31 and a['flag']==b['flag'] and b['timer']>0 and abs(b['timer']-a['timer']-T)<eps):continue
+                  v=(np.array(a['vm'])+np.array(b['vm']))/2;dp=np.array(b['p'])-np.array(a['p']);v2=float(v@v)
+                  if v2<1:continue
+                  tk=float(dp@v/v2)
+                  r=dict(uid=int(uid),tick0=a['tick'],tick1=b['tick'],flag=b['flag'],nominal_T=T,own_time_ratio=tk/T,own_residual_T_m=float(np.linalg.norm(dp-v*T)),own_residual_2T_m=float(np.linalg.norm(dp-v*2*T)))
+                  rows.append(r);groups.setdefault(f'{uid}_flag{b["flag"]}',[]).append(r)
+          summary={g:{k:A.metric([r[k] for r in rr]) for k in ('own_time_ratio','own_residual_T_m','own_residual_2T_m')} for g,rr in groups.items()}
+          result=dict(scope='Independent of angle/rate labels; trapezoidal own-motion timescale check on fixed-anchor timer-continuous intervals. Not proof of an internal integration timestep.',groups=summary,rows=rows)
+          A.save(root/'own-motion-clock.json',result)
+          print('OWN_MOTION_CHECK',json.dumps(summary),flush=True)
+          PY
+          /usr/bin/python3 delivery/own_clock_check.py
+      - name: Verify delivery file hashes and immutable original bundle
+        run: |
+          set -euo pipefail
+          python3 tools/verify_bundle.py > delivery/unchanged-original-bundle-after.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,zipfile
+          root=Path('delivery')
+          rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p.name!='MANIFEST.json']
+          # Preserve nested original manifests; only the root manifest excludes itself.
+          for p in sorted(root.rglob('MANIFEST.json')):
+              if p.parent!=root:rows.append(dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()))
+          rows.sort(key=lambda r:r['path']);(root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for r in rows:
+              p=root/r['path'];assert p.stat().st_size==r['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==r['sha256']
+          print('FINAL_DELIVERY',json.dumps({'files_checked':len(rows),'bytes':sum(r['bytes'] for r in rows),'hashes_match':True}),flush=True)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: success()
+        with:
+          name: missile-sim-capture-held-20261017
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
