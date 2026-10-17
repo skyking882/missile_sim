@@ -1,0 +1,55 @@
+name: INS TRK discriminant followup
+on:
+  push:
+    branches: ['audit/ins-trk-causality-20261017']
+    paths: ['.github/workflows/ins-trk-followup.yml','audits/ins_trk_causality_20261017/followup.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  followup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [reset, implicit]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Retrieve consolidated verified cohort and previous experiment results
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39068213649 --repo skyking882/missile_sim --name ins-trk-causality-reviewed --dir evidence
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Check manifest and run fixed candidate family
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+          TASK: ${{ matrix.task }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('evidence');rows=json.loads((root/'MANIFEST.json').read_text())
+          for row in rows:
+              p=root/row['path'];assert p.stat().st_size==row['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==row['sha256']
+          print('INPUT_MANIFEST_VERIFIED',len(rows))
+          PY
+          /usr/bin/python3 -u audits/ins_trk_causality_20261017/followup.py "$TASK" --input evidence --out "results-$TASK" 2>&1 | tee "followup-$TASK.log"
+          cp audits/ins_trk_causality_20261017/*.py audits/ins_trk_causality_20261017/FOLLOWUP_PROTOCOL.md "results-$TASK/"
+          cp "followup-$TASK.log" "results-$TASK/"
+          git rev-parse HEAD > "results-$TASK/source-commit.txt"
+          python3 tools/verify_bundle.py > "results-$TASK/unchanged-bundle.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ins-trk-followup-${{ matrix.task }}
+          path: |
+            results-${{ matrix.task }}/
+            followup-${{ matrix.task }}.log
+          retention-days: 14
+          compression-level: 1
