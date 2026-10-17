@@ -26,30 +26,23 @@ jobs:
           mkdir -p audit-output
           git rev-parse HEAD | tee audit-output/source-commit.txt
           python3 tools/verify_bundle.py | tee audit-output/verification.json
-          git archive HEAD -o audit-output/frozen-source.tar
-          sha256sum audit-output/frozen-source.tar > audit-output/frozen-source.tar.sha256
-      - name: Retain verified source for independent local computation
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: psvs-frozen-source-9f28aeb
-          path: |
-            audit-output/frozen-source.tar
-            audit-output/frozen-source.tar.sha256
-            audit-output/source-commit.txt
-            audit-output/verification.json
-          compression-level: 0
-          retention-days: 7
       - name: Install platform build dependencies
         run: sudo apt-get update -qq && sudo apt-get install -y cmake g++-13 python3-dev libunwind-dev liblzma-dev
-      - name: Build bundled native decoder without fetching replacement parser sources
+      - name: Build bundled native decoder with header-only portability fix
         shell: bash
         env:
           CC: gcc-13
           CXX: g++-13
+          CXXFLAGS: -include cstdint
           PYTHON3: /usr/bin/python3
         run: |
           set -euo pipefail
+          printf 'Header portability flag only: CXXFLAGS=-include cstdint\n' > audit-output/build-environment.log
+          g++-13 --version >> audit-output/build-environment.log
+          /usr/bin/python3 --version >> audit-output/build-environment.log
           bash tools/build_backend_bundle.sh 2>&1 | tee audit-output/build.log
+          cp build/backend/python/main/PyReplayParser*.so audit-output/
+          ldd audit-output/PyReplayParser*.so >> audit-output/build-environment.log
       - name: Extract all five sessions, one parser process per session
         shell: bash
         run: |
@@ -66,6 +59,7 @@ jobs:
           path: |
             audit-output/*.log
             audit-output/*.json
+            audit-output/*.so
             audit-output/source-commit.txt
             audit-output/extracted/*/weapon_raw.jsonl.gz
             audit-output/extracted/*/unit_history.json.gz
