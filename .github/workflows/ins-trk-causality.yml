@@ -1,0 +1,83 @@
+name: INS TRK causality exploration
+on:
+  push:
+    branches: ['audit/ins-trk-causality-20261017']
+    paths: ['.github/workflows/ins-trk-causality.yml','audits/ins_trk_causality_20261017/*.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Retrieve frozen references and native exports
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39055471867 --repo skyking882/missile_sim --name psvs-frozen-decoder-reference-2dc243b --dir reference
+          gh run download 39055559128 --repo skyking882/missile_sim --name psvs-linux-derived-9f28aeb --dir derived
+          gh run download 39065146998 --repo skyking882/missile_sim --name missile-sim-capture-held-20261017 --dir evidence
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Verify raw bundle and re-decode original cohort
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          python3 tools/verify_bundle.py > bundle-verification.json
+          /usr/bin/python3 -u audits/ins_trk_causality_20261017/prepare.py --reference reference --derived derived --evidence evidence --out prepared
+          cp bundle-verification.json prepared/
+          git rev-parse HEAD > prepared/source-commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ins-trk-causality-input
+          path: prepared/
+          retention-days: 14
+          compression-level: 1
+  explore:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [frame, capture, causality, verification]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Retrieve bounded data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download "$GITHUB_RUN_ID" --repo skyking882/missile_sim --name ins-trk-causality-input --dir prepared
+          gh run download 39065146998 --repo skyking882/missile_sim --name missile-sim-capture-held-20261017 --dir evidence
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Run bounded hypothesis track
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+          TASK: ${{ matrix.task }}
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u audits/ins_trk_causality_20261017/explore.py "$TASK" --evidence evidence --cohort prepared --out "results-$TASK" 2>&1 | tee "track-$TASK.log"
+          cp audits/ins_trk_causality_20261017/*.py audits/ins_trk_causality_20261017/PROTOCOL.md "results-$TASK/"
+          cp "track-$TASK.log" "results-$TASK/"
+          git rev-parse HEAD > "results-$TASK/source-commit.txt"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ins-trk-causality-${{ matrix.task }}
+          path: |
+            results-${{ matrix.task }}/
+            track-${{ matrix.task }}.log
+          retention-days: 14
+          compression-level: 1
