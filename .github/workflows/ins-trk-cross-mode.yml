@@ -1,0 +1,39 @@
+name: INS TRK ordinary-to-capture consistency
+on:
+  push:
+    branches: ['audit/ins-trk-causality-20261017']
+    paths: ['.github/workflows/ins-trk-cross-mode.yml','audits/ins_trk_refinement_20261017/bridge.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  bridge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39074045118 --repo skyking882/missile_sim --name ins-trk-refinement-reviewed --dir delivery
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Freeze ordinary fit; score conditional capture transfer
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          cp audits/ins_trk_refinement_20261017/* delivery/audits/ins_trk_refinement_20261017/
+          /usr/bin/python3 -u delivery/audits/ins_trk_refinement_20261017/bridge.py --input delivery/evidence --lag delivery/followup/lag_summary.json --out delivery/bridge 2>&1 | tee delivery/bridge.log
+          cp delivery/bridge/CROSS_MODE_RESULT.md delivery/
+          git rev-parse HEAD > delivery/bridge-source-commit.txt
+          python3 tools/verify_bundle.py > delivery/bridge/unchanged-original-bundle.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ins-trk-refinement-cross-mode
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
