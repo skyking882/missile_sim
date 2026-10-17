@@ -1,0 +1,85 @@
+name: Capture censored prior test
+on:
+  push:
+    branches: ['audit/capture-held-20261017']
+    paths: ['.github/workflows/capture-censored-prior.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39063145573 --repo skyking882/missile_sim --name capture-held-audit-20261017 --dir completed
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Reconstruct missing angle components from past state only
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          mkdir prior-results
+          cat > prior-results/censored_capture.py <<'PY'
+          import copy,gzip,json,sys
+          from pathlib import Path
+          import numpy as np
+          sys.path.insert(0,'audits/capture_held_20261017')
+          import audit as A
+          events=json.load(gzip.open('completed/audit-results/capture_events.json.gz','rt'))
+          def arr(r):
+              r=r.copy()
+              for k in ('Ps','Vs','p','vm','Q','n','w','angles','unknown'):r[k]=np.array(r[k],float)
+              return r
+          def predict(x,y,T):
+              pv=A.unit(x['Ps']+x['Vs']*T-y['p']);hold=A.unit(x['Ps']-y['p']);recorded=y['Q']@A.ray(y['angles'])
+              aa=y['angles'].copy();prior=A.angles(y['Q'].T@pv)
+              for j in range(2):
+                  if abs(aa[j])*A.RAD>=54.99:
+                      aa[j]=max(prior[j],55/A.RAD) if aa[j]>0 else min(prior[j],-55/A.RAD)
+              fused=y['Q']@A.ray(aa)
+              rays={'recorded':recorded,'past_PV':pv,'past_P_only':hold,'past_PV_censored':fused}
+              out={}
+              for rn,m in rays.items():
+                  for qn,q in [('Qold',x['Q']),('Qnew',y['Q'])]:
+                      w=q@x['w'];out[rn+'/'+qn+'/reset']=(m,w)
+                      out[rn+'/'+qn+'/self_h']=A.step(m,w,m,A.H)
+              return out
+          rows=[];guards=0
+          for e in events:
+              x,y=arr(e['old']),arr(e['new']);T=e['gap']/48
+              pp=predict(x,y,T)
+              poison=copy.deepcopy(y)
+              for k in ('Ps','Vs','n','w'):poison[k]=np.full(3,np.nan)
+              check=predict(x,poison,T)
+              for name in pp:
+                  for u,v in zip(pp[name],check[name]):np.testing.assert_array_equal(u,v)
+              guards+=1
+              rec={k:e[k] for k in ('replay','eid','uid','family','age0','age1','gap','fresh','limited','original_capture','flag0','flag1')}
+              rec['predictions']={name:A.errors(n,w,y) for name,(n,w) in pp.items()};rows.append(rec)
+          groups={'all':rows,'original501':[r for r in rows if r['original_capture']],'R77_saturated_fresh':[r for r in rows if r['family']=='R-77-1' and r['fresh'] and r['limited']],'R77_unlimited_fresh':[r for r in rows if r['family']=='R-77-1' and r['fresh'] and not r['limited']]}
+          result=dict(scope='Exploratory response to confirmed angle clipping; frozen models, no parameter fits or current-Ps/Vs/n/w inputs',label_isolation_checks=guards,groups={},anchors=[])
+          for name,rr in groups.items():
+              result['groups'][name]={model:{k:A.metric([r['predictions'][model][k] for r in rr]) for k in ('n_deg','w_deg_s','lambda_error_deg_s','P_m')} for model in rows[0]['predictions']}
+          result['anchors']=[r for r in rows if (r['replay'],r['eid']) in A.ANCHORS]
+          A.save(Path('prior-results/censored_capture_results.json'),result);A.save(Path('prior-results/censored_capture_events.json.gz'),rows)
+          for group,dd in result['groups'].items():
+              print('PRIOR_GROUP',group,json.dumps({name:{k:v[k] for k in ('n_deg','w_deg_s','P_m')} for name,v in dd.items()}),flush=True)
+          for r in result['anchors']:
+              print('PRIOR_ANCHOR',json.dumps(A.serial(r)),flush=True)
+          print('LABEL_ISOLATION_CHECKS',guards,flush=True)
+          PY
+          /usr/bin/python3 -u prior-results/censored_capture.py
+          cp audits/capture_held_20261017/audit.py prior-results/
+          git rev-parse HEAD > prior-results/source-commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: capture-censored-prior-20261017
+          path: prior-results/
+          retention-days: 14
+          compression-level: 1
