@@ -1,0 +1,143 @@
+name: INS TRK verified delivery
+on:
+  push:
+    branches: ['audit/ins-trk-causality-20261017']
+    paths: ['.github/workflows/ins-trk-final-delivery.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Collect completed experiment outputs and bounded input cohort
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39068213649 --repo skyking882/missile_sim --name ins-trk-causality-reviewed --dir delivery/data/main
+          gh run download 39068771740 --repo skyking882/missile_sim --name ins-trk-followup-reset --dir delivery/data/reset
+          gh run download 39068771740 --repo skyking882/missile_sim --name ins-trk-followup-implicit --dir delivery/data/implicit
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Install original relative import layout and verify input hashes
+        run: |
+          set -euo pipefail
+          mkdir -p delivery/audits/ins_trk_causality_20261017 delivery/audits/capture_held_20261017 delivery/data/legacy/core delivery/verification delivery/workflows
+          cp audits/ins_trk_causality_20261017/* delivery/audits/ins_trk_causality_20261017/
+          cp audits/capture_held_20261017/audit.py delivery/audits/capture_held_20261017/
+          cp delivery/data/main/evidence/*.gz delivery/data/legacy/core/
+          cp audits/ins_trk_causality_20261017/REPORT.md delivery/REPORT.md
+          cp audits/ins_trk_causality_20261017/reproduce.py delivery/reproduce.py
+          cp .github/workflows/ins-trk*.yml delivery/workflows/
+          git rev-parse HEAD > delivery/delivery-source-commit.txt
+          python3 tools/verify_bundle.py > delivery/verification/original-bundle-before.json
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery/data/main');rows=json.loads((root/'MANIFEST.json').read_text())
+          for row in rows:
+              p=root/row['path'];assert p.stat().st_size==row['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==row['sha256'],str(p)
+          Path('delivery/verification/input-hashes.json').write_text(json.dumps({'checked':len(rows),'all_match':True},indent=2))
+          print('INPUT_HASHES_CHECKED',len(rows))
+          PY
+          cat > delivery/README.md <<'MD'
+          # INS→TRK game replay mechanism audit
+
+          Read REPORT.md and verification/independent_review.json. The project concerns War Thunder game replay serialization and state reconstruction. No production dev, raw WRPL bytes or native decoder were changed in this audit.
+
+          This package includes the re-decoded original501-case cohort,931 captured transitions, full #118/#148 derived histories, exact candidate predictions, training/test membership, failures, source hashes and scripts. It does not duplicate the167MB original WRPL bundle or the large frozen reference/native export artifacts. See workflow sources and source_verification.json for those dependencies.
+
+          ## Run the supplied numerical experiments
+
+          Python3 with NumPy and SciPy is needed. Original execution used Ubuntu Python3.12, NumPy1.26.4, SciPy1.11.4. No network is accessed by this command:
+
+          ```bash
+          python3 reproduce.py /absolute/path/to/new-output
+          ```
+
+          It runs the four original tracks, the two exploratory follow-ups, seven algebra/interface checks and independent matrix/sample-membership verification. Fifteen numerical output sets are compared to the original outputs. Integer/string/dictionary-key/list-order comparisons are exact; floating values use absolute1e-7 plus relative1e-10 tolerance, with actual maximum differences and differing paths recorded. This is reproducibility tolerance, not a model-fit acceptance threshold. Gzip timestamps are not compared. All existing outputs are read-only inputs; choose a new output directory.
+
+          ## Interpretation boundaries
+
+          The0.8 reset-map diagnostic projects onto current recorded direction and must not be reported as an independent direction prediction. Past-PV capture candidates do not read current Ps/Vs/n/w, but the fixed global capture phase remains a hypothesis and many cases have invalid old priors. The implicit PV candidate does not read current Ps/Vs/n/w but still inputs pointing/range/radial fields that may themselves be outputs; it is not an autonomous measurement generator. Two nonconverged all-family implicit cases are retained.
+
+          Main/source protocols precede their corresponding scoring. FOLLOWUP_PROTOCOL explicitly marks the new0.8 and implicit-PV tests as exploratory responses to the first results. Existing scenes are not newly blinded data. Programs/jobs are not AI subagents.
+
+          A minor initial frame_summary.anchor_shrink presentation bug selected anchors by UID only, which can include other scenes with the same UID. Original results remain untouched for exact provenance; verification/frame_anchor_label_correction.json and verification/frame_summary_corrected.json use exact(replay,EID) anchors. Main population statistics and all capture timing/implicit predictions were not affected. Use the corrected anchor summary, not that UID-only field.
+
+          Production runtime still has independent unresolved issues. Research tests here are not the complete simulator regression suite.
+          MD
+      - name: Execute portable package and compare all fifteen output sets
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce.py "$RUNNER_TEMP/ins-trk-reproduced" 2>&1 | tee delivery/verification/reproduction.log
+          cp "$RUNNER_TEMP/ins-trk-reproduced/reproduction_verification.json" delivery/verification/
+          cp "$RUNNER_TEMP/ins-trk-reproduced/independent_review/independent_review.json" delivery/verification/
+          cp "$RUNNER_TEMP/ins-trk-reproduced/review.log" delivery/verification/
+      - name: Correct the UID-only anchor presentation and print bounded final evidence
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          /usr/bin/python3 - <<'PY'
+          import copy,json,sys
+          from pathlib import Path
+          import numpy as np
+          sys.path.insert(0,'audits/ins_trk_causality_20261017')
+          import explore as E
+          A=E.A;root=Path('delivery')
+          fs=E.load(next((root/'data/main/frame').rglob('frame_summary.json')))
+          caps=E.load(root/'data/main/evidence/capture_events.json.gz');correct=[]
+          for e in caps:
+              if not(e['original_capture'] and (e['replay'],e['eid']) in A.ANCHORS):continue
+              a,b=E.arr(e['old']),E.arr(e['new']);n=b['n'];details={}
+              for label,q in [('old',a['Q']),('new',b['Q'])]:
+                  seed=q@a['w'];sp=seed-(seed@n)*n;wp=b['w']-(b['w']@n)*n;k=float(sp@wp/(sp@sp)) if sp@sp>1e-12 else None
+                  details[label]=dict(axial_error=float((seed-b['w'])@n)*A.RAD,scalar_transverse=k,unexplained_transverse=float(np.linalg.norm(wp-k*sp))*A.RAD if k is not None else None,copy_error=float(np.linalg.norm(seed-b['w']))*A.RAD)
+              correct.append(dict(replay=e['replay'],eid=e['eid'],uid=e['uid'],tick0=e['tick0'],tick1=e['tick1'],details=details))
+          note=dict(issue='Initial frame_summary.anchor_shrink filtered only by UID, not full replay/EID.',affected_claim='Only that exploratory anchor list. Population scores, capture timing and final exact-identity anchor results are unaffected.',original=fs['anchor_shrink'],corrected=correct)
+          fixed=copy.deepcopy(fs);fixed['anchor_shrink']=correct
+          A.save(root/'verification/frame_anchor_label_correction.json',note);A.save(root/'verification/frame_summary_corrected.json',fixed)
+          v=E.load(root/'verification/independent_review.json');repro=E.load(root/'verification/reproduction_verification.json')
+          bounded={k:v[k] for k in ('tests_run','tests_passed','reset_matrix_cases','reset_matrix_max_error_difference','identical_ordered_ordinary_sample_membership','source','zero_phase_events','projection_input_poison_checks','effective_alpha_approximation','implicit_unconverged_retained')}
+          bounded['reset_forward_vs_conditional']={g:dict(n=z['n'],models=z['models']) for g,z in v['reset_groups'].items()}
+          bounded['capture_same_rule_anchors']=v['capture_same_rule_anchors']
+          bounded['reproduction']=dict(sets=len(repro['results']),all_passed=repro['all_passed'],exact_sets=sum(r['exact'] for r in repro['results']),max_float_difference=max(r['max_abs_difference'] for r in repro['results']),max_tolerance_ratio=max(r['max_tolerance_ratio'] for r in repro['results']))
+          A.save(root/'verification/final_compact.json',bounded)
+          for k,z in bounded.items():print('DELIVERY_RESULT',k,json.dumps(A.serial(z)),flush=True)
+          print('ANCHOR_LABEL_CORRECTED',len(note['original']),len(correct),flush=True)
+          PY
+      - name: Verify unchanged bundle and package file manifest
+        run: |
+          set -euo pipefail
+          python3 tools/verify_bundle.py > delivery/verification/original-bundle-after.json
+          python3 - <<'PY'
+          import hashlib,json,zipfile
+          from pathlib import Path
+          root=Path('delivery');rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for row in rows:
+              p=root/row['path'];assert p.stat().st_size==row['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==row['sha256']
+          print('FINAL_MANIFEST',json.dumps({'files_checked':len(rows),'bytes':sum(r['bytes'] for r in rows),'all_match':True}),flush=True)
+          PY
+      - name: Preserve actual failure diagnostics if reproduction fails
+        if: failure()
+        run: |
+          mkdir -p delivery/verification
+          cp "$RUNNER_TEMP/ins-trk-reproduced/reproduction_verification.json" delivery/verification/ || true
+          cp "$RUNNER_TEMP/ins-trk-reproduced/review.log" delivery/verification/ || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-ins-trk-mechanism-20261017
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
