@@ -1,0 +1,89 @@
+name: Held phase diagnostic
+on:
+  push:
+    branches: ['audit/capture-held-20261017']
+    paths: ['.github/workflows/held-phase-diagnostic.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39063145573 --repo skyking882/missile_sim --name capture-held-audit-20261017 --dir completed
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Compare fixed multipliers and capped extrapolation without per-row fitted inputs
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          mkdir phase-results
+          cat > phase-results/phase_diagnostic.py <<'PY'
+          import gzip,json,sys,math
+          from pathlib import Path
+          import numpy as np
+          sys.path.insert(0,'audits/capture_held_20261017')
+          import audit as A
+          root=Path('completed/audit-results')
+          hist=json.load(gzip.open(root/'anchor_full_histories.json.gz','rt'))
+          cap=json.load(gzip.open(root/'capture_events.json.gz','rt'))
+          def ar(x):
+              x=x.copy()
+              for k in ('n','w','Q','p','vm','Ps','Vs','unknown','angles'):x[k]=np.array(x[k],float)
+              return x
+          eps=2*10/32767
+          limits=[.1,.2,.25,.3,.3125,1/3,.375,.4,.5,1.]
+          score={};diagnostics=[];episodes=[]
+          for uid,history in hist.items():
+              rr=[ar(r) for r in history];seed=None;es={};records=[]
+              epoch=next(r['tick0']-round(r['age0']*48) for r in cap if r['uid']==int(uid) and (r['replay'],r['eid']) in A.ANCHORS)
+              def finish():
+                  global seed,es,records
+                  if seed is not None and records:
+                      episodes.append(dict(uid=int(uid),flag=seed['flag'],start_age=(seed['tick']-epoch)/48,end_age=records[-1]['age'],seed_timer=seed['timer'],seed_w=seed['w']*A.RAD,seed_n=seed['n'],seed_R=seed['R'],seed_d=seed['d'],seed_closing=seed['closing'],seed_last=seed['last'],metrics={k:A.metric(v) for k,v in es.items()},records=records))
+                  seed=None;es={};records=[]
+              for x,y in zip(rr,rr[1:]):
+                  T=(y['tick']-x['tick'])/48
+                  if not (0<T<=8/48 and x['code']==y['code']==31 and x['flag']==y['flag'] and y['timer']>0 and abs(y['timer']-x['timer']-T)<eps):
+                      finish();continue
+                  models={'one_T':T,'two_T':2*T}
+                  for L in limits:models['cap_'+str(L)]=T+min(y['timer'],L)-min(x['timer'],L)
+                  vals={k:A.angle(A.rotate(x['n'],x['w'],dt),y['n'])*A.RAD for k,dt in models.items()}
+                  for key,err in vals.items():score.setdefault(f'{uid}_flag{y["flag"]}',{}).setdefault(key,[]).append(err)
+                  if seed is None:seed=x
+                  total=(y['tick']-seed['tick'])/48
+                  sm={'one_T':total,'two_T':2*total}
+                  for L in limits:sm['cap_'+str(L)]=total+min(y['timer'],L)-min(seed['timer'],L)
+                  for key,dt in sm.items():es.setdefault(key,[]).append(A.angle(A.rotate(seed['n'],seed['w'],dt),y['n'])*A.RAD)
+                  mag=np.linalg.norm(x['w']);axis=x['w']/mag if mag>1e-12 else np.array([1.,0,0]);n0=x['n']-(x['n']@axis)*axis;n1=y['n']-(y['n']@axis)*axis
+                  tf=-math.atan2(axis@np.cross(n0,n1),n0@n1)/mag if mag>1e-12 else 0
+                  mseed=np.linalg.norm(seed['w']);axseed=seed['w']/mseed if mseed>1e-12 else np.array([1.,0,0]);sn0=seed['n']-(seed['n']@axseed)*axseed;sn1=y['n']-(y['n']@axseed)*axseed
+                  tot_eff=-math.atan2(axseed@np.cross(sn0,sn1),sn0@sn1)/mseed if mseed>1e-12 else 0
+                  r=dict(uid=int(uid),flag=y['flag'],age=(y['tick']-epoch)/48,T=T,timer=y['timer'],effective_dt=tf,ratio=tf/T,extra_time_from_seed=tot_eff-total,R=y['R'],d=y['d'],closing=y['closing'],last=y['last'],unknown=y['unknown'],angle_deg=y['angles']*A.RAD,n_body_deg=A.angles(y['Q'].T@y['n'])*A.RAD,axial_change=float(y['n']@axis-x['n']@axis),errors=vals)
+                  records.append(r);diagnostics.append(r)
+              finish()
+          result=dict(scope='Exploratory fixed-anchor phase diagnostics; no per-event model selection is deployed',limits_seconds=limits,one_step={g:{k:A.metric(v) for k,v in dd.items()} for g,dd in score.items()},episodes=episodes)
+          A.save(Path('phase-results/phase_results.json'),result)
+          for key,dd in result['one_step'].items():print('PHASE_SCORE',key,json.dumps(dd),flush=True)
+          for ep in episodes:
+              compact={k:v for k,v in ep.items() if k!='records'}
+              print('PHASE_EPISODE',json.dumps(A.serial(compact)),flush=True)
+              if ep['flag']==1:
+                  print('PHASE_ROWS',json.dumps(A.serial([{k:r[k] for k in ('age','T','timer','effective_dt','ratio','extra_time_from_seed','R','d','closing','last','unknown','n_body_deg')} for r in ep['records']])),flush=True)
+          PY
+          /usr/bin/python3 -u phase-results/phase_diagnostic.py
+          cp audits/capture_held_20261017/audit.py phase-results/
+          git rev-parse HEAD > phase-results/source-commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: held-phase-diagnostic-20261017
+          path: phase-results/
+          retention-days: 14
+          compression-level: 1
