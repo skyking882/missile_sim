@@ -1,0 +1,64 @@
+name: INS TRK quantization and timing refinement
+on:
+  push:
+    branches: ['audit/ins-trk-causality-20261017']
+    paths: ['.github/workflows/ins-trk-refinement.yml','audits/ins_trk_refinement_20261017/refine.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  refine:
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [quant, phase, temporal]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Restore frozen prior delivery
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39069993344 --repo skyking882/missile_sim --name missile-sim-ins-trk-mechanism-final-20261017 --dir evidence
+      - name: Numerical dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Verify immutable input file hashes and original bundle
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,hashlib
+          root=Path('evidence');rows=json.loads((root/'MANIFEST.json').read_text())
+          for r in rows:
+              p=root/r['path'];assert p.stat().st_size==r['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==r['sha256'],str(p)
+          print('INPUT_HASHES_VERIFIED',len(rows))
+          PY
+          python3 tools/verify_bundle.py > original-bundle.json
+      - name: Test and execute isolated discriminant
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+          TASK: ${{ matrix.task }}
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 audits/ins_trk_refinement_20261017/refine.py tests 2>&1 | tee tests.log
+          /usr/bin/python3 -u audits/ins_trk_refinement_20261017/refine.py "$TASK" --input evidence --out results > analysis.log 2>&1
+          grep -E 'QUANT_|PHASE_GROUP|BOUNDARIES|TEMPORAL_GROUP' analysis.log
+      - name: Retain exact source and diagnostics
+        if: always()
+        run: |
+          mkdir -p results/code/ins_trk_refinement_20261017 results/code/ins_trk_causality_20261017 results/code/capture_held_20261017
+          cp audits/ins_trk_refinement_20261017/* results/code/ins_trk_refinement_20261017/
+          cp audits/ins_trk_causality_20261017/explore.py results/code/ins_trk_causality_20261017/
+          cp audits/capture_held_20261017/audit.py results/code/capture_held_20261017/
+          cp tests.log analysis.log original-bundle.json results/ || true
+          git rev-parse HEAD > results/source-commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ins-trk-refinement-${{ matrix.task }}
+          path: results/
+          retention-days: 14
+          compression-level: 1
