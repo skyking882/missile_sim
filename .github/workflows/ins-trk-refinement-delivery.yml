@@ -1,0 +1,93 @@
+name: INS TRK refinement verified delivery
+on:
+  push:
+    branches: ['audit/ins-trk-causality-20261017']
+    paths: ['.github/workflows/ins-trk-refinement-delivery.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  deliver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39074333363 --repo skyking882/missile_sim --name ins-trk-refinement-cross-mode --dir delivery
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Add reviewed report and reproducible root entrypoint
+        run: |
+          set -euo pipefail
+          cp audits/ins_trk_refinement_20261017/* delivery/audits/ins_trk_refinement_20261017/
+          cp audits/ins_trk_refinement_20261017/REPORT.md audits/ins_trk_refinement_20261017/reproduce.py delivery/
+          cp delivery/CROSS_MODE_RESULT.md delivery/bridge/AUTO_CROSS_MODE_RESULT.md
+          cp audits/ins_trk_refinement_20261017/CROSS_MODE_RESULT.md delivery/
+          mkdir -p delivery/verification delivery/workflows
+          cp .github/workflows/ins-trk-refinement*.yml .github/workflows/ins-trk-cross-mode.yml delivery/workflows/
+          git rev-parse HEAD > delivery/delivery-source-commit.txt
+          python3 tools/verify_bundle.py > delivery/verification/original-bundle-before.json
+          cat > delivery/README.md <<'MD'
+          # INS→TRK refinement: quantization, timing and feedback
+
+          Read REPORT.md and CROSS_MODE_RESULT.md. These are offline War Thunder game-replay diagnostics, not changes to production dev or a fully autonomous measurement model.
+
+          ## Reproduce
+
+          Python3, NumPy and SciPy are required. Source runs used Ubuntu Python3.12, NumPy1.26.4 and SciPy1.11.4. From the extracted delivery:
+
+          ```bash
+          python3 reproduce.py /absolute/path/to/new-output
+          ```
+
+          The script makes no network calls. It checks the three supplied data hashes, runs the mathematical tests, all three original tracks, the exploratory follow-up and cross-mode consistency check, then compares fourteen numerical output sets. Structures, integers, booleans and text are exact; floating optimizer/refitting differences use the declared absolute1e-5 plus relative1e-9 tolerance and are reported by path. The comparison tolerance is not a physical fit-acceptance criterion. Existing outputs remain read-only. Use a new output directory.
+
+          ## Evidence layout
+
+          evidence/: three frozen replay-derived inputs, including931 transition boundaries, original501-case prefixes and two complete anchor histories. tracks/: original quantization, phase and ordinary timing outputs. followup/: independent equality LP verification, corrected code29 loss bookkeeping, out-of-phase first-capture scores and common-lag tests. bridge/: ordinary-to-capture coefficient transfer and exact-versus-linear feedback. audits/: source in its original relative import layout. verification/: actual reproduction outcome and raw-bundle checks. workflows/: original execution definitions.
+
+          The167MB WRPL bundle and large native export are not duplicated here. Input lineage leads to run39069993344, which retained the previously verified original files and decoder checks; main refinement input hashes match that frozen evidence. Source protocols identify which later models were exploratory. No AI subagents are claimed.
+
+          The rate reset projection uses current target direction conditionally; it does not predict that direction independently. Pointing angles in ordinary tests are serialized inputs, not proven raw target measurements. The near0.8 mapping and approximately3.1ms innovation scale do not uniquely identify an engine constant or sensor latency. P(n)Q and QP(Q^T n) are exactly equivalent. First-capture scheduling must not be conflated with the periodic code25-to31 reacquisition pattern. All six fixed-map R77 rate-cell incompatibilities remain in the evidence.
+          MD
+      - name: Rerun actual packaged code and compare fourteen outputs
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce.py "$RUNNER_TEMP/refinement-reproduced" 2>&1 | tee delivery/verification/reproduction.log
+          cp "$RUNNER_TEMP/refinement-reproduced/reproduction_verification.json" "$RUNNER_TEMP/refinement-reproduced/tests.log" delivery/verification/
+      - name: Verify original raw bundle and final manifest
+        run: |
+          set -euo pipefail
+          python3 tools/verify_bundle.py > delivery/verification/original-bundle-after.json
+          python3 - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          root=Path('delivery')
+          report=json.loads((root/'verification/reproduction_verification.json').read_text())
+          note='# Final numeric reproduction\n\n'+json.dumps({k:v for k,v in report.items() if k!='results'},ensure_ascii=False,indent=2)+'\n\nFull differing paths are in verification/reproduction_verification.json. These tests do not constitute a complete production-simulator regression.\n'
+          (root/'VERIFICATION.md').write_text(note)
+          rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for r in rows:
+              p=root/r['path'];assert p.stat().st_size==r['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==r['sha256']
+          print('FINAL_PACKAGE',json.dumps({'files_checked':len(rows),'bytes':sum(r['bytes'] for r in rows),'all_hashes_match':True}),flush=True)
+          PY
+      - name: Preserve genuine failure diagnostics
+        if: failure()
+        run: |
+          mkdir -p delivery/verification
+          cp "$RUNNER_TEMP/refinement-reproduced/reproduction_verification.json" delivery/verification/ || true
+          cp "$RUNNER_TEMP/refinement-reproduced/tests.log" delivery/verification/ || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-ins-trk-refinement-20261017
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
