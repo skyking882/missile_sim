@@ -1,0 +1,69 @@
+name: INS TRK cross-track review
+on:
+  push:
+    branches: ['audit/ins-trk-causality-20261017']
+    paths: ['.github/workflows/ins-trk-result-review.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  summarize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Collect completed results and frozen inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for task in input frame capture causality verification; do
+            gh run download 39067986176 --repo skyking882/missile_sim --name "ins-trk-causality-$task" --dir "delivery/$task"
+          done
+          gh run download 39065146998 --repo skyking882/missile_sim --name missile-sim-capture-held-20261017 --dir original-evidence
+      - name: Print bounded comparisons and retain exact inputs
+        run: |
+          set -euo pipefail
+          mkdir delivery/evidence delivery/source
+          cp original-evidence/core/capture_events.json.gz original-evidence/core/anchor_full_histories.json.gz delivery/evidence/
+          cp audits/ins_trk_causality_20261017/* delivery/source/
+          cp audits/capture_held_20261017/audit.py delivery/source/previous_audit.py
+          git rev-parse HEAD > delivery/summary-source-commit.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import gzip,json,hashlib
+          root=Path('delivery')
+          def get(pattern):
+              p=next(root.rglob(pattern));return json.loads(p.read_text())
+          frame=get('frame_summary.json');capture=get('capture_timing_summary.json');causal=get('causality_summary.json');source=get('source_verification.json');verify=get('verification.json')
+          compact={'source':{k:source[k] for k in ('native_records_scanned','series','selected_rows','reference_unique_states','reference_duplicate_keys','reference_max_abs_difference','inventory')},'verification':verify}
+          ff={}
+          for group in ('INS/all','INS/R-77-1','TRK/all','TRK/R-77-1'):
+              v=frame[group];ff[group]={'n':v['count'],'scores':{model:{metric:{k:v0[k] for k in ('rms','median','p95','max')} for metric,v0 in stats.items()} for model,stats in v['scores'].items()},'closure':v['closure']}
+          compact['frame']=ff;compact['shrink_by_phase']=frame['shrink_by_phase']
+          compact['capture_counts']={k:capture[k] for k in ('total','eligible','skipped','past_only_poison_checks')}
+          compact['capture_groups']={group:{name:{metric:vals[metric] for metric in ('w_deg_s','lambda_error_deg_s','n_deg')} for name,vals in models.items()} for group,models in capture['groups'].items()}
+          aa=[]
+          for uid in (118,148):
+              rs=[r for r in capture['anchors'] if r['uid']==uid]
+              rs=rs[:2] if uid==118 else rs[:1]
+              for r in rs:aa.append({k:r[k] for k in ('uid','age0','age1','phase','post_ticks','fresh','limited')}|{'scores':{name:{k:v[k] for k in ('w_deg_s','n_deg','lambda_error_deg_s','P_m')} for name,v in r['scores'].items()}})
+          compact['capture_anchors']=aa;compact['causality']={g:{k:v[k] for k in ('count','models','current_field_closure')} for g,v in causal['groups'].items()};compact['causality_exclusions']=causal['rejected']
+          (root/'compact.json').write_text(json.dumps(compact,indent=2))
+          for k,v in compact.items():print('RESULT',k,json.dumps(v,ensure_ascii=False),flush=True)
+          for group in ('original_phase_eligible','R77_fresh_phase'):
+              models=capture['groups'][group]
+              print('CAPTURE_RANK',group,json.dumps(sorted([(name,v['w_deg_s']['rms'],v['n_deg']['rms'],v['lambda_error_deg_s']['rms']) for name,v in models.items()],key=lambda r:r[1])),flush=True)
+          rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file()]
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          print('PACKAGED',len(rows),sum(r['bytes'] for r in rows),flush=True)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ins-trk-causality-reviewed
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
