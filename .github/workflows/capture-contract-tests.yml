@@ -1,0 +1,32 @@
+name: Capture reconstruction contract tests
+on:
+  push:
+    branches: ['audit/capture-held-20261017']
+    paths: ['.github/workflows/capture-contract-tests.yml','audits/capture_held_20261017/test_contract.py']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Run mathematical and interface tests, not fitted data
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 audits/capture_held_20261017/test_contract.py 2>&1 | tee capture-contract-tests.log
+          python3 tools/verify_bundle.py > unchanged-bundle.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: capture-contract-tests-20261017
+          path: |
+            capture-contract-tests.log
+            unchanged-bundle.json
+          retention-days: 14
