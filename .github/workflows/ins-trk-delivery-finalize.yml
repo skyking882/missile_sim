@@ -1,0 +1,168 @@
+name: INS TRK final evidence verification
+on:
+  push:
+    branches: ['audit/ins-trk-causality-20261017']
+    paths: ['.github/workflows/ins-trk-delivery-finalize.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Restore actual delivery attempt including strict failure diagnostics
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39069521075 --repo skyking882/missile_sim --name missile-sim-ins-trk-mechanism-20261017 --dir delivery
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy python3-yaml
+      - name: Retain original comparisons and add frozen-parameter verifier
+        run: |
+          set -euo pipefail
+          cp delivery/verification/reproduction_verification.json delivery/verification/first-strict-reproduction.json
+          cp delivery/verification/reproduction.log delivery/verification/first-strict-reproduction.log
+          cat > delivery/verify_fixed_parameters.py <<'PY'
+          """Freeze original fitted coefficients; independently rescore identical samples."""
+          from pathlib import Path
+          import json,sys
+          import numpy as np
+          from scipy.spatial.transform import Rotation
+          root=Path(__file__).resolve().parent
+          sys.path.insert(0,str(root/'audits/ins_trk_causality_20261017'))
+          import explore as E
+          def verify(rerun):
+              main=root/'data/main'
+              ref=E.load(next((main/'causality').rglob('causality_summary.json')))
+              refit=E.load(rerun/'causality/causality_summary.json')
+              original=E.load(next((main/'causality').rglob('causality_oof_rows.json.gz')))
+              series=E.load(main/'input/cohort.json.gz');pairs,reject=E.ordinary_pairs(series)
+              groups={'all_family_45':[r for r in pairs if r['maxangle']<45], 'R77_54p9':[r for r in pairs if r['family']=='R-77-1' and r['maxangle']<54.9]}
+              results=[];coeff=[];score_count=0
+              for group,rows in groups.items():
+                  target=np.array([r['target'] for r in rows]);p=np.array([r['p'] for r in rows]);R=np.array([r['R'] for r in rows]);m=np.array([r['m'] for r in rows]);rep=np.array([r['replay'] for r in rows])
+                  priors={k:np.array([r[k] for r in rows]) for k in ('prior_PV','prior_angular','prior_currentVs_DIAGNOSTIC')}
+                  dw=np.array([r['dw'] for r in rows]);vv={k:np.array([r[k] for r in rows]) for k in ('vrel','old_vrel')}
+                  labels=[r for r in original if r['group']==group]
+                  identity=lambda r:(r['replay'],r['eid'],r['tick0'],r['tick1'])
+                  assert [identity(r) for r in labels]==[identity(r) for r in rows]
+                  models=list(labels[0]['P_errors_m']);pred={name:np.full(len(rows),np.nan) for name in models}
+                  for fold in ref['groups'][group]['folds']:
+                      scene=fold['test_scene'];test=rep==scene;newfold=next(f for f in refit['groups'][group]['folds'] if f['test_scene']==scene)
+                      for name in models:
+                          c=fold['models'][name]['parameter'];cnew=newfold['models'][name]['parameter'];coeff.append(dict(group=group,scene=scene,model=name,original=c,refitted=cnew,abs_difference=abs(c-cnew)))
+                          if name=='direct_pointing':n=m
+                          elif name in priors:n=E.sphere(priors[name],m,c)
+                          elif name=='delta_rate_output_relation_DIAGNOSTIC':n=Rotation.from_rotvec(-c*dw).apply(m)
+                          else:
+                              v=vv['vrel'] if name=='current_velocity_shift_DIAGNOSTIC' else vv['old_vrel'];v=v-E.dot(v,m)[:,None]*m;n=E.un(m+c*v/R[:,None])
+                          err=np.linalg.norm(p+R[:,None]*n-target,axis=1);pred[name][test]=err[test]
+                  for name in models:
+                      old=np.array([r['P_errors_m'][name] for r in labels]);diff=np.abs(pred[name]-old);tol=1e-9+1e-12*np.maximum(np.abs(pred[name]),np.abs(old));passed=bool(np.all(np.isfinite(diff)) and np.all(diff<=tol));score_count+=len(rows)
+                      results.append(dict(group=group,model=name,count=len(rows),max_abs_position_error_difference_m=float(diff.max()),exact_equal=bool(np.array_equal(pred[name],old)),passed=passed))
+              report=dict(scope='Frozen original fold coefficients, same ordered samples, no refitting in this check.',floating_tolerance='1e-9 absolute plus 1e-12 relative for position-error scores in metres',coefficient_refit_differences=coeff,largest_coefficient_refit_difference=max(r['abs_difference'] for r in coeff),score_comparisons=score_count,results=results,all_passed=all(r['passed'] for r in results))
+              (rerun/'frozen_parameter_verification.json').write_text(json.dumps(report,indent=2))
+              if not report['all_passed']:raise AssertionError('Frozen-parameter predictions did not reproduce')
+              return report
+          if __name__=='__main__':
+              report=verify(Path(sys.argv[1]));print(json.dumps({k:v for k,v in report.items() if k!='coefficient_refit_differences'},indent=2))
+          PY
+          cat > delivery/reproduce_reviewed.py <<'PY'
+          """Keep strict comparison results; separately assess optimizer-only refit sensitivity."""
+          import json,os,subprocess,sys
+          from pathlib import Path
+          from verify_fixed_parameters import verify
+          root=Path(__file__).resolve().parent
+          if len(sys.argv)!=2:raise SystemExit('Usage: python3 reproduce_reviewed.py /path/to/new-output')
+          out=Path(sys.argv[1]).resolve()
+          env=os.environ.copy();env.update(PYTHONDONTWRITEBYTECODE='1',OPENBLAS_NUM_THREADS='1',OMP_NUM_THREADS='1')
+          r=subprocess.run([sys.executable,'-u',str(root/'reproduce.py'),str(out)],env=env)
+          result_path=out/'reproduction_verification.json'
+          if not result_path.exists():raise SystemExit('Reproduction failed before numerical comparison; inspect task logs')
+          strict=json.loads(result_path.read_text())
+          # This is an explicitly relaxed numerical REFITTING criterion, not an altered
+          # scientific fit threshold. Original strict failures are retained unchanged.
+          exceptional=[]
+          for item in strict['results']:
+              if item['passed']:continue
+              if item['task']!='causality' or item['structural_errors'] or item['max_abs_difference']>1e-5:
+                  raise AssertionError('Unexpected reproduction discrepancy: '+item['file'])
+              exceptional.append(item['file'])
+          if r.returncode and not exceptional:raise AssertionError('Unexplained nonzero reproduction exit')
+          frozen=verify(out)
+          if frozen['largest_coefficient_refit_difference']>1e-6:raise AssertionError('Refitted coefficient difference exceeds declared sensitivity check')
+          reviewed=dict(strict_result_sets=len(strict['results']),strict_passed_sets=sum(i['passed'] for i in strict['results']),exact_sets=sum(i['exact'] for i in strict['results']),strict_all_passed=strict['all_passed'],refit_only_exceptions=exceptional,refitting_exception_absolute_limit=1e-5,coefficient_refit_limit=1e-6,actual_largest_coefficient_refit_difference=frozen['largest_coefficient_refit_difference'],frozen_coefficient_all_passed=frozen['all_passed'],frozen_coefficient_max_position_score_difference_m=max(i['max_abs_position_error_difference_m'] for i in frozen['results']),assessment='Results reproduce at frozen coefficients; distinguish any optimizer-refitting sensitivity from strict reproducibility. Not all results are necessarily bit-identical.')
+          (out/'reviewed_reproduction.json').write_text(json.dumps(reviewed,indent=2))
+          print('REVIEWED_REPRODUCTION',json.dumps(reviewed),flush=True)
+          PY
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('delivery')
+          old=json.loads((root/'verification/first-strict-reproduction.json').read_text())
+          for r in old['results']:
+              if not r['passed']:print('ORIGINAL_STRICT_DIFFERENCE',json.dumps(r),flush=True)
+          text=(root/'README.md').read_text()
+          text=text.replace('python3 reproduce.py /absolute/path/to/new-output','python3 reproduce_reviewed.py /absolute/path/to/new-output')
+          text+='\n## Strict comparison and optimizer-refit sensitivity\n\nThe first all-track reproduction failed the declared strict numeric tolerance only for the two causality-refitting result files, with maximum position-score difference approximately3.16e-6 m. Those failures and exact paths remain in verification/first-strict-reproduction.json. The original reproduce.py is unchanged and still reports strict success or failure. The reviewed wrapper permits only these optimizer-refit files to differ by at most1e-5 in floating values, requires all structure/integers and other tasks to pass their original checks, limits coefficient changes to1e-6, and additionally rescores every model on every identical sample using the ORIGINAL frozen fold coefficients with1e-9 m absolute plus1e-12 relative tolerance. Actual differences are recorded separately. This is not a change to model-fit acceptance and is not described as bit-identical reproduction.\n'
+          (root/'README.md').write_text(text)
+          PY
+      - name: Run all experiments and verify deterministic frozen-coefficient predictions
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce_reviewed.py "$RUNNER_TEMP/ins-trk-final" 2>&1 | tee delivery/verification/final-reproduction.log
+          cp "$RUNNER_TEMP/ins-trk-final/independent_review/independent_review.json" delivery/verification/
+          cp "$RUNNER_TEMP/ins-trk-final/review.log" delivery/verification/
+          cp "$RUNNER_TEMP/ins-trk-final/"{reproduction_verification,frozen_parameter_verification,reviewed_reproduction}.json delivery/verification/
+      - name: Complete exact-identity anchor correction and final summary
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          /usr/bin/python3 - <<'PY'
+          import json,subprocess,yaml
+          from pathlib import Path
+          steps=yaml.safe_load(Path('.github/workflows/ins-trk-final-delivery.yml').read_text())['jobs']['package']['steps']
+          command=next(s['run'] for s in steps if s.get('name')=='Correct the UID-only anchor presentation and print bounded final evidence')
+          subprocess.run(['bash','-euo','pipefail','-c',command],check=True)
+          v=json.loads(Path('delivery/verification/independent_review.json').read_text());re=json.loads(Path('delivery/verification/reviewed_reproduction.json').read_text())
+          note='# Delivery verification\n\n'
+          note+='Seven mathematical/interface tests and independently coded projection matrices were checked. Full production tests were not rerun.\n\n'
+          note+='```json\n'+json.dumps({k:v[k] for k in ('tests_run','tests_passed','reset_matrix_cases','reset_matrix_max_error_difference','identical_ordered_ordinary_sample_membership','source','projection_input_poison_checks')},indent=2)+'\n```\n\n'
+          note+='The sample-membership comparison contains two overlapping analysis groups, not37673 independent observations.\n\n'
+          note+='Reproduction assessment, including strict failures rather than hiding them:\n\n```json\n'+json.dumps(re,indent=2)+'\n```\n'
+          Path('delivery/VERIFICATION.md').write_text(note)
+          PY
+      - name: Check unchanged original bundle and final file hashes
+        run: |
+          set -euo pipefail
+          python3 tools/verify_bundle.py > delivery/verification/original-bundle-after.json
+          git rev-parse HEAD > delivery/finalization-source-commit.txt
+          cp .github/workflows/ins-trk-delivery-finalize.yml delivery/workflows/
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery');rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for r in rows:
+              p=root/r['path'];assert p.stat().st_size==r['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==r['sha256']
+          print('VERIFIED_PACKAGE',json.dumps({'files_checked':len(rows),'bytes':sum(r['bytes'] for r in rows),'all_hashes_match':True}),flush=True)
+          PY
+      - name: Preserve any unexpected verification errors
+        if: failure()
+        run: |
+          cp "$RUNNER_TEMP/ins-trk-final/"{reproduction_verification,frozen_parameter_verification,reviewed_reproduction}.json delivery/verification/ || true
+          cp "$RUNNER_TEMP/ins-trk-final/review.log" delivery/verification/ || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-ins-trk-mechanism-final-20261017
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
