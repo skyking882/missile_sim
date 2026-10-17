@@ -1,0 +1,89 @@
+name: Gimbal and transition window check
+on:
+  push:
+    branches: ['audit/capture-held-20261017']
+    paths: ['.github/workflows/gimbal-transition-window.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39065146998 --repo skyking882/missile_sim --name missile-sim-capture-held-20261017 --dir evidence
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Check exact transition windows without fitting
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          mkdir window-results
+          cat > window-results/check.py <<'PY'
+          import gzip,json,sys,hashlib
+          from pathlib import Path
+          import numpy as np
+          sys.path.insert(0,'audits/capture_held_20261017')
+          import audit as A
+          root=Path('evidence/core')
+          def load(name):
+              with gzip.open(root/name,'rt') as f:return json.load(f)
+          def ar(r):
+              d=r.copy()
+              for k in ('n','w','Ps','Vs','p','vm','Q','angles'):d[k]=np.array(d[k],dtype=float)
+              return d
+          def clipray(n,q):return q@A.ray(np.clip(A.angles(q.T@n),-55/A.RAD,55/A.RAD))
+          def geom(r):
+              ps=A.unit(r['Ps']-r['p']);g=r['Q']@A.ray(r['angles'])
+              return dict(n_vs_g_deg=A.angle(r['n'],g)*A.RAD,n_vs_Ps_deg=A.angle(r['n'],ps)*A.RAD,n_vs_clipped_Ps_deg=A.angle(r['n'],clipray(ps,r['Q']))*A.RAD,g_vs_clipped_n_deg=A.angle(g,clipray(r['n'],r['Q']))*A.RAD,n_body_deg=A.angles(r['Q'].T@r['n'])*A.RAD,Ps_body_deg=A.angles(r['Q'].T@ps)*A.RAD,g_body_deg=r['angles']*A.RAD)
+          hist=load('anchor_full_histories.json.gz');caps=load('capture_events.json.gz')
+          result=dict(scope='Diagnostic distinction among recorded direction, saved pointing angles, and Ps ray. Uses current outputs explicitly; not a forward observer fit. Fixed 55-degree clipping diagnostic, no adjustment of coefficients. Beam half-angle 7.5 is a user-proposed conditional geometry, not inferred from angleHalfSens=15.',sources={},windows=[],capture_geometry={})
+          for name in ('anchor_full_histories.json.gz','capture_events.json.gz'):
+              p=root/name;result['sources'][name]=hashlib.sha256(p.read_bytes()).hexdigest()
+          for uid,count in [('118',2),('148',1)]:
+              rs=[ar(r) for r in hist[uid]]
+              cs=[e for e in caps if e['uid']==int(uid) and (e['replay'],e['eid']) in A.ANCHORS][:count]
+              for num,e in enumerate(cs,1):
+                  j=next(k for k,r in enumerate(rs) if r['tick']==e['tick1'] and r['index']==e['new']['index'])
+                  epoch=e['tick1']-round(e['age1']*48)
+                  win=dict(uid=int(uid),occurrence=num,tick_capture=e['tick1'],native_capture_age=e['age1'],rows=[])
+                  for k in range(max(0,j-3),min(len(rs),j+7)):
+                      r=rs[k];rec=dict(tick=r['tick'],ticks_from_first_TRK=r['tick']-e['tick1'],age=(r['tick']-epoch)/48,packet_ms=r['packet_ms'],code=r['code'],timer=r['timer'],flag=r['flag'],w_deg_s=r['w']*A.RAD,**geom(r))
+                      if k:
+                          a=rs[k-1];T=(r['tick']-a['tick'])/48
+                          if 0<T<=8/48:
+                              pred=A.rotate(a['n'],a['w'],T)
+                              c=A.correction(pred,r['n']);dw=r['w']-a['w']
+                              expected_dw=c/(A.TAU+T/2)
+                              past=A.unit(a['Ps']+a['Vs']*T-r['p'])
+                              rec.update(gap=r['tick']-a['tick'],previous_code=a['code'],delta_n_deg=A.angle(a['n'],r['n'])*A.RAD,innovation_n_deg=A.angle(pred,r['n'])*A.RAD,delta_w_deg_s=float(np.linalg.norm(dw))*A.RAD,ordinary_rate_update_residual_deg_s=float(np.linalg.norm(dw-expected_dw))*A.RAD,n_vs_previous_Ps_CV_deg=A.angle(r['n'],past)*A.RAD)
+                      win['rows'].append(rec)
+                  result['windows'].append(win)
+          gg=[]
+          for e in caps:
+              if e['family']!='R-77-1':continue
+              a,b=ar(e['old']),ar(e['new'])
+              ga,gb=geom(a),geom(b)
+              gg.append(dict(uid=e['uid'],fresh=e['fresh'],limited=e['limited'],before=ga,after=gb))
+          for label,rr in [('all_R77',gg),('R77_fresh',[r for r in gg if r['fresh']]),('R77_fresh_limited',[r for r in gg if r['fresh'] and r['limited']]),('R77_fresh_unlimited',[r for r in gg if r['fresh'] and not r['limited']])]:
+              result['capture_geometry'][label]=dict(n=len(rr),before={k:A.metric([r['before'][k] for r in rr]) for k in ('n_vs_g_deg','n_vs_Ps_deg','n_vs_clipped_Ps_deg')},after={k:A.metric([r['after'][k] for r in rr]) for k in ('n_vs_g_deg','n_vs_Ps_deg','n_vs_clipped_Ps_deg')},conditional_within_7p5=sum(r['after']['n_vs_g_deg']<=7.5 for r in rr))
+          A.save(Path('window-results/results.json'),result)
+          for win in result['windows']:
+              print('WINDOW',win['uid'],win['occurrence'],win['tick_capture'],flush=True)
+              for r in win['rows']:print('ROW',json.dumps(A.serial(r),ensure_ascii=False),flush=True)
+          print('GEOMETRY',json.dumps(A.serial(result['capture_geometry']),ensure_ascii=False),flush=True)
+          PY
+          /usr/bin/python3 -u window-results/check.py
+          cp audits/capture_held_20261017/audit.py window-results/
+          git rev-parse HEAD > window-results/source-commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: gimbal-transition-window-20261017
+          path: window-results/
+          retention-days: 14
