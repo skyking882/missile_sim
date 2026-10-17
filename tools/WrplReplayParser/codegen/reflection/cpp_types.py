@@ -1,0 +1,198 @@
+from .DataTypes import DataTypeRegister
+from .custom_rw import *
+
+
+class Uid_reg(DataTypeRegister):
+    name = "danet::Uid"
+    is_pod = True
+
+
+class AreaFlagsEnum_reg(DataTypeRegister):
+    name = "danet::AreaFlagsEnum"
+    is_pod = True
+
+
+class RoundScore_reg(DataTypeRegister):
+    name = "danet::RoundScore"
+    members = [
+        "uint32_t combined;",
+        "std::vector<uint32_t, uint8_t> scores;"
+    ]
+
+
+class dummyForFootballStat_reg(DataTypeRegister):
+    name = "danet::dummyForFootballStat"
+    members = [
+        "uint16_t v1;",
+        "uint16_t v2;",
+        "uint16_t v3;"
+    ]
+
+
+class Crew_reg(DataTypeRegister):
+    name = "danet::Crew"
+    members = [
+        "ecs::EntityId e1;",
+        "ecs::EntityId e2;",
+        "uint8_t v1;",
+        "uint8_t v2;",
+    ]
+
+
+class CrewUnitsList_reg(DataTypeRegister):
+    name = "danet::CrewUnitsList"
+    members = [
+        "std::vector<danet::Crew, uint8_t> crew;"
+    ]
+
+
+class dummyForPlayerStat_reg(DataTypeRegister):
+    name = "danet::dummyForPlayerStat"
+    members = [
+        "uint16_t v1;",
+        "uint16_t v2;",
+        "uint16_t v3;",
+        "uint16_t v4;",
+        "uint16_t v5;",
+        "uint16_t v6;",
+        "uint16_t v7;",
+        "uint16_t v8;",
+        "uint16_t v9;",
+        "uint16_t v10;",
+        "uint16_t v11;",
+        "uint16_t v12;",
+        "uint32_t v13;",
+        "uint32_t v14;",
+        "uint16_t v15;",
+        "uint16_t v16;",
+        "uint16_t v17;",
+        "uint16_t v18;",
+        "uint32_t v19;",
+        "uint16_t v20;",
+        "uint16_t v21;",
+        "uint16_t v22;",
+        "uint16_t v23;",
+        "uint16_t v24;"
+    ]
+
+
+class streak_reg(DataTypeRegister):
+    name = "danet::streak"
+    members = [
+        "uint8_t v1;",
+        "bool v2;",
+        "bool v3;",
+    ]
+
+
+class dummyForKillStreaksProgress_reg(DataTypeRegister):
+    name = "danet::dummyForKillStreaksProgress"
+    members = [
+        "std::vector<danet::streak, uint8_t> vals;",
+    ]
+
+
+class intPair_reg(DataTypeRegister):
+    name = "danet::zigZagPair"
+    members = [
+        "danet::zigZagInt v1;",
+        "danet::zigZagInt v2;",
+    ]
+
+
+class dummyForExitZonesSettings_reg(DataTypeRegister):
+    name = "danet::dummyForExitZonesSettings"
+    members = [
+        "danet::zigZagVector<danet::zigZagPair> vals;",
+    ]
+
+
+class Point2_reg(DataTypeRegister):
+    name = "Point2"
+    is_pod = True
+
+
+class Point3_reg(DataTypeRegister):
+    name = "Point3"
+    is_pod = True
+
+
+class WeatherEffect_reg(DataTypeRegister):
+    name = "danet::WeatherEffect"
+    members = [
+        "std::string name;",
+        "char effect_data[48];",
+    ]
+
+
+class WeatherEffects_reg(DataTypeRegister):
+    name = "danet::WeatherEffects"
+    members = [
+        "std::vector<danet::WeatherEffect, uint32_t> effects;",
+    ]
+
+
+class UnitId_reg(DataTypeRegister):
+    name = "danet::UnitId"
+    custom_loader = UnitId_loader
+    custom_writer = UnitId_writer
+
+
+class UnitIdStruct_reg(DataTypeRegister):
+    name = "danet::UnitIdStruct"
+    members = [
+        "danet::UnitId uid;",
+        "uint8_t thang;"
+    ]
+
+
+class WeaponMask_reg(DataTypeRegister):
+    name = "danet::WeaponsMask"
+    is_pod = True  # not actually, this type is only ever used in once place, so that coder will be defined externally in cpp
+
+
+class dummyForDeathInfo_reg(DataTypeRegister):
+    name = "danet::dummyForDeathInfo"
+    members = [
+        "uint8_t v1;",
+        "uint8_t v2;",
+        "uint16_t v3;",
+        "bool v4;",
+        "bool v5;",
+    ]
+
+
+class KillerStruct_reg(DataTypeRegister):
+    name = "danet::KillerStruct"
+    members = [
+        "int64_t player_id;",  # the player account's id
+        "uint16_t uid;",  # unit uid
+        "std::string vehicle;"
+    ]
+
+
+class DamagedState_reg(DataTypeRegister):
+    name = "danet::DamagedState"
+    members = [
+        "uint16_t v1;",
+        "uint8_t v2;"
+    ]
+
+
+class country_reg(DataTypeRegister):
+    name = "danet::Country"
+    is_pod = True
+
+
+class dummyForSupportPlanes_t_reg(DataTypeRegister):
+    name = "danet::dummyForSupportPlanes"
+    members = [
+        "ecs::EntityId eid1;",
+        "std::compressed_vector<ecs::EntityId, uint32_t> eid1_list;",
+        "ecs::EntityId eid2;",
+        "std::compressed_vector<ecs::EntityId, uint32_t> eid2_list;",
+        "ecs::EntityId eid3;",
+        "std::compressed_vector<ecs::EntityId, uint32_t> eid3_list;",
+        "ecs::EntityId eid4;",
+        "std::compressed_vector<ecs::EntityId, uint32_t> eid4_list;",
+    ]

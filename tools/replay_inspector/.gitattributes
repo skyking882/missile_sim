@@ -1,0 +1,6 @@
+# WSL scripts and patch payloads must keep LF on Windows checkouts.
+* text eol=lf
+*.ps1 text eol=crlf
+# A unified diff uses a single space to represent an empty context line.
+*.patch -whitespace
+* -text

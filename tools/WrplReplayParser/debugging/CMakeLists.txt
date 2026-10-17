@@ -1,0 +1,7 @@
+
+add_subdirectory(VromfsTest)
+add_subdirectory(DumpMission)
+add_subdirectory(testLoadTextBlk)
+add_subdirectory(dump_tags)
+add_subdirectory(TestNewBlk)
+add_subdirectory(DebugMission)

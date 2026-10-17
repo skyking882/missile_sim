@@ -1,0 +1,12 @@
+/.vs/
+/cmake-build*/
+/.vscode/
+/.idea/
+/dump/
+/dumpHere/
+/out/
+/hidden/
+/.venv/
+/replay/codegen/.idea/
+/replay/codegen/.venv/
+/replay_inspector/repl/

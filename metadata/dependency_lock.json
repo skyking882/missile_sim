@@ -1,0 +1,58 @@
+{
+  "parser": {
+    "repository": "https://github.com/LivingTheDagor/WrplReplayParser",
+    "commit": "221be5cac8e772ab41eefb0e7dac35ce6fb5c39b"
+  },
+  "patch_scripts": {
+    "repository": "https://github.com/skyking882/missile_sim",
+    "commit": "6576e6b71adbddf9655e70beca444349291085ff",
+    "order": [
+      "fix_linux_includes",
+      "fix_callback_shutdown",
+      "fix_local_package",
+      "fix_blk_include",
+      "fix_custom_weapon_slots",
+      "enable_weapon_probe",
+      "preserve_weapon_raw",
+      "fix_ecs_scalar_bindings",
+      "retain_fm_sync",
+      "retain_unit_mpi",
+      "expose_kill_fields",
+      "fix_macos_build"
+    ]
+  },
+  "external_build_dependencies": [
+    {
+      "name": "pybind11",
+      "release": "v3.0.4",
+      "repository": "https://github.com/pybind/pybind11.git",
+      "commit": "d03662f0984f652b60e7ddce53d3868002275197",
+      "archive": "tools/dependencies/pybind11-d03662f.tar.gz",
+      "archive_sha256": "de1a2802bba76bbe1242bfb61a40794917e5763bb4d45d8e5224615f4257b68a"
+    },
+    {
+      "name": "tracy",
+      "release": "v0.13.1",
+      "repository": "https://github.com/wolfpld/tracy.git",
+      "commit": "05cceee0df3b8d7c6fa87e9638af311dbabc63cb",
+      "archive": "tools/dependencies/tracy-05cceee.tar.gz",
+      "archive_sha256": "9447edfc59838348e94f7057999b65612d6a9073020efa5a9bea75200377ee1d"
+    },
+    {
+      "name": "libdwarf-lite",
+      "repository": "https://github.com/jeremy-rifkin/libdwarf-lite.git",
+      "commit": "5dfb2cd2aacf2bf473e5bfea79e41289f88b3a5f",
+      "archive": "tools/dependencies/libdwarf-5dfb2cd.tar.gz",
+      "archive_sha256": "ba0f0325e671e5010acbff4a897cedfe29c7f71202a905ca4b10085cbb839e51"
+    },
+    {
+      "name": "zstd",
+      "release": "v1.5.7",
+      "repository": "https://github.com/facebook/zstd.git",
+      "commit": "f8745da6ff1ad1e7bab384bd1f9d742439278e99",
+      "release_archive": "https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz",
+      "archive": "tools/dependencies/zstd-f8745da.tar.gz",
+      "archive_sha256": "4b0bd1f0cfb25e61b9103c35f27395530ff5b4c0d2513a00fd745849e85ea52c"
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+#include "state/ParserState.h"
+#include "ecs/ComponentTypesDefs.h"
+#include "Unit.h"
+#include "ecs/query/coreEvents.h"
+#include "ecs/ecsCodegen.h"
+
+static void on_rocket_appear_es(const ecs::EventEntityCreated &evt, Rocket &rocket_component,
+                                ecs::EntityManager &manager) {
+  rocket_component.created_at_ms = *manager.curr_time_ms;
+}
+
+static void on_rocket_disappear_es(const ecs::EventEntityDestroyedBasic &evt, Rocket &rocket_component,
+                                   ecs::EntityManager &manager) {
+  if (evt.get<1>())
+    rocket_component.destroyed_at_ms = *manager.curr_time_ms;
+}
+
+static void on_bomb_appear_es(const ecs::EventEntityCreated &evt, Bomb &bomb_component, ecs::EntityManager &manager) {
+  bomb_component.created_at_ms = *manager.curr_time_ms;
+}
+
+static void on_bomb_disappear_es(const ecs::EventEntityDestroyedBasic &evt, Bomb &bomb_component,
+                                 ecs::EntityManager &manager) {
+  if (evt.get<1>())
+    bomb_component.destroyed_at_ms = *manager.curr_time_ms;
+}
+
+static void on_torpedo_appear_es(const ecs::EventEntityCreated &evt, Torpedo &torpedo_component,
+                                 ecs::EntityManager &manager) {
+  torpedo_component.created_at_ms = *manager.curr_time_ms;
+}
+
+static void on_torpedo_disappear_es(const ecs::EventEntityDestroyedBasic &evt, Torpedo &torpedo_component,
+                                    ecs::EntityManager &manager) {
+  if (evt.get<1>())
+    torpedo_component.destroyed_at_ms = *manager.curr_time_ms;
+}
+
+static void on_payload_appear_es(const ecs::EventEntityCreated &evt, Payload &payload_component,
+                                 ecs::EntityManager &manager) {
+  payload_component.created_at_ms = *manager.curr_time_ms;
+}
+
+static void on_payload_disappear_es(const ecs::EventEntityDestroyedBasic &evt, Payload &payload_component,
+                                    ecs::EntityManager &manager) {
+  if (evt.get<1>())
+    payload_component.destroyed_at_ms = *manager.curr_time_ms;
+}
+
+static void on_jettisoned_appear_es(const ecs::EventEntityCreated &evt, Jettisoned &jettisoned_component,
+                                    ecs::EntityManager &manager) {
+  jettisoned_component.created_at_ms = *manager.curr_time_ms;
+}
+
+static void on_jettisoned_disappear_es(const ecs::EventEntityDestroyedBasic &evt, Jettisoned &jettisoned_component,
+                                       ecs::EntityManager &manager) {
+  if (evt.get<1>())
+    jettisoned_component.destroyed_at_ms = *manager.curr_time_ms;
+}
+
+template<typename Callable>
+static void iterate_all_rockets_ecs_query(ecs::EntityManager &manager, Callable c);
+
+std::vector<Rocket *> collect_all_rockets(ParserState &state) {
+  std::vector<Rocket *> rockets;
+  iterate_all_rockets_ecs_query(state.g_entity_mgr, [&rockets](Rocket &rocket_component) {
+    if (!rocket_component.positions.history().empty()) {
+      rockets.push_back(&rocket_component);
+    }
+  });
+  return rockets;
+}
+
+template<typename Callable>
+static void iterate_all_bombs_ecs_query(ecs::EntityManager &manager, Callable c);
+
+std::vector<Bomb *> collect_all_bombs(ParserState &state) {
+  std::vector<Bomb *> bombs;
+  iterate_all_bombs_ecs_query(state.g_entity_mgr, [&bombs](Bomb &bomb_component) {
+    if (!bomb_component.positions.history().empty()) {
+      bombs.push_back(&bomb_component);
+    }
+  });
+  return bombs;
+}

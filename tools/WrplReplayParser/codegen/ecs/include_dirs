@@ -1,0 +1,14 @@
+replay\include
+3rdParty\fmt-12.1.0\include
+3rdParty\eastl\include
+src\include
+3rdParty\hash
+3rdParty\Dagor_Engine\include
+3rdParty\tracy\public
+3rdParty\cpptrace-1.0.4\include
+3rdParty\arc\zstd-1.4.5
+3rdParty\arc\lz4
+3rdParty\mimalloc-3.3.2\include
+3rdParty\boost\include
+3rdParty\boost\mp11-develop\include
+codegen\ecs

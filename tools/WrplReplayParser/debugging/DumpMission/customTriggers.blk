@@ -1,0 +1,25 @@
+  on_capture_respawn{
+    is_enabled:b=no
+    comments:t=""
+
+    props{
+      actionsType:t="PERFORM_ONE_BY_ONE"
+      conditionsType:t="ALL"
+      enableAfterComplete:b=no
+    }
+
+    events{
+      periodicEvent{
+        time:r=1
+      }
+    }
+
+    conditions{}
+    actions{
+      playerForceMoveToRespawnScreen{
+        target:t="t2_players_squad"
+      }
+    }
+
+    else_actions{}
+  }

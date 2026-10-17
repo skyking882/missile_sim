@@ -1,0 +1,22 @@
+Root           ?= ../../.. ;
+Location        = prog/3rdPartyLibs/eastl ;
+
+TargetType      = lib ;
+Target          = 3rdPartyLibs/eastl.lib ;
+
+AddIncludes = 
+  $(Root)/$(Location)/include
+;
+
+local AllSources = [ GLOB $(Root)/$(Location)/source : *.cpp ] ;
+
+Sources =
+  $(AllSources:D=source)
+
+  mem.cpp
+  snprintf.cpp
+;
+
+if $(Platform) = linux64 && $(LinuxArch) = e2k { Sources += assert_e2k.cpp ; }
+
+include $(Root)/prog/_jBuild/build.jam ;

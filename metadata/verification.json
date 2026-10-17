@@ -1,0 +1,100 @@
+{
+  "verified_at_utc": "2026-10-17T17:26:58.890215+00:00",
+  "raw_files": 46,
+  "raw_bytes": 166695211,
+  "all_download_sha256_and_size_pass": true,
+  "all_header_session_part_playerNo_and_version_pass": true,
+  "header_layout_source": "tools/WrplReplayParser/replay/include/Replay/ReplayStructs.h; packed 1234-byte header",
+  "smoke_command": "arch -x86_64 /usr/bin/python3 tools/extract_server.py 2026.10.08_11.49.38 --output <new output directory>",
+  "working_directory": "bundle root; default module and game-resources arguments used",
+  "native_summary": {
+    "replay": "2026.10.08_11.49.38",
+    "module_name": "PyReplayParser.cpython-39-darwin.so",
+    "module_sha256": "edc2b710039e5553c0b18da846b382d9ce29ef9893f7441d5f5c42f48c735eeb",
+    "python": "3.9.6 (default, May 22 2026, 11:13:45) \n[Clang 21.0.0 (clang-2100.1.1.101)]",
+    "architecture": "x86_64",
+    "packet_count": 254413,
+    "native_packet_index": 254412,
+    "packet_types": {
+      "8": 7,
+      "6": 14204,
+      "4": 238328,
+      "1": 1,
+      "5": 6,
+      "2": 1863,
+      "3": 3,
+      "0": 1
+    },
+    "weapon_states": 297194,
+    "units": 176,
+    "rockets": 2492,
+    "layouts": {
+      "607.0": 277525,
+      "443.0": 16703,
+      "639.0": 204,
+      "283.0": 1801,
+      "379.0": 961
+    },
+    "original_streams_modified": false
+  },
+  "unit_history_rows": 58751,
+  "comparison_with_existing_audit": "native packet counter, weapon state count, unit count and all skipped-bit layout counts match the saved server_parse record",
+  "output_files": [
+    {
+      "name": "getFmProbe.json.gz",
+      "bytes": 2168570,
+      "sha256": "e88f3848dfdc7f06689dbc9c3bc682f3cbf9f6628d30d3f0114a41b164b973f6"
+    },
+    {
+      "name": "getFmVelocity.json.gz",
+      "bytes": 1073251,
+      "sha256": "734b78f25c823e47d6708d3fd18ecc0e4895ec84e9eb2111a8eff4e4ac268ffa"
+    },
+    {
+      "name": "getUnitMpiProbe.json.gz",
+      "bytes": 1582311,
+      "sha256": "14095dc664ce913a2d4e4bce9697cd022580ab9beb0efff9d63333023aabaaf5"
+    },
+    {
+      "name": "packets.jsonl.gz",
+      "bytes": 45321557,
+      "sha256": "10bb86128655842d3775933d1a72059866061b105b4b7aa6ca25a68784efabaf"
+    },
+    {
+      "name": "parser.log",
+      "bytes": 41,
+      "sha256": "346fb3a796198c6146932bab1671aedb64d7e25b18d89a9d408a65a2bda3aa7f"
+    },
+    {
+      "name": "summary.json",
+      "bytes": 707,
+      "sha256": "1e565cc6247f74a9752ae12535c5dc7646ba0c87879ae0924c7d6784dd1e0b4f"
+    },
+    {
+      "name": "unit_history.json.gz",
+      "bytes": 1821037,
+      "sha256": "8b45c0fa59a721a109c9c8333bab835d6a81ecc998cd8afd9c83d4653118611c"
+    },
+    {
+      "name": "weapon_raw.jsonl.gz",
+      "bytes": 79818044,
+      "sha256": "4ccd0abc3b3907848c7cd5cd98725b17b42993f940f797e376b0fd53a5eb8132"
+    }
+  ],
+  "full_rebuild_performed": false,
+  "build_script_syntax_check": "bash -n tools/build_backend_bundle.sh: passed",
+  "limitations": [
+    "Existing binary ABI macOS x86_64 CPython 3.9; rebuilt source/binary equivalence not verified",
+    "Only the selected first replay was fully exported during packaging; all 46 raw files passed hash and header checks",
+    "Tank grp resources are absent; initialization reports that missing optional asset directory; air replay export completed",
+    "Raw streams represent the existing downloaded segments and recorded 404 termination, not proof of full server protocol coverage",
+    "Decoded state and seeker fields retain unconfirmed candidate semantics"
+  ],
+  "git_delivery_metadata_check": {
+    "corrected_utc": "2026-10-17T17:30:39.607218+00:00",
+    "gitattributes_files": 5,
+    "final_rule": "* -text",
+    "native_smoke_rerun": false,
+    "reason": "Prevent Git text/eol attributes from changing delivered bytes during clone. Original native smoke results retained."
+  }
+}

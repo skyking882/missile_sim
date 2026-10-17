@@ -1,0 +1,2 @@
+add_subdirectory(ClogDecryptor)
+add_subdirectory(DecryptFile)

@@ -1,0 +1,17 @@
+customSpawnScore{
+ base_respawn_points_coef:i=9000
+ br_diff_mul_Air:r=0.0
+ br_diff_mul_Tank:r=0.0
+ br_diff_mul_Ship:r=0.0
+ max_br_diff:r=0.0
+ spawn_pow:r=0.0
+ spawnCostMulForFighterWithBombs:r=0.0
+ exp_bomber:r=0.3333333333333333333333333333
+ exp_fighter:r=0.3333333333333333333333333333
+ exp_assault:r=0.3333333333333333333333333333
+ exp_tank:r=0.3333333333333333333333333333
+ exp_heavy_tank:r=0.3333333333333333333333333333
+ exp_tank_destroyer:r=0.3333333333333333333333333333
+ exp_SPAA:r=0.3333333333333333333333333333
+ exp_helicopter:r=0.3333333333333333333333333333
+}

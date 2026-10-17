@@ -1,0 +1,7 @@
+!.gitattributes
+__pycache__/
+outputs/
+build/
+WrplReplayParser/
+*.wrpl
+*.log

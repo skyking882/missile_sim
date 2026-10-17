@@ -1,0 +1,5 @@
+*.wrpl -text
+*.bin -text
+*.so -text
+*.tar.gz -text
+* -text

@@ -1,0 +1,69 @@
+BSD 3-Clause License
+
+Copyright (c) 2025, LivingTheDagor
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+===============================================================================
+Third-Party Licences
+===============================================================================
+
+Gaijin Entertainment
+
+Dagor Engine
+This project has a heavy reliance on code found in Dagor Engine, Particularly their ECS system.
+Much of the ECS derived code can be found in /replay.
+there is some minor references to related code in /src aswell (DataBlock, BitStream (nearly fully copied), and VROMFs)
+Code has either been:
+1: Directly Copied: all of these files should still contain the reference to Dagor Engine at the top
+2: Slight modification: the code is mostly unchanged, but modified to rework a feature slightly or to make the code work with my system
+3: Rewrite: the code was almost entirely written by me, LivingTheDagor, but was inspired / derived by the corresponding code on Dagor Engine
+4: Reverse Engineered from the aces.exe binary
+
+Licence put in
+3rdParty/Dagor Engine/LICENCE
+https://github.com/GaijinEntertainment/DagorEngine/blob/main/LICENSE
+
+Other Libraries
+
+taken as is from Dagor Engine Repo, may contain changes made by them
+Links OpenSSL
+3rdParty/arc/fastlz/LICENCE
+3rdParty/arc/lz4/LICENCE
+3rdParty/arc/lzma-9.20/LICENCE
+3rdParty/arc/unzip/LICENCE
+3rdParty/arc/zlib-ng/LICENCE
+3rdParty/arc/zstd-1.4.5/LICENCE
+3rdParty/eastl/LICENCE
+3rdParty/enet/LICENCE
+3rdParty/hash/LICENCE
+3rdParty/regExp/NO_LICENCE
+ska hash map (no licence file)
+
+libraries I have added independently
+
+3rdParty/fmt-12.1.0/LICENCE
+3rdParty/cpptrace-1.0.4/LICENSE

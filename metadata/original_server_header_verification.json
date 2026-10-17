@@ -1,0 +1,421 @@
+{
+  "segments": 46,
+  "all_session_ids_match": true,
+  "all_server_playerNo_sentinel": true,
+  "headers": [
+    {
+      "replay": "2026.10.08_11.49.38",
+      "part": 0,
+      "session_id": "1331658428351516369",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 0
+    },
+    {
+      "replay": "2026.10.08_11.49.38",
+      "part": 1,
+      "session_id": "1331658428351516369",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 1
+    },
+    {
+      "replay": "2026.10.08_11.49.38",
+      "part": 3,
+      "session_id": "1331658428351516369",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 3
+    },
+    {
+      "replay": "2026.10.08_11.49.38",
+      "part": 5,
+      "session_id": "1331658428351516369",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 5
+    },
+    {
+      "replay": "2026.10.08_11.49.38",
+      "part": 7,
+      "session_id": "1331658428351516369",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 7
+    },
+    {
+      "replay": "2026.10.08_11.49.38",
+      "part": 9,
+      "session_id": "1331658428351516369",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 9
+    },
+    {
+      "replay": "2026.10.08_11.49.38",
+      "part": 11,
+      "session_id": "1331658428351516369",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 11
+    },
+    {
+      "replay": "2026.10.08_12.03.42",
+      "part": 0,
+      "session_id": "1331658428351518589",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 0
+    },
+    {
+      "replay": "2026.10.08_12.03.42",
+      "part": 1,
+      "session_id": "1331658428351518589",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 1
+    },
+    {
+      "replay": "2026.10.08_12.03.42",
+      "part": 3,
+      "session_id": "1331658428351518589",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 3
+    },
+    {
+      "replay": "2026.10.08_12.03.42",
+      "part": 5,
+      "session_id": "1331658428351518589",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 5
+    },
+    {
+      "replay": "2026.10.08_12.03.42",
+      "part": 7,
+      "session_id": "1331658428351518589",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 7
+    },
+    {
+      "replay": "2026.10.08_12.03.42",
+      "part": 9,
+      "session_id": "1331658428351518589",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 9
+    },
+    {
+      "replay": "2026.10.08_12.03.42",
+      "part": 11,
+      "session_id": "1331658428351518589",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 11
+    },
+    {
+      "replay": "2026.10.08_12.03.42",
+      "part": 13,
+      "session_id": "1331658428351518589",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 13
+    },
+    {
+      "replay": "2026.10.08_12.03.42",
+      "part": 15,
+      "session_id": "1331658428351518589",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 15
+    },
+    {
+      "replay": "2026.10.08_12.11.04",
+      "part": 0,
+      "session_id": "1331658428351520915",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 0
+    },
+    {
+      "replay": "2026.10.08_12.11.04",
+      "part": 1,
+      "session_id": "1331658428351520915",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 1
+    },
+    {
+      "replay": "2026.10.08_12.11.04",
+      "part": 3,
+      "session_id": "1331658428351520915",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 3
+    },
+    {
+      "replay": "2026.10.08_12.11.04",
+      "part": 5,
+      "session_id": "1331658428351520915",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 5
+    },
+    {
+      "replay": "2026.10.08_12.11.04",
+      "part": 7,
+      "session_id": "1331658428351520915",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 7
+    },
+    {
+      "replay": "2026.10.08_12.11.04",
+      "part": 9,
+      "session_id": "1331658428351520915",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 9
+    },
+    {
+      "replay": "2026.10.08_12.11.04",
+      "part": 11,
+      "session_id": "1331658428351520915",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 11
+    },
+    {
+      "replay": "2026.10.08_12.11.04",
+      "part": 13,
+      "session_id": "1331658428351520915",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 13
+    },
+    {
+      "replay": "2026.10.08_12.11.04",
+      "part": 15,
+      "session_id": "1331658428351520915",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 15
+    },
+    {
+      "replay": "2026.10.08_12.11.04",
+      "part": 17,
+      "session_id": "1331658428351520915",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 17
+    },
+    {
+      "replay": "2026.10.08_12.11.04",
+      "part": 19,
+      "session_id": "1331658428351520915",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 19
+    },
+    {
+      "replay": "2026.10.08_12.11.04",
+      "part": 21,
+      "session_id": "1331658428351520915",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 21
+    },
+    {
+      "replay": "2026.10.08_12.23.06",
+      "part": 0,
+      "session_id": "1331658428351522800",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 0
+    },
+    {
+      "replay": "2026.10.08_12.23.06",
+      "part": 1,
+      "session_id": "1331658428351522800",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 1
+    },
+    {
+      "replay": "2026.10.08_12.23.06",
+      "part": 3,
+      "session_id": "1331658428351522800",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 3
+    },
+    {
+      "replay": "2026.10.08_12.23.06",
+      "part": 5,
+      "session_id": "1331658428351522800",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 5
+    },
+    {
+      "replay": "2026.10.08_12.23.06",
+      "part": 7,
+      "session_id": "1331658428351522800",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 7
+    },
+    {
+      "replay": "2026.10.08_12.23.06",
+      "part": 9,
+      "session_id": "1331658428351522800",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 9
+    },
+    {
+      "replay": "2026.10.08_12.23.06",
+      "part": 11,
+      "session_id": "1331658428351522800",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 11
+    },
+    {
+      "replay": "2026.10.08_12.23.06",
+      "part": 13,
+      "session_id": "1331658428351522800",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 13
+    },
+    {
+      "replay": "2026.10.08_12.23.06",
+      "part": 15,
+      "session_id": "1331658428351522800",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 15
+    },
+    {
+      "replay": "2026.10.08_12.23.06",
+      "part": 17,
+      "session_id": "1331658428351522800",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 17
+    },
+    {
+      "replay": "2026.10.08_12.23.06",
+      "part": 19,
+      "session_id": "1331658428351522800",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 19
+    },
+    {
+      "replay": "2026.10.08_12.45.12",
+      "part": 0,
+      "session_id": "1331658428351525826",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 0
+    },
+    {
+      "replay": "2026.10.08_12.45.12",
+      "part": 1,
+      "session_id": "1331658428351525826",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 1
+    },
+    {
+      "replay": "2026.10.08_12.45.12",
+      "part": 3,
+      "session_id": "1331658428351525826",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 3
+    },
+    {
+      "replay": "2026.10.08_12.45.12",
+      "part": 5,
+      "session_id": "1331658428351525826",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 5
+    },
+    {
+      "replay": "2026.10.08_12.45.12",
+      "part": 7,
+      "session_id": "1331658428351525826",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 7
+    },
+    {
+      "replay": "2026.10.08_12.45.12",
+      "part": 9,
+      "session_id": "1331658428351525826",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 9
+    },
+    {
+      "replay": "2026.10.08_12.45.12",
+      "part": 11,
+      "session_id": "1331658428351525826",
+      "playerNo": -2147483648,
+      "gameVersion": 563203356491830,
+      "segmentLengthSec": 90,
+      "header_replay_part_number": 11
+    }
+  ]
+}

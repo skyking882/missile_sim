@@ -1,0 +1,8 @@
+# add_subdirectory(view_templates)
+# add_subdirectory(InspectTranslateCSVs)
+add_subdirectory(repl2)
+add_subdirectory(inspectorECS)
+if (IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/repl")
+    add_subdirectory(repl)
+    add_subdirectory(example_hmap)
+endif ()
