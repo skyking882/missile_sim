@@ -1,0 +1,87 @@
+name: PSV FMSync clock candidate probe
+on:
+  push:
+    branches: ['audit/psvs-raw-validation-20261017']
+    paths: ['.github/workflows/psvs-fm-clock-probe.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 9f28aebc3a92c5018f9a80526d24067c6b82bab8
+          persist-credentials: false
+      - name: Verify source and apply logging-only instrumentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p probe-output
+          python3 tools/verify_bundle.py > probe-output/verification-before.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+          path=Path('tools/WrplReplayParser/replay/mpi/PositionSync.cpp')
+          before=path.read_text()
+          marker='D("f41", fVar41LessThan0p5); D("b7330", _0x7330_val); D("v1", v1);'
+          assert before.count(marker)==1
+          after=before.replace(marker, 'D("native_uint32_candidate", some_uint); '+marker)
+          path.write_text(after)
+          Path('probe-output/instrumentation.json').write_text(json.dumps({'source_commit':'9f28aebc3a92c5018f9a80526d24067c6b82bab8','file':str(path),'before_sha256':hashlib.sha256(before.encode()).hexdigest(),'after_sha256':hashlib.sha256(after.encode()).hexdigest(),'change':'Log already-read uint32 in existing FMSync probe; discrete probe now emits when this value changes. No added reads or state updates.','semantic_status':'uint32 candidate, NOT assumed to be a clock'},indent=2))
+          PY
+          git diff -- tools/WrplReplayParser/replay/mpi/PositionSync.cpp > probe-output/logging-only.patch
+      - name: Install build dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y cmake g++-13 python3-dev libunwind-dev liblzma-dev
+      - name: Build instrumented parser
+        shell: bash
+        env:
+          CC: gcc-13
+          CXX: g++-13
+          CXXFLAGS: -include cstdint
+          PYTHON3: /usr/bin/python3
+        run: |
+          set -euo pipefail
+          bash tools/build_backend_bundle.sh 2>&1 | tee probe-output/build.log
+      - name: Extract clock candidate, velocity and independent position history
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/fm_probe.py" <<'PY'
+          import atexit,gzip,hashlib,json,sys
+          from pathlib import Path
+          root=Path.cwd();sys.path.insert(0,str(root/'build/backend/python/main'))
+          import PyReplayParser as p
+          session=sys.argv[1];out=root/'probe-output'/session;out.mkdir()
+          units={}
+          def on_unit(event,eid,unit__ref):
+              if unit__ref.unit:units[id(unit__ref.unit)]=(eid.get_handle(),unit__ref.unit)
+          p.ecs.registerEsSystem(on_unit,'fm_clock_probe_units',[],[],[p.ecs.EventEntityCreatedType])
+          p.initialize(str(root/'runtime/game_resources'),logfile_path=str(out/'parser.log'),fonts=False,lang=False,mis=False)
+          atexit.register(p.ecs.clearPythonCallbacks);p.enableFmProbe()
+          r=p.replay.ServerReplay(str(root/'raw'/session));assert r.isValid
+          s=p.ParserState(r);s.LoadFromReader(r.getReplayReader())
+          rows=list(p.getFmProbe());vel=list(p.getFmVelocity())
+          for name,data in [('fm_clock_probe',rows),('fm_velocity',vel)]:
+              with gzip.open(out/(name+'.json.gz'),'wt') as f:json.dump(data,f,separators=(',',':'))
+          def vec(v):return [float(v.x),float(v.y),float(v.z)]
+          def track(u):
+              h=u.positions.history
+              return [dict(t_ms=int(h[i].time_ms),xyz=vec(h[i].value.location),euler_raw=vec(h[i].value.euler)) for i in range(len(h))]
+          unitrows=[dict(eid=eid,uid=u.uid,unit_name=u.unit_name,track=track(u)) for eid,u in units.values()]
+          with gzip.open(out/'unit_history.json.gz','wt') as f:json.dump(unitrows,f,separators=(',',':'))
+          info={'session':session,'probe_records':len(rows),'velocity_records':len(vel),'units':len(unitrows),'native_packet_index':int(s.current_packet_index),'module_sha256':hashlib.sha256(Path(p.__file__).read_bytes()).hexdigest()}
+          (out/'summary.json').write_text(json.dumps(info,indent=2));print(json.dumps(info))
+          PY
+          for session in 2026.10.08_11.49.38 2026.10.08_12.11.04 2026.10.08_12.03.42 2026.10.08_12.23.06 2026.10.08_12.45.12; do
+            /usr/bin/python3 "$RUNNER_TEMP/fm_probe.py" "$session"
+          done
+          python3 tools/verify_bundle.py --raw-only > probe-output/raw-verification-after.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: psvs-fm-clock-candidate-9f28aeb
+          path: probe-output/
+          compression-level: 0
+          retention-days: 7
