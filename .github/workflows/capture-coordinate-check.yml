@@ -1,0 +1,39 @@
+name: Native coordinate contract check
+on:
+  push:
+    branches: ['audit/capture-held-20261017']
+    paths: ['.github/workflows/capture-coordinate-check.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39055471867 --repo skyking882/missile_sim --name psvs-frozen-decoder-reference-2dc243b --dir reference
+      - run: |
+          python3 - <<'PY'
+          import ast,gzip,json
+          from pathlib import Path
+          root=Path('reference/files')
+          p=root/'outputs/wt_unified_rate_identification_20261014/analyze.py'
+          text=p.read_text();lines=text.splitlines()
+          print('=== IMPORTS AND NATIVE DECODER FUNCTIONS ===')
+          print('\n'.join(lines[:55]))
+          for node in ast.parse(text).body:
+              if isinstance(node,ast.FunctionDef) and node.name in ('parse','matrix','mat','exp','read','vec'):
+                  print('\n'.join(lines[node.lineno-1:node.end_lineno]))
+          for path in (root/'scripts').rglob('*.py'):
+              if 'matrix' in path.read_text() and 'euler_' in path.read_text():
+                  print('POSSIBLE_NATIVE_SOURCE',str(path))
+          p=root/'outputs/wt_server_vector_angles_20261016/analyze.py'
+          print('=== VECTOR ANGLE SOURCE ===');print(p.read_text()[:9000])
+          raw=root/'outputs/wt_network_timing_20261016/server_raw_2026.10.08_11.49.38.json.gz'
+          with gzip.open(raw,'rt') as f:
+              txt=f.read(64000)
+          dec=json.JSONDecoder();start=txt.index('{');row,end=dec.raw_decode(txt,start)
+          print('=== FIRST NATIVE FIELDS ===',json.dumps(row.get('fields',{})))
+          PY
