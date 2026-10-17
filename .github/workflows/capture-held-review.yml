@@ -1,0 +1,59 @@
+name: Capture held result review
+on:
+  push:
+    branches: ['audit/capture-held-20261017']
+    paths: ['.github/workflows/capture-held-review.yml','audits/capture_held_20261017/review.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Retrieve completed boundary results and frozen cohort
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39063145573 --repo skyking882/missile_sim --name capture-held-audit-20261017 --dir completed
+          gh run download 39055471867 --repo skyking882/missile_sim --name psvs-frozen-decoder-reference-2dc243b --dir reference
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Run six numerical and label-isolation tests
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 audits/capture_held_20261017/test_contract.py 2>&1 | tee boundary-tests.log
+      - name: Recompute summaries and inspect adverse and anchor cases
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: /usr/bin/python3 -u audits/capture_held_20261017/review.py --results completed/audit-results --reference reference --out reviewed
+      - name: Record provenance and prepare bounded delivery
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD > reviewed/review-source-commit.txt
+          python3 tools/verify_bundle.py > reviewed/unchanged-bundle.json
+          cp boundary-tests.log reviewed/
+          cp audits/capture_held_20261017/*.py audits/capture_held_20261017/PROTOCOL.md reviewed/
+          cp completed/audit-results/*.json completed/audit-results/*.gz reviewed/
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          root=Path('reviewed')
+          rows=[dict(path=p.name,bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.iterdir()) if p.is_file()]
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          print('DELIVERY',json.dumps({'files':len(rows),'bytes':sum(x['bytes'] for x in rows)}))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: capture-held-reviewed-20261017
+          path: reviewed/
+          retention-days: 14
+          compression-level: 1
