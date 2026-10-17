@@ -1,0 +1,46 @@
+name: Capture held boundary audit
+on:
+  push:
+    branches: ['audit/capture-held-20261017']
+    paths: ['.github/workflows/capture-held-audit.yml','audits/capture_held_20261017/audit.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out isolated audit branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify unchanged raw bundle
+        run: python3 tools/verify_bundle.py
+      - name: Retrieve frozen reference and verified Linux extraction
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39055471867 --repo skyking882/missile_sim --name psvs-frozen-decoder-reference-2dc243b --dir reference
+          gh run download 39055559128 --repo skyking882/missile_sim --name psvs-linux-derived-9f28aeb --dir derived
+      - name: Install numerical tools
+        run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Run new decoder and boundary comparisons
+        env:
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: /usr/bin/python3 -u audits/capture_held_20261017/audit.py --reference reference --derived derived --out audit-results
+      - name: Verify source bundle after analysis
+        run: python3 tools/verify_bundle.py
+      - name: Retain scripts, exact protocol and results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: capture-held-audit-20261017
+          path: |
+            audit-results/
+            audits/capture_held_20261017/
+          retention-days: 14
+          compression-level: 1
