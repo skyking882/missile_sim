@@ -1,0 +1,61 @@
+name: PSV frozen decoder reference
+on:
+  push:
+    branches: ['audit/psvs-raw-validation-20261017']
+    paths: ['.github/workflows/psvs-frozen-decoder-reference.yml']
+permissions:
+  contents: read
+jobs:
+  reference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 2dc243b8f90df4c40642d20fa36d8f64834f8b73
+          persist-credentials: false
+      - name: Verify immutable archive and recover bounded reference evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p reference-output
+          git rev-parse HEAD > reference-output/snapshot-commit.txt
+          sha256sum -c SHA256SUMS > reference-output/part-verification.txt
+          cat snapshot.tar.gz.part-* > "$RUNNER_TEMP/snapshot.tar.gz"
+          echo "34ab9229c9e3cc87a95ce88b120a2ae5c00d75cb95c9d3b861b90f809688c7f1  $RUNNER_TEMP/snapshot.tar.gz" | sha256sum -c -
+          python3 - "$RUNNER_TEMP/snapshot.tar.gz" <<'PY'
+          import hashlib, json, pathlib, sys, tarfile
+          root = pathlib.Path('reference-output/files').resolve()
+          selected = []
+          markers = ('wt_rate_sindy_server_lomo_20261016/', 'wt_decode_missile_seeker_20261010_09/', 'wt_server_vector_angles_20261016/', 'wt_network_timing_20261016/', 'wt_server_trk_innovation_audit_20261016/', 'wt_unified_rate_identification_20261014/', 'wt_rate_server_q_matrix_20261016/', 'wt_direction')
+          with tarfile.open(sys.argv[1], 'r|gz') as tf:
+              for item in tf:
+                  if not item.isfile():
+                      continue
+                  path = pathlib.PurePosixPath(item.name)
+                  if path.is_absolute() or '..' in path.parts:
+                      raise RuntimeError('Unsafe archived path')
+                  name = path.as_posix().removeprefix('./')
+                  use = any(x in name for x in markers) and name.endswith(('.py', '.json', '.json.gz', '.md', '.csv'))
+                  use = use or (name.startswith(('scripts/', 'src/aim120_model/')) and name.endswith('.py'))
+                  use = use or name.endswith('WT_RATE_RECONSTRUCTION_PROGRESS_20261016.md')
+                  if not use:
+                      continue
+                  if item.size > 250_000_000:
+                      raise RuntimeError('Reference member exceeds bounded extraction limit: '+name)
+                  data = tf.extractfile(item).read()
+                  dest = root / name
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  dest.write_bytes(data)
+                  selected.append({'path':name, 'bytes':len(data), 'sha256':hashlib.sha256(data).hexdigest()})
+          if not selected:
+              raise RuntimeError('No reference files selected')
+          pathlib.Path('reference-output/selected-files.json').write_text(json.dumps(selected, indent=2))
+          print(json.dumps({'selected_files':len(selected), 'bytes':sum(x['bytes'] for x in selected)}, indent=2))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: psvs-frozen-decoder-reference-2dc243b
+          path: reference-output/
+          compression-level: 1
+          retention-days: 7
