@@ -1,0 +1,57 @@
+name: Capture retry fixed replay validation
+on:
+  push:
+    branches: ['audit/capture-retry-schedule-20261019']
+    paths: ['.github/workflows/capture-retry-replay.yml','audits/capture_retry_20261019/replay_check.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Check out exact source without datamine submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore verified bounded input
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39178186284 --repo skyking882/missile_sim --name capture-retry-inputs-20261019 --dir restored
+      - name: Install analysis-only numerical tools
+        run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy python3-pytest
+      - name: Run fixed candidate without input TRK labels
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          /usr/bin/python3 audits/capture_retry_20261019/test_retry_clock.py 2>&1 | tee receipts/clock-tests.log
+          /usr/bin/python3 -u audits/capture_retry_20261019/replay_check.py --input restored/bounded --out replay-results 2>&1 | tee receipts/replay.log
+          git rev-parse HEAD > receipts/source-commit.txt
+      - name: Check unchanged production source and observer regressions
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin 7a1c0c6e9ebc0a9e730ffaa5c2e79a40c2ae44f5
+          git diff --exit-code 7a1c0c6e9ebc0a9e730ffaa5c2e79a40c2ae44f5 HEAD -- src tests data/profile_sets
+          /usr/bin/python3 -m pytest -q tests/test_q_angular_observer.py > receipts/observer-regression.log 2>&1
+          cat receipts/observer-regression.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: capture-retry-replay-20261019
+          path: |
+            replay-results/
+            receipts/
+            restored/bounded/
+            audits/capture_retry_20261019/
+          retention-days: 14
+          compression-level: 1
