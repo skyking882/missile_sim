@@ -1,0 +1,53 @@
+name: Serialized vector range checks
+on:
+  push:
+    branches: ['audit/ins-trk-three-models-20261018']
+    paths: ['.github/workflows/ins-trk-range-plugin-check.yml','audits/ins_trk_three_models_20261018/range_check.py','audits/ins_trk_three_models_20261018/test_range_check.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  range:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Restore the completed immutable handover artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39100358600 --repo skyking882/missile_sim --name missile-sim-ins-trk-handover-20261018 --dir input
+      - name: Numerical dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Mathematical and input-isolation checks
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p receipt
+          /usr/bin/python3 audits/ins_trk_three_models_20261018/test_range_check.py 2>&1 | tee receipt/tests.log
+          python3 tools/verify_bundle.py > receipt/original-bundle-before.json
+      - name: Execute range candidates and independent scaling LPs
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u audits/ins_trk_three_models_20261018/range_check.py --input input --out results 2>&1 | tee receipt/analysis.log
+          python3 tools/verify_bundle.py > receipt/original-bundle-after.json
+          git rev-parse HEAD > receipt/source-commit.txt
+      - name: Retain actual results and failures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: range-plugin-check-20261018
+          path: |
+            results/
+            receipt/
+            audits/ins_trk_three_models_20261018/
+          retention-days: 14
+          compression-level: 1
