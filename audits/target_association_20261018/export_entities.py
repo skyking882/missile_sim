@@ -28,13 +28,17 @@ def weapons(u):
 us=[dict(eid=eid,uid=u.uid,owner_pid=u.owner_pid,unit_name=u.unit_name,created_at_ms=u.created_at_ms,killed_at_ms=u.killed_at_ms,destroyed_at_ms=u.destroyed_at_ms,killed_position=vec(u.killed_position),track=track(u),weapons=weapons(u)) for eid,u in units.values()]
 rs=[dict(eid=eid,owner_eid=x.ownerEid.get_handle(),eid2=x.eid2.get_handle(),created_at_ms=x.created_at_ms,destroyed_at_ms=x.destroyed_at_ms,weapon_name=x.weapon_obj.weapon_name if x.weapon_obj else None,launcher_blk=x.weapon_obj.blk_path if x.weapon_obj else None,raw=dict(x.creation_raw_fields),track=track(x)) for eid,x in rockets.values()]
 with gzip.open(args.module/'extracted'/args.session/'unit_history.json.gz','rt') as f:prior=json.load(f)
-newby={u['eid']:u for u in us};newrock={r['eid']:r for r in rs}
+newby={u['eid']:u for u in us};newrock={r['eid']:r for r in rs};empty_placeholders=[];checked=0
 for u in prior['units']:
- assert u['eid'] in newby,('missing unit',u['eid'])
+ if not u['track']:
+  if u['eid'] not in newby:empty_placeholders.append({'eid':u['eid'],'name':u['unit_name'],'reason':'empty prior history, not an available position source'})
+  continue
+ assert u['eid'] in newby,('missing nonempty unit',u['eid'])
  assert u['track']==newby[u['eid']]['track'],('unit history differs',u['eid'])
+ checked+=1
 for r in prior['rockets']:
  assert r['eid'] in newrock and r['owner_eid']==newrock[r['eid']]['owner_eid'] and r['weapon_name']==newrock[r['eid']]['weapon_name'],('rocket metadata mismatch',r['eid'])
 for name,data in [('units',us),('projectiles',rs)]:
  with gzip.open(out/(name+'.json.gz'),'wt') as f:json.dump(data,f,separators=(',',':'),allow_nan=False)
-receipt=dict(session=args.session,native_module_sha256=hashlib.sha256(Path(p.__file__).read_bytes()).hexdigest(),python=sys.version,units=len(us),projectiles=len(rs),prior_units_checked=len(prior['units']),prior_rocket_identities_checked=len(prior['rockets']),all_prior_unit_histories_identical=True,projectile_history_count=sum(bool(x['track']) for x in rs),countermeasure_count=sum('countermeasure' in (x['weapon_name'] or '') for x in rs),countermeasure_history_count=sum(bool(x['track']) and 'countermeasure' in (x['weapon_name'] or '') for x in rs),countermeasure_shell_types=dict(collections.Counter(str(x['raw']['shell_type']) for x in rs if 'countermeasure' in (x['weapon_name'] or ''))),state_packet_count=int(state.current_packet_index))
+receipt=dict(session=args.session,native_module_sha256=hashlib.sha256(Path(p.__file__).read_bytes()).hexdigest(),python=sys.version,units=len(us),projectiles=len(rs),prior_nonempty_units_checked=checked,missing_empty_prior_placeholders=empty_placeholders,prior_rocket_identities_checked=len(prior['rockets']),all_prior_nonempty_unit_histories_identical=True,projectile_history_count=sum(bool(x['track']) for x in rs),countermeasure_count=sum('countermeasure' in (x['weapon_name'] or '') for x in rs),countermeasure_history_count=sum(bool(x['track']) and 'countermeasure' in (x['weapon_name'] or '') for x in rs),countermeasure_shell_types=dict(collections.Counter(str(x['raw']['shell_type']) for x in rs if 'countermeasure' in (x['weapon_name'] or ''))),state_packet_count=int(state.current_packet_index))
 (out/'receipt.json').write_text(json.dumps(receipt,indent=2));print(json.dumps(receipt),flush=True)
