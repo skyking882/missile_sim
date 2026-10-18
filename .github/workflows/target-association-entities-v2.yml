@@ -2,7 +2,7 @@ name: Target association verified entity evidence
 on:
   push:
     branches: ['audit/target-association-20261018']
-    paths: ['.github/workflows/target-association-entities-v2.yml']
+    paths: ['.github/workflows/target-association-entities-v2.yml','audits/target_association_20261018/export_entities.py']
 permissions:
   contents: read
   actions: read
@@ -22,7 +22,7 @@ jobs:
           gh run download 39055559128 --repo skyking882/missile_sim --name psvs-linux-derived-9f28aeb --dir old-native
           echo 'f420444b96802d05fc6877b988e50e8c088f124b703556d9540db15f26ac5999  old-native/PyReplayParser.cpython-312-x86_64-linux-gnu.so' | sha256sum -c -
       - run: sudo apt-get update -qq && sudo apt-get install -y libunwind8 liblzma5
-      - name: Read original WRPL and verify all old unit histories
+      - name: Read original WRPL and verify all nonempty old unit histories
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: |
