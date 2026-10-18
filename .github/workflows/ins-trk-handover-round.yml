@@ -1,0 +1,56 @@
+name: INS TRK final handover round
+on:
+  push:
+    branches: ['audit/ins-trk-handover-20261018']
+    paths: ['.github/workflows/ins-trk-handover-round.yml','audits/ins_trk_handover_20261018/final_round.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  examine:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Restore frozen successful refinement delivery
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39074725895 --repo skyking882/missile_sim --name missile-sim-ins-trk-refinement-20261017 --dir prior
+      - name: Install numerical dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Verify untouched raw bundle and mathematical contracts
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          python3 tools/verify_bundle.py > raw-before.json
+          /usr/bin/python3 audits/ins_trk_handover_20261018/final_round.py tests 2>&1 | tee tests.log
+      - name: Execute predeclared final diagnostics
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u audits/ins_trk_handover_20261018/final_round.py run --input prior --out final-results 2>&1 | tee final-analysis.log
+          python3 tools/verify_bundle.py > raw-after.json
+      - name: Preserve exact source and all outcomes
+        if: always()
+        run: |
+          mkdir -p working-delivery/audits/ins_trk_handover_20261018
+          cp -r prior working-delivery/ || true
+          cp -r final-results working-delivery/ || true
+          cp tests.log final-analysis.log raw-before.json raw-after.json working-delivery/ || true
+          cp audits/ins_trk_handover_20261018/* working-delivery/audits/ins_trk_handover_20261018/
+          for d in ins_trk_refinement_20261017 ins_trk_causality_20261017 capture_held_20261017; do mkdir -p "working-delivery/audits/$d"; cp audits/$d/*.py "working-delivery/audits/$d/"; done
+          git rev-parse HEAD > working-delivery/source-commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ins-trk-final-round-working-20261018
+          path: working-delivery/
+          retention-days: 14
+          compression-level: 1
