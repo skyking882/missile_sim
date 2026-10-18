@@ -1,0 +1,98 @@
+name: INS TRK user handover delivery
+on:
+  push:
+    branches: ['audit/ins-trk-handover-20261018']
+    paths: ['.github/workflows/ins-trk-handover-delivery.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  deliver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Restore completed final-round inputs and results
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39099843191 --repo skyking882/missile_sim --name ins-trk-final-round-working-20261018 --dir delivery
+      - name: Numerical dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Complete independent actual-case review and navigation
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          cp audits/ins_trk_handover_20261018/* delivery/audits/ins_trk_handover_20261018/
+          cp audits/ins_trk_handover_20261018/HANDOVER.md audits/ins_trk_handover_20261018/reproduce.py delivery/
+          /usr/bin/python3 -u delivery/audits/ins_trk_handover_20261018/review_handover.py --results delivery/final-results --out delivery/review 2>&1 | tee delivery/review.log
+          mkdir -p delivery/verification delivery/workflows
+          cp .github/workflows/ins-trk-handover*.yml delivery/workflows/
+          git rev-parse HEAD > delivery/delivery-source-commit.txt
+          python3 tools/verify_bundle.py > delivery/verification/unchanged-bundle-before.json
+          cat > delivery/README.md <<'MD'
+          # INS→TRK final handover
+
+          Read HANDOVER.md first. This is a War Thunder game-replay research package, not a completed autonomous seeker or production-dev patch.
+
+          Run `python3 reproduce.py /absolute/path/to/new-output` with Python3, NumPy and SciPy. No network access is needed by the reproduction script. The original numerical environment was Python3.12.3, NumPy1.26.4, SciPy1.11.4. Exact integer/string/structural equality and floating differences are reported separately. Existing data and results are not overwritten.
+
+          `final-results/`: joint direction-rate stage diagnostics, INS-seed timing candidates, rotation-independent norm constraints and all six adverse cases. `review/ADVERSE_CASES.md` and `review/CASE_INDEX.csv`: short index with EIDs, ticks, source-row indices and hashes. `audits/`: runnable source with original relative imports. `prior/`: the complete frozen preceding package, including931 transition boundaries,501 entity prefixes, two full anchor histories and previous quantitative results. `verification/`: actual packaged rerun and unchanged-source checks. `workflows/`: exact execution definitions.
+
+          This audit branch descends from the raw-replay branch and should not be merged wholesale into dev. No runtime changes were made. Independent numerical formulations are not independent AI subagents. Current n is a conditional target for projections/inversion, not a newly predicted or independently observed measurement. Five of the original six fixed-kappa failures violate a rotation-independent necessary condition under the stated rate cells and direction uncertainty. This does not prove that every alternative quantizer or hidden update is impossible.
+
+          The167MB original WRPL bundle is not duplicated; lineage remains in prior/. Input manifest hashes are checked before calculation, and MANIFEST.json lists all package files except itself. The six-case source hashes refer to normalized native JSON records rather than entire WRPL files. HANDOVER.md distinguishes actual observations, conditional identities, fitted relationships and unresolved mechanisms.
+          MD
+      - name: Prepare manifest for actual packaged rerun
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          root=Path('delivery')
+          rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          print('PRE_REPRODUCTION_HASHED_FILES',len(rows))
+          PY
+      - name: Reexecute delivered script and compare six numerical result sets
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce.py "$RUNNER_TEMP/handover-reproduced" 2>&1 | tee reproduction-execution.log
+          cp reproduction-execution.log delivery/verification/
+          cp "$RUNNER_TEMP/handover-reproduced/reproduction_verification.json" "$RUNNER_TEMP/handover-reproduced/tests.log" delivery/verification/
+      - name: Final immutable-source and delivery integrity check
+        run: |
+          set -euo pipefail
+          python3 tools/verify_bundle.py > delivery/verification/unchanged-bundle-after.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          root=Path('delivery');rep=json.loads((root/'verification/reproduction_verification.json').read_text());rev=json.loads((root/'review/independent_review.json').read_text())
+          note='# Actual handover verification\n\n'+json.dumps({k:v for k,v in rep.items() if k!='results'},indent=2)+'\n\n## Independent formulations\n\n'+json.dumps({k:v for k,v in rev.items() if k!='case_details'},indent=2)+'\n\nThis is artifact reproducibility on the same data, not new blinded validation or a production simulator regression. Local execution was unavailable; all claimed numerical work used completed GitHub Actions.\n'
+          (root/'VERIFICATION.md').write_text(note)
+          rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for r in rows:
+              p=root/r['path'];assert p.stat().st_size==r['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==r['sha256']
+          print('FINAL_HANDOVER',json.dumps({'files_hash_checked':len(rows),'bytes':sum(r['bytes'] for r in rows),'reproduction':{k:v for k,v in rep.items() if k!='results'},'review':{k:v for k,v in rev.items() if k!='case_details'}}),flush=True)
+          PY
+      - name: Preserve failed reproduction diagnostics honestly
+        if: failure()
+        run: |
+          mkdir -p delivery/verification
+          cp reproduction-execution.log delivery/verification/ || true
+          cp "$RUNNER_TEMP/handover-reproduced/reproduction_verification.json" delivery/verification/ || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-ins-trk-handover-20261018
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
