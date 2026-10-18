@@ -1,0 +1,72 @@
+name: Capture retry clock tests and inputs
+on:
+  push:
+    branches: ['audit/capture-retry-schedule-20261019']
+    paths: ['.github/workflows/capture-retry-inputs.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Run isolated clock contracts
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          python3 audits/capture_retry_20261019/test_retry_clock.py 2>&1 | tee receipts/tests.log
+          git rev-parse HEAD > receipts/source-commit.txt
+      - name: Restore completed source evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39141115762 --repo skyking882/missile_sim --name missile-sim-offaxis-state-reviewed-20261018 --dir previous
+          gh run download 39055559128 --repo skyking882/missile_sim --name psvs-linux-derived-9f28aeb --dir derived
+      - name: Verify and select bounded input files
+        run: |
+          mkdir bounded
+          python3 - <<'PY'
+          import gzip,json,hashlib,shutil
+          from pathlib import Path
+          root=Path('previous');out=Path('bounded');manifest=json.loads((root/'MANIFEST.json').read_text())
+          for r in manifest:
+              p=root/r['path'];assert p.stat().st_size==r['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==r['sha256'],str(p)
+          print('VERIFIED_PRIOR_FILES',len(manifest))
+          selected=[]
+          for name in ('anchor_full_histories.json.gz','server_dataset.json.gz','capture_events.json.gz'):
+              ps=sorted(root.rglob(name));print('INPUT_PATHS',name,[str(p) for p in ps])
+              if not ps:continue
+              p=ps[0];shutil.copy2(p,out/name);selected.append(dict(path=name,source=str(p),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()))
+              d=json.load(gzip.open(p,'rt'));print('SCHEMA',name,type(d).__name__)
+              if name=='anchor_full_histories.json.gz':
+                  for uid,rs in d.items():print('ANCHOR',uid,len(rs),json.dumps(rs[0]),'LAST',rs[-1]['tick'])
+              elif name=='server_dataset.json.gz':
+                  for info in d.get('infos',[]):
+                      if info.get('uid') in (118,148):print('CASE_INFO',json.dumps(info))
+              elif name=='capture_events.json.gz':
+                  for e in d:
+                      if (e['replay'],e['eid']) in [('2026.10.08_11.49.38',2439170),('2026.10.08_12.11.04',1612803)]:print('CAPTURE_META',json.dumps({k:v for k,v in e.items() if k not in ('old','new','predictions')}))
+          for session in ('2026.10.08_11.49.38','2026.10.08_12.11.04'):
+              p=next(p for p in Path('derived').rglob('unit_history.json.gz') if p.parent.name==session)
+              dest=out/session;dest.mkdir();shutil.copy2(p,dest/p.name);d=json.load(gzip.open(p,'rt'))
+              print('UNITS',session,len(d),'SAMPLE',json.dumps(d[0])[:2000])
+              print('UNIT_IDENTITIES',session,json.dumps([{k:v for k,v in r.items() if k!='track'} for r in d]))
+              selected.append(dict(path=f'{session}/{p.name}',source=str(p),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()))
+          (out/'SOURCE_MANIFEST.json').write_text(json.dumps(selected,indent=2))
+          print('OTHER_INPUT_NAMES',json.dumps([str(p.relative_to(root)) for p in root.rglob('*') if p.is_file() and any(k in p.name for k in ('dataset','fieldmap','metadata','input'))])[:12000])
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: capture-retry-inputs-20261019
+          path: |
+            bounded/
+            receipts/
+            audits/capture_retry_20261019/
+          retention-days: 14
+          compression-level: 1
