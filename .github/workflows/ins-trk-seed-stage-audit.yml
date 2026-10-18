@@ -29,7 +29,7 @@ jobs:
           mkdir -p evidence-receipt
           python3 tools/verify_bundle.py > evidence-receipt/verified-original-wrpl.json
           git rev-parse HEAD > evidence-receipt/git-commit.txt
-          /usr/bin/python3 -u audits/ins_trk_seed_stage_20261018/inspect.py --input old-evidence --output stage-results 2>&1 | tee evidence-receipt/experiment.log
+          /usr/bin/python3 -u audits/ins_trk_seed_stage_20261018/seed_stage_audit.py --input old-evidence --output stage-results 2>&1 | tee evidence-receipt/experiment.log
           python3 tools/verify_bundle.py > evidence-receipt/verified-original-wrpl-after.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
