@@ -1,0 +1,120 @@
+name: Three-family reviewed replay comparison
+on:
+  push:
+    branches: ['audit/ins-trk-three-models-20261018']
+    paths: ['.github/workflows/ins-trk-three-models-delivery.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  deliver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Restore completed evidence and three separately scored families
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39100358600 --repo skyking882/missile_sim --name missile-sim-ins-trk-handover-20261018 --dir delivery/input
+          gh run download 39120713199 --repo skyking882/missile_sim --name range-plugin-check-20261018 --dir delivery/studies/range
+          gh run download 39120965337 --repo skyking882/missile_sim --name vector-mixture-check-20261018 --dir delivery/studies/mixture
+          gh run download 39120965337 --repo skyking882/missile_sim --name vector-representation-check-20261018 --dir delivery/studies/representation
+      - name: Install numerical review tools
+        run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Assemble unchanged sources and review actual calculations
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p delivery/code delivery/verification delivery/workflows
+          cp audits/ins_trk_three_models_20261018/*.py delivery/code/
+          cp audits/ins_trk_three_models_20261018/RESULTS.md audits/ins_trk_three_models_20261018/PROTOCOL.md audits/ins_trk_three_models_20261018/reproduce.py delivery/
+          cp .github/workflows/ins-trk-range-plugin-check.yml .github/workflows/ins-trk-other-plugin-checks.yml .github/workflows/ins-trk-three-models-delivery.yml delivery/workflows/
+          git rev-parse HEAD > delivery/source-commit.txt
+          python3 tools/verify_bundle.py > delivery/verification/original-bundle-before.json
+          /usr/bin/python3 -u delivery/code/review_results.py --input delivery/input --saved delivery/studies --out delivery/review > delivery/verification/review-execution.log 2>&1
+          /usr/bin/python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('delivery');r=json.loads((root/'review/review.json').read_text())
+          print('INDEPENDENT_CHECKS',json.dumps({k:v for k,v in r.items() if k not in ('comparison','six_cases')},ensure_ascii=False),flush=True)
+          print('SIX_CASE_REVIEW',json.dumps(r['six_cases'],ensure_ascii=False),flush=True)
+          lines=['# Fixed six-case inspection','','All errors are complete rate vector errors in degrees/second. Positive scaling is an existence diagnostic at fixed actual Q and conditional n, not a predictor. Two-component coefficients are fitted per event only as a diagnostic lower bound.','','| Scene / UID / ticks | Positive scalar feasible | rho interval | Two-component point residual | Range selected | Mixture selected | Representation selected |','|---|---|---|---:|---:|---:|---:|']
+          for e in r['six_cases']:
+              scene,eid,t0,t1=e['identity'];s=e['scale'];rho=f"{s['rho_min']:.8f}–{s['rho_max']:.8f}" if s['feasible'] and s['rho_max'] is not None else 'none / unbounded'
+              a=e['families'];lines.append(f"| {scene} / {s['uid']} / {t0}–{t1} | {s['feasible']} | {rho} | {e['two_component']['decoded_two_component_error_deg_s']:.8f} | {a['range']['rate_error']:.8f} | {a['mixture']['rate_error']:.8f} | {a['representation']['rate_error']:.8f} |")
+          (root/'review/ADVERSE_CASES.md').write_text('\n'.join(lines)+'\n')
+          PY
+      - name: Create portable entry instructions and pre-run hash manifest
+        run: |
+          cat > delivery/README.md <<'MD'
+          # Three candidate families: actual replay comparison
+
+          Start with RESULTS.md and review/ADVERSE_CASES.md. All three families were scored against the same frozen War Thunder replay-derived transitions. This is not a production observer patch, new blinded replay validation, or an independent AI-subagent review. Current n and range are conditional serialized inputs; current target Ps/Vs and response rate are not predictor inputs.
+
+          ```bash
+          python3 reproduce.py /absolute/path/to/new-output
+          ```
+
+          Python3, NumPy and SciPy are needed. The original runs used Ubuntu Python3.12, NumPy1.26.4 and SciPy1.11.4. The script does not access the network and refuses an existing output directory. It verifies the package manifest, runs the twelve different unit tests, reruns all three families and the independent review, and compares nine numerical result sets. Floating comparison tolerance is absolute1e-9+relative1e-11; integer/text/structure checks are exact. This comparison tolerance is not a physical error acceptance bound. Source/data hashes are checked; platform metadata is retained but excluded from physical numerical comparisons.
+
+          code/: runnable source. studies/range, studies/mixture, studies/representation: every fixed and fitted candidate, all931 event predictions, leave-scene fit tables, exact original source copies and successful-run receipts. review/: alternate bounded least-squares validation, independent error arithmetic and diagnostic axial/transverse pointwise lower bounds. input/: full unchanged preceding handover archive, including its own127-file manifest and original decoding lineage. The167MB WRPL files are not duplicated. verification/: actual package reexecution and immutable original-bundle checks. workflows/: exact job definitions.
+
+          The near244 / R77-near79 subsets are retained and asserted. Full931 tests include saved endpoints that may already contain further ordinary updates. Negative performance on that larger collection must not be overclaimed as a proof about an instantaneous initialization operation. All positive-scale LP tests fix decoded Q/n and the declared rate cells; they do not prove a complete nonlinear measurement model.
+
+          The branch descends from the raw-replay research branch; do not merge it wholesale into dev. No production dev, native parser or raw replay branch was modified.
+          MD
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery');rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          print('PRE_RUN_MANIFEST_FILES',len(rows))
+          PY
+      - name: Rerun actual packaged diagnostics and compare all nine result sets
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce.py "$RUNNER_TEMP/three-models-reproduced" 2>&1 | tee execution.log
+          cp execution.log delivery/verification/reproduction-execution.log
+          cp "$RUNNER_TEMP/three-models-reproduced/reproduction_verification.json" "$RUNNER_TEMP/three-models-reproduced/test_range.log" "$RUNNER_TEMP/three-models-reproduced/test_other.log" delivery/verification/
+      - name: Finalize reproducibility receipt and verify final hashes
+        run: |
+          set -euo pipefail
+          python3 tools/verify_bundle.py > delivery/verification/original-bundle-after.json
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery');v=json.loads((root/'verification/reproduction_verification.json').read_text());r=json.loads((root/'review/review.json').read_text())
+          summary={k:x for k,x in v.items() if k!='comparisons'};review={k:x for k,x in r.items() if k not in ('comparison','six_cases')}
+          (root/'VERIFICATION.md').write_text('# Completed numerical verification\n\n'+json.dumps(summary,indent=2)+'\n\n## Independent formulations\n\n'+json.dumps(review,indent=2)+'\n\nThese are same-observation reproducibility and numerical checks, not new blinded validation or full production regression.\n')
+          rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for z in rows:
+              p=root/z['path'];assert p.stat().st_size==z['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==z['sha256']
+          print('FINAL_DELIVERY',json.dumps(dict(files_hash_verified=len(rows),bytes=sum(z['bytes'] for z in rows),reproduction=summary,review=review)),flush=True)
+          PY
+      - name: Preserve genuine failure logs if a review does not pass
+        if: failure()
+        run: |
+          mkdir -p delivery/verification
+          cp execution.log delivery/verification/ 2>/dev/null || true
+          cp "$RUNNER_TEMP/three-models-reproduced/reproduction_verification.json" delivery/verification/ 2>/dev/null || true
+          find "$RUNNER_TEMP/three-models-reproduced" -maxdepth 1 -name '*.log' -exec cp {} delivery/verification/ \; 2>/dev/null || true
+      - name: Retain assembled evidence and actual verification outcomes
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: missile-sim-three-models-tested-20261018
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
