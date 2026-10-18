@@ -1,0 +1,52 @@
+name: Reviewed target association projectile evidence
+on:
+  push:
+    branches: ['audit/target-association-20261018']
+    paths: ['.github/workflows/target-association-projectiles-reviewed.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39055559128 --repo skyking882/missile_sim --name psvs-linux-derived-9f28aeb --dir old-native
+          gh run download 39143617680 --repo skyking882/missile_sim --name target-association-entities-20261018 --dir first-export
+          echo 'f420444b96802d05fc6877b988e50e8c088f124b703556d9540db15f26ac5999  old-native/PyReplayParser.cpython-312-x86_64-linux-gnu.so' | sha256sum -c -
+      - run: sudo apt-get update -qq && sudo apt-get install -y libunwind8 liblzma5
+      - name: Re-read native projectile fields without relying on incomplete new aircraft callbacks
+        run: |
+          set -euo pipefail
+          mkdir evidence
+          python3 tools/verify_bundle.py > evidence/bundle-before.json
+          for sc in 2026.10.08_12.11.04 2026.10.08_12.45.12; do
+            /usr/bin/python3 audits/target_association_20261018/export_projectiles.py "$sc" --module old-native --first-export first-export --out "evidence/$sc"
+          done
+          python3 tools/verify_bundle.py > evidence/bundle-after.json
+          cp audits/target_association_20261018/export_projectiles.py evidence/
+          git rev-parse HEAD > evidence/source-commit.txt
+      - name: Fixed datamine definitions, explicitly not proof of replay patch equivalence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir evidence/datamine
+          for name in countermeasure_split_launcher_jet countermeasure_split_launcher_jet_only_chaff_large countermeasure_large_split_launcher_jet; do
+            gh api "repos/gszabi99/War-Thunder-Datamine/contents/aces.vromfs.bin_u/gamedata/weapons/rocketguns/$name.blkx?ref=4ac255b829a27346b9300fccdc138362c2535fbe" --jq '.content' | base64 -d > "evidence/datamine/$name.blkx"
+          done
+          echo 4ac255b829a27346b9300fccdc138362c2535fbe > evidence/datamine/source-commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: target-association-projectiles-reviewed-20261018
+          path: evidence/
+          retention-days: 14
+          compression-level: 1
