@@ -1,0 +1,64 @@
+name: Serialized vector mixture and representation checks
+on:
+  push:
+    branches: ['audit/ins-trk-three-models-20261018']
+    paths: ['.github/workflows/ins-trk-other-plugin-checks.yml','audits/ins_trk_three_models_20261018/other_checks.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  compare:
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [mixture, representation]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Restore frozen evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39100358600 --repo skyking882/missile_sim --name missile-sim-ins-trk-handover-20261018 --dir input
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Jacobian, geometry and input-isolation tests
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipt
+          /usr/bin/python3 audits/ins_trk_three_models_20261018/other_checks.py tests 2>&1 | tee receipt/tests.log
+          python3 tools/verify_bundle.py > receipt/original-bundle-before.json
+      - name: Independent family comparison with leave-scene fitting
+        env:
+          FAMILY: ${{ matrix.family }}
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u audits/ins_trk_three_models_20261018/other_checks.py --family "$FAMILY" --input input --out results > receipt/analysis.log 2>&1
+          /usr/bin/python3 - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('results/compact.json').read_text())
+          for key in ('family','counts','domain_fallbacks','selected_scores','six_selected','all_models_near_R77'):
+              print('FAMILY_RESULT',key,json.dumps(s[key],ensure_ascii=False),flush=True)
+          PY
+          python3 tools/verify_bundle.py > receipt/original-bundle-after.json
+          git rev-parse HEAD > receipt/source-commit.txt
+      - name: Preserve actual numerical outputs or errors
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: vector-${{ matrix.family }}-check-20261018
+          path: |
+            results/
+            receipt/
+            audits/ins_trk_three_models_20261018/
+          retention-days: 14
+          compression-level: 1
