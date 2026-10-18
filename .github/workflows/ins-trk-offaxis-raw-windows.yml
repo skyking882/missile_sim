@@ -1,0 +1,65 @@
+name: INS TRK off-axis native windows
+on:
+  push:
+    branches: ['audit/ins-trk-offaxis-state-20261018']
+    paths: ['.github/workflows/ins-trk-offaxis-raw-windows.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  windows:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Restore native exports, verified field map and fixed event definitions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39121722846 --repo skyking882/missile_sim --name missile-sim-three-models-tested-20261018 --dir source-evidence
+          gh run download 39139918349 --repo skyking882/missile_sim --name ins-trk-offaxis-state-20261018 --dir main-results
+          gh run download 39055559128 --repo skyking882/missile_sim --name psvs-linux-derived-9f28aeb --dir derived
+          gh run download 39055471867 --repo skyking882/missile_sim --name psvs-frozen-decoder-reference-2dc243b --dir reference
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Stream original exports and validate all captured window endpoints
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          python3 tools/verify_bundle.py > receipts/unchanged-bundle-before.json
+          /usr/bin/python3 -u audits/ins_trk_offaxis_state_20261018/raw_windows.py --source source-evidence --main-results main-results/offaxis-results --derived derived --reference reference --out raw-window-results > receipts/raw-analysis.log 2>&1
+          /usr/bin/python3 - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('raw-window-results/summary.json').read_text())
+          print('RAW_COUNTS',json.dumps(s['counts']))
+          for name in ('R77_all','R77_first','R77_reacq_lag0','R77_reacq_lag1'):
+              print('RAW_GROUP',name,json.dumps(s['groups'][name]))
+          for label in ('representatives','adverse_late_large'):
+              for w in s[label]:
+                  keys=('identity','uid','angle_group','offaxis_deg','original','lag','near','fresh00','boundary_rate_error','boundary_axial_error','boundary_transverse_error','source_split_deg','old_prior_vs_new_deg','new_vs_pointing_deg','next_first')
+                  compact={k:w[k] for k in keys}
+                  compact['window']=[{k:r.get(k) for k in ('tick','code','relative_record','timer','flag','target_offaxis_deg','n_vs_Ps_deg','geometry_error_deg_s','preceding_pair')} for r in w['states'] if -2<=r.get('relative_record',99)<=3]
+                  print(label,json.dumps(compact))
+          PY
+          cp audits/ins_trk_offaxis_state_20261018/*.py raw-window-results/
+          git rev-parse HEAD > receipts/source-commit.txt
+          python3 tools/verify_bundle.py > receipts/unchanged-bundle-after.json
+      - name: Expose actual failure diagnostics
+        if: failure()
+        run: tail -70 receipts/raw-analysis.log || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ins-trk-offaxis-raw-windows-20261018
+          path: |
+            raw-window-results/
+            receipts/
+          retention-days: 14
+          compression-level: 1
