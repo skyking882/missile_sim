@@ -2,7 +2,7 @@
 """Additional prespecified serialized-state comparisons. No simulation edits.
 Builders intentionally receive no current response vector or current target PV.
 """
-import argparse,math,unittest,sys
+import argparse,json,math,unittest,sys
 from pathlib import Path
 import numpy as np
 from scipy.spatial.transform import Rotation
