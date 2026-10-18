@@ -1,0 +1,44 @@
+name: INS TRK off-axis state audit
+on:
+  push:
+    branches: ['audit/ins-trk-offaxis-state-20261018']
+    paths: ['.github/workflows/ins-trk-offaxis-state.yml','audits/ins_trk_offaxis_state_20261018/compare_states.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Restore completed immutable analysis input
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39121722846 --repo skyking882/missile_sim --name missile-sim-three-models-tested-20261018 --dir source-evidence
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Fixed-parameter event and state comparisons
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          python3 tools/verify_bundle.py > receipts/unchanged-bundle-before.json
+          /usr/bin/python3 -u audits/ins_trk_offaxis_state_20261018/compare_states.py --input source-evidence --out offaxis-results 2>&1 | tee receipts/execution.log
+          git rev-parse HEAD > receipts/source-commit.txt
+          python3 tools/verify_bundle.py > receipts/unchanged-bundle-after.json
+          find source-evidence/input -type f | grep -E 'histor|dataset|ordinary|windows|fieldmap' > receipts/available-history-inputs.txt || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ins-trk-offaxis-state-20261018
+          path: |
+            offaxis-results/
+            receipts/
+            audits/ins_trk_offaxis_state_20261018/
+          retention-days: 14
+          compression-level: 1
