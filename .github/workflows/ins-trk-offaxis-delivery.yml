@@ -1,0 +1,120 @@
+name: INS TRK off-axis reviewed delivery
+on:
+  push:
+    branches: ['audit/ins-trk-offaxis-state-20261018']
+    paths: ['.github/workflows/ins-trk-offaxis-delivery.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  deliver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Restore three completed, source-stamped inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39121722846 --repo skyking882/missile_sim --name missile-sim-three-models-tested-20261018 --dir delivery/input
+          gh run download 39139918349 --repo skyking882/missile_sim --name ins-trk-offaxis-state-20261018 --dir received/main
+          gh run download 39140259508 --repo skyking882/missile_sim --name ins-trk-offaxis-raw-windows-20261018 --dir received/windows
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Assemble unchanged data and run alternate arithmetic review
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p delivery/main delivery/windows delivery/receipts/main delivery/receipts/windows delivery/audits/ins_trk_offaxis_state_20261018 delivery/audits/capture_held_20261017 delivery/audits/ins_trk_three_models_20261018 delivery/verification delivery/workflows
+          cp received/main/offaxis-results/* delivery/main/
+          cp received/windows/raw-window-results/*.json received/windows/raw-window-results/*.gz delivery/windows/
+          cp received/main/receipts/* delivery/receipts/main/
+          cp received/windows/receipts/* delivery/receipts/windows/
+          cp audits/ins_trk_offaxis_state_20261018/*.py audits/ins_trk_offaxis_state_20261018/PROTOCOL.md delivery/audits/ins_trk_offaxis_state_20261018/
+          cp audits/capture_held_20261017/audit.py delivery/audits/capture_held_20261017/
+          cp audits/ins_trk_three_models_20261018/range_check.py delivery/audits/ins_trk_three_models_20261018/
+          cp audits/ins_trk_offaxis_state_20261018/REPORT.md delivery/
+          cp audits/ins_trk_offaxis_state_20261018/reproduce.py delivery/
+          cp .github/workflows/ins-trk-offaxis-*.yml delivery/workflows/
+          git rev-parse HEAD > delivery/delivery-source-commit.txt
+          python3 tools/verify_bundle.py > delivery/verification/unchanged-bundle-before.json
+          /usr/bin/python3 -u delivery/audits/ins_trk_offaxis_state_20261018/review.py --input delivery/input --results delivery/main --windows delivery/windows --out delivery/review 2>&1 | tee delivery/verification/review.log
+      - name: Explain reproduction scope and create initial manifest
+        run: |
+          cat > delivery/README.md <<'MD'
+          # Off-axis INS/TRK state audit
+
+          Start with REPORT.md and review/TABLES.md. All new tests use fixed equations, gains, grouping thresholds and the same frozen game-replay events. No new fit or production solver changes. Small means last-INS Ps-estimate/body angle <=20deg; large means >=50deg. This is not launch angle or independent true target position. First-capture time remains unknown; phase48m+1 is a reacquisition hypothesis only.
+
+          ## Offline reproduction
+
+          ```bash
+          python3 reproduce.py /absolute/path/to/new-output
+          ```
+
+          Python3, NumPy and SciPy are required. Original run used Ubuntu Python3.12, NumPy1.26.4 and SciPy1.11.4. The entrypoint makes no network calls and refuses existing output directories. It verifies package hashes, reruns the 931-event main comparison, and independently checks saved native-window arithmetic. Five numerical result sets are compared, with exact integer/text/structure checks and floating tolerance absolute1e-9 + relative1e-11. This comparison tolerance is not physical accuracy.
+
+          input/ is the complete prior three-family archive and its nested evidence/provenance. main/ contains all new per-event results and index. windows/windows.json.gz contains at most8 prior and8 subsequent same-EID native decoded records around each of931 boundaries, including raw-index/SHA. Two tail windows are incomplete; overlaps are retained, not counted as independent observations. review/ contains independent scalar arithmetic and Rodrigues checks plus tail diagnostics. audits/ preserves the necessary code paths; receipts/ and workflows/ preserve completed execution provenance.
+
+          ## Full native-stream reread
+
+          The small-data entrypoint does NOT recompile or re-decode the167MB WRPL files, and does not rerun the entire1.63million-row native-export scan. That scan actually completed in run39140259508; it needs exports from run39055559128 and the field map from run39055471867. Restore those artifacts and run:
+
+          ```bash
+          python3 audits/ins_trk_offaxis_state_20261018/raw_windows.py \
+            --source input --main-results main \
+            --derived /path/to/native-exports --reference /path/to/frozen-reference \
+            --out /path/to/new-raw-window-results
+          ```
+
+          The baseline reads current saved direction as a condition. Ordinary-update checks read the next direction as a response, not an independent radar measurement. Neither is a complete autonomous observer. Current solver, control, rawWRPL and native decoder are unchanged. This research branch inherits the raw-data branch and must not be merged wholesale into dev.
+          MD
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery');rows=[{'path':p.relative_to(root).as_posix(),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2));print('MANIFEST_BEFORE_RERUN',len(rows))
+          PY
+      - name: Execute packaged reproduction and compare actual outputs
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce.py "$RUNNER_TEMP/offaxis-reproduced" 2>&1 | tee delivery/verification/reproduction.log
+          cp "$RUNNER_TEMP/offaxis-reproduced/reproduction_verification.json" delivery/verification/
+      - name: Final verification, data hash manifest and completed receipt
+        run: |
+          set -euo pipefail
+          python3 tools/verify_bundle.py > delivery/verification/unchanged-bundle-after.json
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery');r=json.loads((root/'review/verification.json').read_text());v=json.loads((root/'verification/reproduction_verification.json').read_text())
+          text='# Completed verification\n\n'+json.dumps({k:z for k,z in v.items() if k!='comparisons'},indent=2)+'\n\n## Independent arithmetic\n\n'+json.dumps(r,indent=2)+'\n'
+          (root/'VERIFICATION.md').write_text(text)
+          rows=[{'path':p.relative_to(root).as_posix(),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for x in rows:
+              p=root/x['path'];assert p.stat().st_size==x['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==x['sha256']
+          print('FINAL_VERIFICATION',json.dumps({'files_hash_verified':len(rows),'bytes':sum(x['bytes'] for x in rows),'reproduction':{k:z for k,z in v.items() if k!='comparisons'},'review':r}),flush=True)
+          PY
+      - name: Preserve actual failure diagnostics
+        if: failure()
+        run: |
+          cp "$RUNNER_TEMP/offaxis-reproduced/reproduction_verification.json" delivery/verification/ || true
+          tail -60 "$RUNNER_TEMP/offaxis-reproduced/main.log" || true
+          tail -60 "$RUNNER_TEMP/offaxis-reproduced/review.log" || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-offaxis-state-reviewed-20261018
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
