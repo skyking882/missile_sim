@@ -1,0 +1,43 @@
+name: WT INS seed and TRK first-packet stage audit
+on:
+  push:
+    branches: ['audit/ins-trk-seed-vs-postupdate-20261018']
+    paths: ['.github/workflows/ins-trk-seed-stage-audit.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Restore frozen original 931-event evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39100358600 --repo skyking882/missile_sim --name missile-sim-ins-trk-handover-20261018 --dir old-evidence
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Verify immutable input and run fixed-mechanism experiments
+        env:
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p evidence-receipt
+          python3 tools/verify_bundle.py > evidence-receipt/verified-original-wrpl.json
+          git rev-parse HEAD > evidence-receipt/git-commit.txt
+          /usr/bin/python3 -u audits/ins_trk_seed_stage_20261018/inspect.py --input old-evidence --output stage-results 2>&1 | tee evidence-receipt/experiment.log
+          python3 tools/verify_bundle.py > evidence-receipt/verified-original-wrpl-after.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ins-trk-seed-stage-mechanisms-20261018
+          path: |
+            stage-results/
+            evidence-receipt/
+            audits/ins_trk_seed_stage_20261018/
+          retention-days: 14
+          compression-level: 1
