@@ -1,0 +1,121 @@
+name: Capture retry verified delivery
+on:
+  push:
+    branches: ['audit/capture-retry-schedule-20261019']
+    paths: ['.github/workflows/capture-retry-delivery.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  delivery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Exact public source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Retrieve completed experiment outputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39179086963 --repo skyking882/missile_sim --name capture-retry-replay-20261019 --dir received/replay
+          gh run download 39179272323 --repo skyking882/missile_sim --name capture-retry-past-pose-20261019 --dir received/past
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy python3-pytest
+      - name: Assemble portable inputs and exact model source
+        run: |
+          set -euo pipefail
+          mkdir -p delivery/input delivery/results/replay delivery/results/past_pose delivery/receipts/replay delivery/receipts/past_pose delivery/audits/capture_retry_20261019 delivery/workflows delivery/data/profile_sets/2.59.0.27/missiles
+          cp -R received/replay/restored/bounded/. delivery/input/
+          cp received/replay/replay-results/* delivery/results/replay/
+          cp received/past/sensitivity-results/* delivery/results/past_pose/
+          cp received/replay/receipts/* delivery/receipts/replay/
+          cp received/past/receipts/* delivery/receipts/past_pose/
+          cp audits/capture_retry_20261019/*.py audits/capture_retry_20261019/PROTOCOL.md delivery/audits/capture_retry_20261019/
+          cp audits/capture_retry_20261019/RESULTS.md delivery/
+          cp audits/capture_retry_20261019/reproduce.py delivery/
+          cp .github/workflows/capture-retry-*.yml delivery/workflows/
+          cp data/profile_sets/2.59.0.27/missiles/su_r_77_1.json delivery/data/profile_sets/2.59.0.27/missiles/
+          find src/aim120_model -type f -name '*.py' -exec cp --parents '{}' delivery/ \;
+          git rev-parse HEAD > delivery/delivery-source-commit.txt
+          git fetch --depth=1 origin 7a1c0c6e9ebc0a9e730ffaa5c2e79a40c2ae44f5
+          git diff --exit-code 7a1c0c6e9ebc0a9e730ffaa5c2e79a40c2ae44f5 HEAD -- src tests data/profile_sets
+          printf 'src, tests and data/profile_sets unchanged from 7a1c0c6e9ebc0a9e730ffaa5c2e79a40c2ae44f5\n' > delivery/receipts/production-source-check.txt
+      - name: Report actual sensitivity and write readme
+        run: |
+          cat > delivery/README.md <<'MD'
+          # Capture retry clock: executed game-replay component validation
+
+          Read RESULTS.md and VERIFICATION.md first. This is an experimental search-attempt scheduler, not recovered WT source and not a complete autonomous-flight fix. The two first-capture intervals are reproduced only under stated input/model conditions; #118's subsequent held/recovery history still disagrees. RCS2m² is a reference condition, not measured aircraft RCS; angleHalfSens full/half semantics remain uncertain.
+
+          `audits/capture_retry_20261019/retry_clock.py` contains the standard-library scheduler. It is called by the included radar diagnostic but is not inserted into the production provider. First eligible attempts are immediate; after failure, search attempts use global integer tick%48==1. Tracking and short held recovery are not restricted to that search cadence. A missed scheduled time is not replayed with future geometry. No extra dwell or per-case delay is fitted.
+
+          ## Offline reproduction
+
+          Python3 with NumPy and SciPy is required. Original execution used Ubuntu Python3.12, NumPy1.26.4 and SciPy1.11.4. Run:
+
+          ```bash
+          python3 reproduce.py /absolute/path/to/new-output
+          ```
+
+          This verifies hashes, runs14 clock tests, reruns32 fixed detector configurations and32 one-sided-own-pose sensitivity configurations, then compares every JSON result file. It refuses existing output directories and does not make network calls. Numeric tolerance is absolute1e-8+relative1e-11 for floats only; integer/text/structure comparisons are exact. Gzip timestamps are not used to judge numerical equality.
+
+          ## Input boundary
+
+          Own motion is fixed to replay records (or strictly earlier own-state extrapolation in the sensitivity check). The target aircraft identity is selected from frozen prior metadata, not by nearest current Ps. Aircraft positions are independently recorded and interpolated. Pre-first-TRK INS Ps/Vs are conditional priors; their series was selected from recorded INS mode, not independently generated data-link messages. After the simulated first accepted observation, the detector uses its own accepted-state cache, not subsequent game Ps/Vs. No game direction/rate/pointing fields are provided to the detector. No Q/PN/controller/plant integration occurs in these replay-component tests.
+
+          `input/` contains the bounded original evidence and source manifest. `results/replay/` contains first attempts, all gates and transitions for each configuration. `results/past_pose/` tests whether future own-pose interpolation caused the timing result. `receipts/` and `workflows/` preserve actual execution provenance. `src/aim120_model/` is the unchanged frozen production Python code needed to rerun the diagnostic.
+
+          Real first-attempt histories of the other387 non-phase1 captures have NOT been replayed. All-phase immediate success is a software contract test, not their physical validation. The931-event phase histogram was independently re-enumerated. Initial implementation/checkout failures are retained in GitHub; only completed successful runs are treated as results.
+          MD
+          python3 - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          root=Path('delivery');s=json.loads((root/'results/past_pose/summary.json').read_text());b=json.loads((root/'results/replay/summary.json').read_text())
+          reduced={k:v for k,v in s.items() if k!='conditions'}
+          selected=[{k:r[k] for k in ('uid','target_clock','rcs_m2','width','policy','baseline_first_tick','past_pose_first_tick','first_tick_unchanged','past_pose_inside_interval','past_pose_search_captures')} for r in s['conditions'] if r['policy']=='retry']
+          report={'sensitivity':reduced,'retry_conditions':selected,'input_windows':{str(c['uid']):c['inputs'] for c in b['conditions']},'phase_audit':b['phase_audit']}
+          (root/'receipts/sensitivity_review.json').write_text(json.dumps(report,indent=2))
+          print('SENSITIVITY_REVIEW',json.dumps(report),flush=True)
+          rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          PY
+      - name: Rerun assembled delivery and compare actual outputs
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce.py "$RUNNER_TEMP/reproduced-retry" 2>&1 | tee delivery/receipts/reproduction.log
+          cp "$RUNNER_TEMP/reproduced-retry/reproduction.json" delivery/receipts/
+      - name: Final manifest and validation receipt
+        run: |
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery');r=json.loads((root/'receipts/reproduction.json').read_text());s=json.loads((root/'receipts/sensitivity_review.json').read_text())
+          (root/'VERIFICATION.md').write_text('# Completed checks\n\n## Packaged numerical reproduction\n\n```json\n'+json.dumps({k:v for k,v in r.items() if k!='details'},indent=2)+'\n```\n\n## Past-only own-state sensitivity and event-clock checks\n\n```json\n'+json.dumps(s,indent=2)+'\n```\n\n14 new scheduler unit tests and7 unchanged production observer tests passed in the main workflow. These are same-data/component checks, not new blind trials or autonomous flights. Production source unchanged; see receipts.\n')
+          rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for x in rows:
+              p=root/x['path'];assert p.stat().st_size==x['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==x['sha256']
+          print('FINAL_DELIVERY',json.dumps({'files_verified':len(rows),'bytes':sum(x['bytes'] for x in rows),'reproduction':{k:v for k,v in r.items() if k!='details'}}),flush=True)
+          PY
+      - name: Preserve actual failed reproduction diagnostics
+        if: failure()
+        run: |
+          cp "$RUNNER_TEMP/reproduced-retry/reproduction.json" delivery/receipts/ || true
+          tail -60 "$RUNNER_TEMP/reproduced-retry/replay.log" || true
+          tail -60 "$RUNNER_TEMP/reproduced-retry/past_pose.log" || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-capture-retry-verified-20261019
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
