@@ -1,0 +1,122 @@
+name: Relock flow reviewed delivery
+on:
+  push:
+    branches: ['audit/relock-output-contract-20261019']
+    paths: ['.github/workflows/relock-flow-delivery.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  delivery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Exact public source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore completed immutable analysis inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39229417053 --repo skyking882/missile_sim --name missile-sim-relock-mechanism-20261019 --dir delivery/prior
+          gh run download 39243094557 --repo skyking882/missile_sim --name relock-output-contract-20261019 --dir received/flow
+          gh run download 39244251705 --repo skyking882/missile_sim --name relock-fixed-handover-20261019 --dir received/handover
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Assemble existing results and run the declared seed check
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p delivery/results delivery/review delivery/handover delivery/receipts/flow delivery/receipts/handover delivery/audits/relock_output_20261019 delivery/audits/relock_handover_20261019 delivery/audits/capture_held_20261017 delivery/workflows
+          cp received/flow/flow-results/* delivery/results/
+          cp received/flow/flow-review/* delivery/review/
+          cp received/handover/handover-results/* delivery/handover/
+          cp received/flow/receipts/* delivery/receipts/flow/
+          cp received/handover/receipts/* delivery/receipts/handover/
+          cp audits/relock_output_20261019/*.py audits/relock_output_20261019/PROTOCOL.md delivery/audits/relock_output_20261019/
+          cp audits/relock_handover_20261019/*.py audits/relock_handover_20261019/*.md delivery/audits/relock_handover_20261019/
+          cp audits/capture_held_20261017/audit.py delivery/audits/capture_held_20261017/
+          cp audits/relock_output_20261019/RESULTS.md delivery/
+          cp audits/relock_handover_20261019/reproduce.py delivery/
+          cp .github/workflows/relock-output-contract.yml .github/workflows/relock-handover-check.yml .github/workflows/relock-flow-delivery.yml delivery/workflows/
+          git rev-parse HEAD > delivery/source-commit.txt
+          /usr/bin/python3 -u delivery/audits/relock_handover_20261019/check_seed.py --flow delivery/results --out delivery/seed 2>&1 | tee delivery/receipts/seed.log
+          python3 tools/verify_bundle.py > delivery/receipts/raw-bundle-check.json
+          git fetch --depth=1 origin 2825c298919887bb5e86b5c9b39cfea54aacb374
+          git diff --exit-code 2825c298919887bb5e86b5c9b39cfea54aacb374 HEAD -- src tests data raw tools
+          printf 'Production source, tests, profiles, raw records and tools unchanged from parent2825c298919887bb5e86b5c9b39cfea54aacb374\n' > delivery/receipts/unchanged-source.txt
+      - name: Readme, numerical tables and initial manifest
+        run: |
+          cat > delivery/README.md <<'MD'
+          # Observed relock flow and fixed state-handover checks
+
+          Start with RESULTS.md, then SEED_RESULTS.md and VERIFICATION.md. No new parameters are fitted. The phase, gain and time constants in comparisons are existing hypotheses, not recovered game-source constants. The original successful replay-input/solver chain is not modified. No autonomous flight was run.
+
+          ```bash
+          python3 reproduce.py /absolute/path/to/new-output
+          ```
+
+          Python3, NumPy and SciPy are required. The entrypoint is offline and rejects an existing output directory. It checks file hashes, runs9 data-contract tests, cross-checks independently archived/native state transitions, reruns the fixed recovery relations and input-derived seed diagnostics. Four result sets are compared after JSON decoding, not gzip timestamps. This does NOT rerun the entire1.63M-row native stream or re-decode WRPL.
+
+          results/ contains the completed full raw-stream analysis of501 entities, including unsuccessful/censored held episodes. stage29.json.gz preserves exact before/at/after snapshots. transitions.json.gz and episodes.json.gz retain complete counted events. review/ contains alternate scalar checks. handover/ compares fixed copy/Q/DQ/ordinary relations on18029→31,1035 same31 held→fresh and93125→31 events. seed/ tests three refreshed-PV seed candidates and keeps their failures. prior/ preserves the earlier full recovery-path package.
+
+          Headers25/29/31 are a combination made by the audit parser from type8 and A/B/C fields, not discovered game enum names. The raw A/B meanings are unproven. One saved29 record does not mean one physics tick. A current saved direction conditions the rate comparisons; the study does not reconstruct an independent radar measurement. Independent aircraft identity is fixed from prior metadata and may not be the currently associated reflector; packet/state interpolation is not proof of exact sensor-time alignment.
+
+          Full native reread needs the immutable native exports from run39055559128 and frozen reference from39055471867; see workflows/relock-output-contract.yml. The completed raw run39243094557 verified66399 unique archived state hashes/fields. The experiment branch inherits raw-evidence work and must not be merged wholesale into dev.
+          MD
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery');d=json.loads((root/'seed/SEED_RESULTS.json').read_text())
+          lines=['# Fixed refreshed-PV seed diagnostics','','All errors are complete-vector deg/s. No coefficients fitted; current saved n is the conditional projection axis. These are alternative source checks, not a combined fitted fix.','','| Group | Count | Saved rate RMS | PV-at29 RMS | PV-propagated RMS | Saved+geometry-increment RMS |','|---|---:|---:|---:|---:|---:|']
+          for k,v in d['groups'].items():
+              m=v['metrics'];lines.append('| '+k+' | '+str(v['n'])+' | '+' | '.join(f"{m[x]['rms']:.9f}" for x in ('saved_rate','PV_at29','PV_propagated','saved_plus_geometric_increment'))+' |')
+          lines+=['','## Fixed anchors','',json.dumps(d['anchors'],indent=2)]
+          (root/'SEED_RESULTS.md').write_text('\n'.join(lines)+'\n')
+          rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          PY
+      - name: Reproduce the assembled offline package
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce.py "$RUNNER_TEMP/relock-flow-rerun" 2>&1 | tee delivery/receipts/reproduction.log
+          cp "$RUNNER_TEMP/relock-flow-rerun/receipt.json" delivery/receipts/reproduction.json
+      - name: Final manifest and completed receipt
+        run: |
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery');r=json.loads((root/'receipts/reproduction.json').read_text());v=json.loads((root/'review/verification.json').read_text())
+          small={k:x for k,x in v.items() if k not in ('branch_31_29_31','exceptions_to_PV_refresh_rate_hold')}
+          (root/'VERIFICATION.md').write_text('# Completed verification\n\n'+json.dumps(r,indent=2)+'\n\n## Independent archived/native arithmetic\n\n'+json.dumps(small,indent=2)+'\n\nSame-data review and conditional comparisons, not independent AI subagents, new blinded data or production flight validation.\n')
+          rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for r0 in rows:
+              p=root/r0['path'];assert p.stat().st_size==r0['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==r0['sha256']
+          print('FINAL_DELIVERY',json.dumps(dict(files_verified=len(rows),bytes=sum(r['bytes'] for r in rows),reproduction=r)),flush=True)
+          PY
+      - name: Preserve actual reproduction errors
+        if: failure()
+        run: |
+          tail -60 "$RUNNER_TEMP/relock-flow-rerun/contracts.log" || true
+          tail -60 "$RUNNER_TEMP/relock-flow-rerun/review.log" || true
+          tail -60 "$RUNNER_TEMP/relock-flow-rerun/handover.log" || true
+          tail -60 "$RUNNER_TEMP/relock-flow-rerun/seed.log" || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-relock-flow-reviewed-20261019
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
