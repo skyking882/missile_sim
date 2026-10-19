@@ -1,0 +1,51 @@
+name: Held recovery source and gate diagnosis
+on:
+  push:
+    branches: ['audit/held-recovery-contract-20261019']
+    paths: ['.github/workflows/held-recovery-contract.yml','audits/held_recovery_20261019/diagnose.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Exact public source without submodule initialization
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore completed and hashed retry evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39179706161 --repo skyking882/missile_sim --name missile-sim-capture-retry-verified-20261019 --dir previous
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy python3-pytest
+      - name: Compare held sources without altering the prior acceptance trace
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          /usr/bin/python3 -u audits/held_recovery_20261019/diagnose.py --input previous --out held-results > receipts/diagnosis.log 2>&1
+          cat receipts/diagnosis.log
+          git rev-parse HEAD > receipts/source-commit.txt
+          git fetch --depth=1 origin 7a1c0c6e9ebc0a9e730ffaa5c2e79a40c2ae44f5
+          git diff --exit-code 7a1c0c6e9ebc0a9e730ffaa5c2e79a40c2ae44f5 HEAD -- src tests data/profile_sets
+      - name: Retain failure details
+        if: failure()
+        run: tail -60 receipts/diagnosis.log || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: held-recovery-diagnosis-20261019
+          path: |
+            held-results/
+            receipts/
+            audits/held_recovery_20261019/
+          retention-days: 14
+          compression-level: 1
