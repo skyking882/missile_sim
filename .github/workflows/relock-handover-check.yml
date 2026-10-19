@@ -1,0 +1,49 @@
+name: Relock fixed handover relation comparison
+on:
+  push:
+    branches: ['audit/relock-output-contract-20261019']
+    paths: ['.github/workflows/relock-handover-check.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Exact public source
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore completed path and output studies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39229417053 --repo skyking882/missile_sim --name missile-sim-relock-mechanism-20261019 --dir prior
+          gh run download 39243094557 --repo skyking882/missile_sim --name relock-output-contract-20261019 --dir received
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Contract tests and fixed relation comparisons
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          /usr/bin/python3 audits/relock_output_20261019/test_contract.py 2>&1 | tee receipts/contract-tests.log
+          /usr/bin/python3 -u audits/relock_handover_20261019/check_handover.py --prior prior --flow received/flow-results --out handover-results 2>&1 | tee receipts/handover.log
+          git rev-parse HEAD > receipts/source-commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: relock-fixed-handover-20261019
+          path: |
+            handover-results/
+            receipts/
+            audits/relock_handover_20261019/
+          retention-days: 14
+          compression-level: 1
