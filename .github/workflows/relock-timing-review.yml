@@ -1,0 +1,103 @@
+name: Relock timing reviewed evidence
+on:
+  push:
+    branches: ['audit/relock-timing-paths-20261019']
+    paths: ['.github/workflows/relock-timing-review.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - name: Exact public source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Require completed native validation and restore fixed evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run watch 39227696992 --repo skyking882/missile_sim --exit-status --interval 15
+          gh run download 39227696992 --repo skyking882/missile_sim --name relock-native-validated-20261019 --dir received/native
+          gh run download 39227334410 --repo skyking882/missile_sim --name relock-intervals-20261019 --dir received/interval
+          gh run download 39063537273 --repo skyking882/missile_sim --name capture-held-reviewed-20261017 --dir delivery/prior
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Assemble and independently review
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p delivery/native delivery/interval delivery/audits/relock_timing_20261019 delivery/audits/capture_held_20261017 delivery/receipts/native delivery/receipts/interval delivery/workflows
+          cp received/native/native-results/* delivery/native/
+          cp received/interval/interval-results/* delivery/interval/
+          cp received/native/receipts/* delivery/receipts/native/
+          cp received/interval/receipts/* delivery/receipts/interval/
+          cp audits/relock_timing_20261019/*.py audits/relock_timing_20261019/PROTOCOL.md delivery/audits/relock_timing_20261019/
+          cp audits/capture_held_20261017/audit.py delivery/audits/capture_held_20261017/
+          cp audits/relock_timing_20261019/reproduce.py delivery/
+          cp .github/workflows/relock-*.yml delivery/workflows/
+          git rev-parse HEAD > delivery/source-commit.txt
+          /usr/bin/python3 -u delivery/audits/relock_timing_20261019/review.py --native delivery/native --interval delivery/interval --out delivery/review 2>&1 | tee delivery/receipts/review.log
+          python3 tools/verify_bundle.py > delivery/receipts/original-bundle-check.json
+      - name: Document boundaries and create manifest
+        run: |
+          cat > delivery/README.md <<'MD'
+          # Relock timing evidence
+
+          This package tests timing constraints, not a new radar/guidance model. Current game-output mode code31 with positive timer is distinguished from mode29 intermediates and complete code25 search/INS paths. It does not establish the internal meaning of every flag or a stable physical reflector identity.
+
+          native/summary.json and native/compact.json contain the actual full native-export scan. native/paths.json.gz preserves every reconstructed path and original row hashes. interval/ contains the independent1035 pre-existing endpoint check. review/verification.json independently checks the path arithmetic and adds bounds measured from the entry to mode25, without selecting a fitted cooldown. prior/ is the complete frozen earlier event archive and its original manifest.
+
+          ```bash
+          python3 reproduce.py /absolute/path/to/new-output
+          ```
+
+          Requires Python3, NumPy and SciPy. No network calls, no overwrite of an existing output directory. It verifies package hashes, runs9 contract tests, reruns the endpoint timing analysis and path review. Five JSON result sets are checked for exact equality. This is not a fresh1.63M-row scan or a newly decoded WRPL file. Full native reread requires the original source artifacts and unchanged field map, as recorded in the workflow and source SHA receipts.
+
+          All1s tests use declared conservative timing intervals including2timer grids and optional2native-tick slack. The48Hz value is the established replay time scale, not the physical integrator frequency. Counterexamples selected after inspection are not held-out forecasts. Overlapping/repeated events are not independent experimental replications. Stable designation_key is not a direct seeker target ID.
+
+          No source under production src/tests is modified by this research. The branch inherits the raw evidence branch and must not be merged wholesale into dev. The first native job stopped on a malformed floating literal in a synthetic fixture; the fixture was corrected before the successful native scan, and the failure remains in GitHub. The earlier endpoint-only result is unaffected.
+          MD
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,hashlib
+          root=Path('delivery');rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          PY
+      - name: Execute portable reproduction
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce.py "$RUNNER_TEMP/relock-reproduced" | tee delivery/receipts/reproduction.log
+          cp "$RUNNER_TEMP/relock-reproduced/receipt.json" delivery/receipts/reproduction.json
+      - name: Final file and numeric verification
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,hashlib
+          root=Path('delivery');rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for r in rows:assert hashlib.sha256((root/r['path']).read_bytes()).hexdigest()==r['sha256']
+          print('DELIVERY_VERIFIED',json.dumps({'files':len(rows),'bytes':sum(r['bytes'] for r in rows),'reproduction':json.loads((root/'receipts/reproduction.json').read_text())}),flush=True)
+          PY
+      - name: Retain failure diagnostics
+        if: failure()
+        run: |
+          cp "$RUNNER_TEMP/relock-reproduced/receipt.json" delivery/receipts/ || true
+          tail -80 "$RUNNER_TEMP/relock-reproduced/review.log" || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-relock-timing-reviewed-20261019
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
