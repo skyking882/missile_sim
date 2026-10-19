@@ -1,0 +1,51 @@
+name: Relock gate-memory independent review
+on:
+  push:
+    branches: ['audit/relock-gate-memory-20261019']
+    paths: ['.github/workflows/relock-memory-review.yml','audits/relock_gate_memory_20261019/review.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Exact source
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Completed inputs and both comparison outputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39258582546 --repo skyking882/missile_sim --name relock-memory-native-inputs-20261019 --dir source
+          gh run download 39259442338 --repo skyking882/missile_sim --name relock-memory-gate-results-20261019 --dir initial
+          gh run download 39260436413 --repo skyking882/missile_sim --name relock-scalar-memory-20261019 --dir scalar
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Independent arithmetic, prescribed alternatives and positive controls
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          /usr/bin/python3 -u audits/relock_gate_memory_20261019/review.py --input source/input --main initial/results --scalar scalar/scalar-results --out review-results 2>&1 | tee receipts/review.log
+          git rev-parse HEAD > receipts/source-commit.txt
+          git fetch --depth=1 origin ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d
+          git diff --exit-code ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d HEAD -- src tests config data
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: relock-memory-reviewed-20261019
+          path: |
+            review-results/
+            receipts/
+            audits/relock_gate_memory_20261019/
+          retention-days: 14
+          compression-level: 1
