@@ -1,0 +1,51 @@
+name: Relock retained-gate native inputs
+on:
+  push:
+    branches: ['audit/relock-gate-memory-20261019']
+    paths: ['.github/workflows/relock-memory-extract.yml','audits/relock_gate_memory_20261019/extract.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  extract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Exact source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Frozen native exports and parser map
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39055559128 --repo skyking882/missile_sim --name psvs-linux-derived-9f28aeb --dir derived
+          gh run download 39055471867 --repo skyking882/missile_sim --name psvs-frozen-decoder-reference-2dc243b --dir reference
+          mkdir -p audits/relock_gate_memory_20261019/source_helper
+          curl -fLsS https://raw.githubusercontent.com/skyking882/missile_sim/4be68d51505469339795223269836b2d4595087d/audits/capture_held_20261017/audit.py -o audits/relock_gate_memory_20261019/source_helper/audit.py
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Preserve all held exits and reference aircraft
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          /usr/bin/python3 -u audits/relock_gate_memory_20261019/extract.py --derived derived --reference reference --out input 2>&1 | tee receipts/extract.log
+          git rev-parse HEAD > receipts/source-commit.txt
+          sha256sum audits/relock_gate_memory_20261019/source_helper/audit.py > receipts/parser-helper.sha256
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: relock-memory-native-inputs-20261019
+          path: |
+            input/
+            receipts/
+            audits/relock_gate_memory_20261019/
+          retention-days: 14
+          compression-level: 1
