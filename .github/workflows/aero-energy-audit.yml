@@ -1,0 +1,68 @@
+name: Current dev aerodynamic energy audit
+on:
+  push:
+    branches: ['audit/aero-energy-contract-20261019']
+    paths: ['.github/workflows/aero-energy-audit.yml','audits/aero_energy_20261019/check_energy.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  energy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Exact public source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore verified native own-state inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39179706161 --repo skyking882/missile_sim --name missile-sim-capture-retry-verified-20261019 --dir previous
+      - name: Analysis dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy python3-pytest
+      - name: Validate source and input boundary
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          python3 -m py_compile audits/aero_energy_20261019/check_energy.py
+          git rev-parse HEAD > receipts/source-commit.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          root=Path('previous');m=json.loads((root/'MANIFEST.json').read_text())
+          for r in m:
+              p=root/r['path'];assert p.stat().st_size==r['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==r['sha256'],str(p)
+          print('PRIOR_MANIFEST_VERIFIED',len(m))
+          (Path('receipts')/'verified-input.json').write_text(json.dumps({'files':len(m),'source':'39179706161'}))
+          print('AVAILABLE_AERO_DOCS',[str(p) for p in Path('docs').glob('*') if any(k in p.name.lower() for k in ('surface','aero','drag','alpha','speed','energy'))])
+          print('AVAILABLE_AERO_TESTS',[str(p) for p in Path('tests').glob('*.py') if any(k in p.name.lower() for k in ('surface','aero','drag','alpha','speed','energy'))])
+          print('AVAILABLE_LATEST_RUN_FILES',[str(p) for p in Path('.').rglob('*') if p.is_file() and not str(p).startswith('previous/') and ('20261019' in str(p) or '20261018' in str(p)) and p.suffix in ('.json','.md','.py')][:100])
+          PY
+      - name: Evaluate identical-state work and impulse, no control or observer
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u audits/aero_energy_20261019/check_energy.py --input previous/input --out energy-results 2>&1 | tee receipts/energy.log
+      - name: Confirm production files unchanged
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d
+          git diff --exit-code ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d HEAD -- src tests config data scripts docs
+          printf 'Production files unchanged from dev ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d\n' > receipts/unchanged-source.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: aero-energy-current-dev-20261019
+          path: |
+            energy-results/
+            receipts/
+            audits/aero_energy_20261019/
+          retention-days: 14
+          compression-level: 1
