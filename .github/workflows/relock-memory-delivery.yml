@@ -1,0 +1,94 @@
+name: Relock gate-memory reviewed delivery
+on:
+  push:
+    branches: ['audit/relock-gate-memory-20261019']
+    paths: ['.github/workflows/relock-memory-delivery.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  deliver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Exact public branch source
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Retrieve completed stages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39258582546 --repo skyking882/missile_sim --name relock-memory-native-inputs-20261019 --dir received/source
+          gh run download 39259442338 --repo skyking882/missile_sim --name relock-memory-gate-results-20261019 --dir received/general
+          gh run download 39260436413 --repo skyking882/missile_sim --name relock-scalar-memory-20261019 --dir received/scalar
+          gh run download 39261539919 --repo skyking882/missile_sim --name relock-memory-reviewed-20261019 --dir received/review
+          gh run download 39262369652 --repo skyking882/missile_sim --name relock-memory-final-checks-20261019 --dir received/final
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Assemble fixed inputs, all candidates and provenance
+        run: |
+          set -euo pipefail
+          mkdir -p delivery/input delivery/results/general delivery/results/scalar delivery/results/review delivery/results/final delivery/adjacency delivery/audits/relock_gate_memory_20261019/source_helper delivery/receipts delivery/workflows delivery/source_reference
+          cp -R received/source/input/. delivery/input/
+          cp -R received/final/adjacency/. delivery/adjacency/
+          cp received/general/results/* delivery/results/general/
+          cp received/scalar/scalar-results/* delivery/results/scalar/
+          cp received/review/review-results/* delivery/results/review/
+          cp received/final/final-results/* delivery/results/final/
+          cp audits/relock_gate_memory_20261019/*.py audits/relock_gate_memory_20261019/*.md delivery/audits/relock_gate_memory_20261019/
+          cp received/source/audits/relock_gate_memory_20261019/source_helper/audit.py delivery/audits/relock_gate_memory_20261019/source_helper/
+          cp audits/relock_gate_memory_20261019/RESULTS.md audits/relock_gate_memory_20261019/README.md audits/relock_gate_memory_20261019/reproduce.py delivery/
+          cp .github/workflows/relock-memory-*.yml delivery/workflows/
+          cp src/aim120_model/radar_seeker.py data/profile_sets/2.59.0.27/missiles/su_r_77_1.json delivery/source_reference/
+          for stage in source general scalar review final; do mkdir -p "delivery/receipts/$stage"; cp received/$stage/receipts/* "delivery/receipts/$stage/"; done
+          git rev-parse HEAD > delivery/analysis-commit.txt
+          git fetch --depth=1 origin ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d
+          git diff --exit-code ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d HEAD -- src tests config data
+          printf 'src tests config data unchanged from dev ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d\n' > delivery/receipts/unchanged-production.txt
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=Path('delivery');rows=[dict(path=p.relative_to(r).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(r.rglob('*')) if p.is_file() and p!=r/'MANIFEST.json']
+          (r/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          print('PRE_REPRO_MANIFEST',len(rows),sum(x['bytes'] for x in rows))
+          PY
+      - name: Execute portable reproduction rather than trusting archived scores
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce.py "$RUNNER_TEMP/reproduced-relock-memory" 2>&1 | tee delivery/receipts/reproduction.log
+          cp "$RUNNER_TEMP/reproduced-relock-memory/REPRODUCTION.json" delivery/receipts/
+      - name: Final result and file-integrity receipt
+        run: |
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=Path('delivery');rep=json.loads((r/'receipts/REPRODUCTION.json').read_text());v=json.loads((r/'results/review/verification.json').read_text());f=json.loads((r/'results/final/summary.json').read_text());e=json.loads((r/'input/extraction.json').read_text())
+          result={'scope':'Completed same-data audit, no production fix or autonomous flight','reproduction':rep,'new_contract_tests':v['tests'],'source_row_sha_checks':v['source_row_sha_checks'],'scalar_reconstruction':v['reconstruction']['models'],'final_anchor118':f['anchor118_counts'],'positive_controls':{k:{kk:vv for kk,vv in z.items() if kk!='rejected20'} for k,z in f['fresh_controls_raw_adjacent'].items()},'moving_LOS_gates':f['moving_LOS_gates'],'raw_adjacency':f['verification'],'input_counts':{k:e[k] for k in ('native_records_read','selected_R77_records','entities','held_spells','strict_held_spells','fresh_records')},'production':'unchanged'}
+          (r/'VERIFICATION.json').write_text(json.dumps(result,indent=2))
+          rows=[dict(path=p.relative_to(r).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(r.rglob('*')) if p.is_file() and p!=r/'MANIFEST.json']
+          (r/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for x in rows:
+              p=r/x['path'];assert p.stat().st_size==x['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==x['sha256']
+          print('FINAL_VERIFICATION',json.dumps(result),flush=True)
+          print('FINAL_FILES',json.dumps(dict(files=len(rows),bytes=sum(x['bytes'] for x in rows))),flush=True)
+          PY
+      - name: Preserve actual failed-rerun details
+        if: failure()
+        run: |
+          cp "$RUNNER_TEMP/reproduced-relock-memory/REPRODUCTION.json" delivery/receipts/ || true
+          for stage in general scalar review final; do tail -25 "$RUNNER_TEMP/reproduced-relock-memory/$stage.log" || true; done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-relock-gate-memory-reviewed-20261019
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
