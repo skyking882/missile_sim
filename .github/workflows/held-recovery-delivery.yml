@@ -1,0 +1,109 @@
+name: Held recovery reviewed delivery
+on:
+  push:
+    branches: ['audit/held-recovery-contract-20261019']
+    paths: ['.github/workflows/held-recovery-delivery.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  deliver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Exact public source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore two completed analysis artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39179706161 --repo skyking882/missile_sim --name missile-sim-capture-retry-verified-20261019 --dir delivery/prior
+          gh run download 39183651779 --repo skyking882/missile_sim --name held-recovery-diagnosis-20261019 --dir received
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy python3-pytest
+      - name: Assemble completed experiments and bounded source
+        run: |
+          set -euo pipefail
+          mkdir -p delivery/results delivery/receipts delivery/audits/held_recovery_20261019 delivery/workflows
+          cp received/held-results/* delivery/results/
+          cp received/receipts/* delivery/receipts/
+          cp -R delivery/prior/src delivery/src
+          cp -R delivery/prior/data delivery/data
+          cp -R delivery/prior/audits/capture_retry_20261019 delivery/audits/
+          cp audits/held_recovery_20261019/diagnose.py audits/held_recovery_20261019/reproduce.py audits/held_recovery_20261019/PROTOCOL.md audits/held_recovery_20261019/FOLLOWUP_PROTOCOL.md delivery/audits/held_recovery_20261019/
+          cp audits/held_recovery_20261019/RESULTS.md delivery/
+          cp audits/held_recovery_20261019/reproduce.py delivery/
+          cp .github/workflows/held-recovery-*.yml delivery/workflows/
+          test ! -e audits/held_recovery_20261019/followup.py
+          git rev-parse HEAD > delivery/delivery-source-commit.txt
+          git fetch --depth=1 origin 7a1c0c6e9ebc0a9e730ffaa5c2e79a40c2ae44f5
+          git diff --exit-code 7a1c0c6e9ebc0a9e730ffaa5c2e79a40c2ae44f5 HEAD -- src tests data/profile_sets
+      - name: Write scope and initial integrity manifest
+        run: |
+          cat > delivery/README.md <<'MD'
+          # Held recovery source and gate diagnosis
+
+          Read RESULTS.md. First-stage analysis completed; the subsequent FOLLOWUP_PROTOCOL is retained as an unexecuted proposal. Its script submission was blocked and no followup.py was written. Reproduction here only re-executes the completed diagnosis and verifies its existing arithmetic; it does not claim those additional tests were performed.
+
+          ```bash
+          python3 reproduce.py /absolute/path/to/new-output
+          ```
+
+          Python3, NumPy and SciPy are required. The entrypoint makes no network calls and refuses an existing output directory. It verifies hashes, reruns diagnose.py, compares all three result files and independently recomputes the23 held directions/pointing axes with scalar Rodrigues arithmetic and644 power-margin calculations logarithmically. It is not new blind data, full WRPL re-decoding, or autonomous flight validation.
+
+          prior/ is the unchanged complete earlier retry-clock delivery, including source evidence and its own manifest. results/ contains the completed held diagnosis and all-gate logs for two reference detector runs. The primary held population is23 #118 code31/flag0 positive-timer rows after tick11524. #148 first6s contains no corresponding held episode and is only a fresh-stage/detector control. Seeds come from last fresh game states; current game antenna/direction only score conditional propagation, not autonomous initialization.
+
+          No held cooldown or fitted parameter was added. Signal results use the explicitly assumed15deg off-axis half-power and reference2m² conditions, alongside retained7.5/15 and1/2 alternatives. The main result is negative: improved held pointing does not remove the2.4375s acceptance. Every original detector gate also permits this observation. RCS/aspect, true association/gate semantics and acceptance stages remain unresolved.
+
+          Source src/tests/data/profile_sets is unchanged from7a1c0c6. New files remain in audits/. No production patch or complete repair is claimed.
+          MD
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery')
+          rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          PY
+      - name: Reproduce completed results and unchanged software contracts
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce.py "$RUNNER_TEMP/held-reproduced" 2>&1 | tee delivery/receipts/reproduction.log
+          cp "$RUNNER_TEMP/held-reproduced/verification.json" delivery/receipts/
+          /usr/bin/python3 -m pytest -q tests/test_q_angular_observer.py > delivery/receipts/observer-tests.log 2>&1
+          /usr/bin/python3 audits/capture_retry_20261019/test_retry_clock.py > delivery/receipts/retry-tests.log 2>&1
+          cat delivery/receipts/observer-tests.log
+          tail -5 delivery/receipts/retry-tests.log
+      - name: Final manifest and completed verification
+        run: |
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery');v=json.loads((root/'receipts/verification.json').read_text())
+          (root/'VERIFICATION.md').write_text('# Completed numerical checks\n\n```json\n'+json.dumps(v,indent=2)+'\n```\n\nThe7 existing observer tests and14 retry-clock tests also passed. The new follow-up mechanism experiments were NOT executed. No production source change.\n')
+          rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for x in rows:
+              p=root/x['path'];assert p.stat().st_size==x['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==x['sha256']
+          print('FINAL_DELIVERY',json.dumps({'files_verified':len(rows),'bytes':sum(x['bytes'] for x in rows),'verification':v}),flush=True)
+          PY
+      - name: Preserve actual errors
+        if: failure()
+        run: |
+          cp "$RUNNER_TEMP/held-reproduced/verification.json" delivery/receipts/ || true
+          tail -60 "$RUNNER_TEMP/held-reproduced/diagnosis.log" || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-held-recovery-reviewed-20261019
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
