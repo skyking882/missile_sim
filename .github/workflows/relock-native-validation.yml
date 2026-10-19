@@ -1,0 +1,61 @@
+name: Relock native timing validation
+on:
+  push:
+    branches: ['audit/relock-timing-paths-20261019']
+    paths: ['.github/workflows/relock-native-validation.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - name: Exact public source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39063537273 --repo skyking882/missile_sim --name capture-held-reviewed-20261017 --dir prior
+          gh run download 39055559128 --repo skyking882/missile_sim --name psvs-linux-derived-9f28aeb --dir derived
+          gh run download 39055471867 --repo skyking882/missile_sim --name psvs-frozen-decoder-reference-2dc243b --dir reference
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Timing contracts and read-only native scan
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          /usr/bin/python3 audits/relock_timing_20261019/test_timing.py 2>&1 | tee receipts/tests.log
+          python3 tools/verify_bundle.py > receipts/original-bundle-before.json
+          /usr/bin/python3 -u audits/relock_timing_20261019/native_paths.py --reference reference --derived derived --prior prior --out native-results > receipts/native-scan.log 2>&1
+          /usr/bin/python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('native-results/compact.json').read_text())
+          for k in ('counts','endpoint_sha_checks','direct_return_count','intermediate29_return_count','captures_count','recovered_paths','direct_return_groups','mid29_groups','path_groups','by_scene_coherent_sustained','exit_code_groups','examples','anchor_paths'):
+              print('NATIVE',k,json.dumps(d[k]),flush=True)
+          PY
+          git rev-parse HEAD > receipts/source-commit.txt
+          python3 tools/verify_bundle.py > receipts/original-bundle-after.json
+      - name: Expose real errors
+        if: failure()
+        run: tail -70 receipts/native-scan.log || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: relock-native-validated-20261019
+          path: |
+            native-results/
+            receipts/
+            audits/relock_timing_20261019/
+          retention-days: 14
+          compression-level: 1
