@@ -1,0 +1,69 @@
+name: Relock gate-memory comparisons
+on:
+  push:
+    branches: ['audit/relock-gate-memory-20261019']
+    paths: ['.github/workflows/relock-memory-analyze.yml','audits/relock_gate_memory_20261019/analyze.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Exact source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore complete extracted R77 evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39258582546 --repo skyking882/missile_sim --name relock-memory-native-inputs-20261019 --dir source
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Check retained channels and all declared gates
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          python3 -m py_compile audits/relock_gate_memory_20261019/analyze.py
+          /usr/bin/python3 -u audits/relock_gate_memory_20261019/analyze.py --input source/input --out results > receipts/analysis.log 2>&1
+          /usr/bin/python3 - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('results/summary.json').read_text())
+          print('COUNTS',json.dumps(s['counts']))
+          print('FRESH_CHANNELS',json.dumps(s['fresh_channel_consistency']))
+          print('NEARBY_FRESH_CHANNELS',json.dumps(s['nearby_fresh_channel_consistency']))
+          for name,g in s['groups'].items():
+              compact={k:v for k,v in g.items() if k!='gate_results'}
+              compact['gates']={k:v for k,v in g['gate_results'].items() if ('DIAGNOSTIC' not in k) and (k.startswith(('notch','angle')) or k.endswith(('/10','/150','/300'))) }
+              print('GATES',name,json.dumps(compact))
+          for r in s['anchor118']:
+              if r['clock']=='packet' and r['tick'] in (11524,11526,11532,11571,11573,11575,11615,11617):
+                  print('ANCHOR',json.dumps({k:v for k,v in r.items() if k not in ('gates','new_INS_seed_diagnostic')}))
+                  if 'new_INS_seed_diagnostic' in r:print('NEW_SEED',json.dumps(r['new_INS_seed_diagnostic']))
+          for r in s['comparable'][:4]:
+              f=r['first_candidate'];print('OTHER',json.dumps({k:v for k,v in r.items() if k not in ('first_candidate','return_row')}|{'first_candidate':{k:f[k] for k in ('tick','age_from_seed_s','beam_offset_deg','target_ground_radial_mps','predicted_direction_error_deg','doppler_innovation_mps','range_innovation_m')}}))
+          PY
+          git rev-parse HEAD > receipts/source-commit.txt
+          git fetch --depth=1 origin ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d
+          git diff --exit-code ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d HEAD -- src tests config data
+      - name: Failure details
+        if: failure()
+        run: tail -70 receipts/analysis.log || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: relock-memory-gate-results-20261019
+          path: |
+            results/
+            receipts/
+            audits/relock_gate_memory_20261019/
+          retention-days: 14
+          compression-level: 1
