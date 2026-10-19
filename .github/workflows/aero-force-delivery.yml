@@ -1,0 +1,110 @@
+name: Reviewed game-force correction attempts
+on:
+  push:
+    branches: ['experiment/aero-force-closure-20261019']
+    paths: ['.github/workflows/aero-force-delivery.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  delivery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Exact public source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore original source and all executed candidates
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39251134054 --repo skyking882/missile_sim --name missile-sim-aero-energy-reviewed-20261019 --dir delivery/prior
+          gh run download 39254288506 --repo skyking882/missile_sim --name aero-force-closure-candidates-20261019 --dir received/first
+          gh run download 39255084974 --repo skyking882/missile_sim --name aero-force-operator-checks-20261019 --dir received/operators
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy python3-pytest
+      - name: Assemble auditable implementation and results
+        run: |
+          set -euo pipefail
+          mkdir -p delivery/results/first delivery/results/operators delivery/receipts/first delivery/receipts/operators delivery/audits/aero_force_closure_20261019 delivery/audits/aero_energy_20261019 delivery/config delivery/data/profile_sets/2.59.0.27/missiles delivery/workflows
+          cp received/first/force-results/*.json.gz delivery/results/first/
+          cp received/operators/operator-results/* delivery/results/operators/
+          cp received/first/receipts/* delivery/receipts/first/
+          cp received/operators/receipts/* delivery/receipts/operators/
+          cp audits/aero_force_closure_20261019/*.py audits/aero_force_closure_20261019/*.md delivery/audits/aero_force_closure_20261019/
+          cp audits/aero_energy_20261019/check_energy.py delivery/audits/aero_energy_20261019/
+          cp audits/aero_force_closure_20261019/RESULTS.md delivery/
+          cp audits/aero_force_closure_20261019/reproduce.py delivery/
+          cp config/effective_surface_defaults.json delivery/config/
+          cp data/profile_sets/2.59.0.27/missiles/su_r_77_1.json delivery/data/profile_sets/2.59.0.27/missiles/
+          find src/aim120_model -type f -name '*.py' -exec cp --parents '{}' delivery/ \;
+          cp .github/workflows/aero-force-*.yml delivery/workflows/
+          git rev-parse HEAD > delivery/source-commit.txt
+          git fetch --depth=1 origin ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d
+          git diff --exit-code ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d HEAD -- src tests config data
+          printf 'No accepted production correction; src/tests/config/data unchanged from dev ab93a01\n' > delivery/receipts/source_check.txt
+      - name: Document scope and verify manifest
+        run: |
+          cat > delivery/README.md <<'MD'
+          # Attempted common game-force corrections
+
+          **Neither requested accuracy target is reached for both cases.** Read RESULTS.md before using any candidate. The best #118-only force rewrite degrades #148 speed; the selected implicit operator provides only partial improvement and adds finite-step numerical effects. There is no recommended production patch in this package. dev and all fitted coefficient values remain unchanged.
+
+          ```bash
+          python3 reproduce.py /absolute/path/to/new-output
+          ```
+
+          Requires Python3, NumPy and SciPy; original jobs used Ubuntu24.04 Python3.12, NumPy1.26.4 and SciPy1.11.4. The entrypoint makes no network calls, rejects an existing output directory, checks source hashes, reproduces23 fixed first-pass hypotheses and9 operator hypotheses, and checks all stored numeric trajectories. It deliberately does not execute compare_candidates.py's obsolete cross-grid equality assertion. The first job failed that guard after calculations finished; the subsequent native-plant same-grid review explains and resolves the comparison issue without changing physical thresholds.
+
+          Initial p/v are set once at0.25s. All tests prescribe recorded body Q(t) and evolve p/v, with no recorded position/velocity feedback thereafter. Position score is simultaneous3D error, not a nearest-curve distance or registered trajectory. Maxima are over stated integration nodes; no continuous-between-node guarantee or autonomous flight claim is made. Cross-track and signed xyz errors are retained. Cases end12.5s/#118 and15s/#148.
+
+          Existing physical coefficients are unchanged. No optimizer, time-index lookup, per-UID correction, error feedback, empirical delay or target-state correction is used. Choosing a formula from #118 is model selection, not proof of WT implementation; #148 is checked without changing that choice. Both records were already known from earlier audits, so this is not new blind data.
+
+          results/first preserves every completed first-pass trajectory, including failed generalization. results/operators contains nine discrete-map attempts and frozen cross-case validation. prior contains the immutable previous force audit and its original own-state data. receipts and workflows retain failure and success provenance. Kernel copies in src are unchanged production dependencies, not newly recommended equations.
+
+          42 existing surface tests passed during the second job. That software test success does not mean the trajectory or speed acceptance targets passed. See VERIFICATION.json for the actual packaged reproduction.
+          MD
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          root=Path('delivery');rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2));print('INITIAL_MANIFEST',len(rows))
+          PY
+      - name: Rerun complete actual numerical attempts
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce.py "$RUNNER_TEMP/force-attempts-rerun" 2>&1 | tee delivery/receipts/reproduction.log
+          cp "$RUNNER_TEMP/force-attempts-rerun/reproduction.json" delivery/VERIFICATION.json
+      - name: Final file integrity and accuracy-status receipt
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          root=Path('delivery');v=json.loads((root/'VERIFICATION.json').read_text());s=json.loads((root/'results/operators/summary.json').read_text())
+          status=dict(user_speed_target_m_s=5,user_position_target_m=10,common_correction_accepted=False,production_changed=False,first_force_holdout148=s['first_pass']['held_out148']['both_targets_pass'],operator_validation=[dict(uid=r['uid'],substeps=r['substeps'],max_position_error_m=r['max_position_error_m'],max_speed_error_m_s=r['max_abs_speed_error_m_s'],both_targets_pass=r['both_targets_pass']) for r in s['second_pass']['validation']])
+          (root/'ACCURACY_STATUS.json').write_text(json.dumps(status,indent=2))
+          rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json'];(root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for r in rows:
+              p=root/r['path'];assert p.stat().st_size==r['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==r['sha256']
+          print('FINAL_VERIFICATION',json.dumps(dict(files=len(rows),bytes=sum(r['bytes'] for r in rows),reproduction={k:x for k,x in v.items() if k!='checks'},accuracy_status=status)),flush=True)
+          PY
+      - name: Preserve actual reproduction errors
+        if: failure()
+        run: |
+          cp "$RUNNER_TEMP/force-attempts-rerun/reproduction.json" delivery/ || true
+          tail -60 "$RUNNER_TEMP/force-attempts-rerun/operators.log" || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-aero-correction-attempts-20261019
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
