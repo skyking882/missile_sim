@@ -1,0 +1,48 @@
+name: Relock scalar memory verification
+on:
+  push:
+    branches: ['audit/relock-gate-memory-20261019']
+    paths: ['.github/workflows/relock-memory-scalar.yml','audits/relock_gate_memory_20261019/scalar_memory.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  scalar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Exact source
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Completed native inputs and gate diagnostics
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39258582546 --repo skyking882/missile_sim --name relock-memory-native-inputs-20261019 --dir source
+          gh run download 39259442338 --repo skyking882/missile_sim --name relock-memory-gate-results-20261019 --dir initial
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Test direct seed-only scalar state expressions
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          /usr/bin/python3 -u audits/relock_gate_memory_20261019/scalar_memory.py --input source/input --main initial/results --out scalar-results 2>&1 | tee receipts/scalar.log
+          git rev-parse HEAD > receipts/source-commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: relock-scalar-memory-20261019
+          path: |
+            scalar-results/
+            receipts/
+            audits/relock_gate_memory_20261019/
+          retention-days: 14
+          compression-level: 1
