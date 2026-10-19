@@ -1,0 +1,11 @@
+# Review extension after the six scalar hypotheses
+
+Completed run39260436413 falsified rebuilding closing0 from d0 and own velocity across the population. CandidateC hadRMS1620m/s; it must NOT be presented as the discovered law. CandidateB, c0+last0*T+n0 dot(vm(t)-vm0), hadRMS1.06775m/s over2831held rows from139strict spells, without fitting. Its raw max error14.44m/s means it is not an exact universal law.
+
+Check one specific alternative explanation for the remaining B residual: integrate predicted LOS dot own-velocity increments along each saved interval instead of holding n0 for that compensation. Use start/mid/end propagated n per interval; no inferred coefficients or event-specific choice. These are post hoc structural checks, kept separate from the original six. Keep B in the first-pass report regardless of which arithmetic is more accurate.
+
+Review every #118 held sample and three fixed halfwidths10/20/300. Verify both initial signal-loss records and later positive-signal/held records, not only11532. Expand positive controls to all adjacent fresh records with same reference identity, bothflags0, same-record target proximity<=50m and gaps<=8ticks. Exclude endpoint inferences across held/expiry from this fresh-pair subset; do not claim this is an independent blind cohort. All records/candidates and rejections retained.
+
+For other cases, count unique entities/scenes and select representative distinctentities in deterministic order, not multiple rows of#15 as independent examples. Report how many entireheld windows are explained versus only individual samples; scalar closing reconstruction does NOT establish that it is the actual acceptance gate. Separate earlyheld, near-expiration and returnedfresh. Neither 10nor20m/s is proven by a source implementation; they are fixed interpretations of the game width20. SearchRange300 is a competing interpretation.
+
+Source hashes, independent scalar arithmetic, identity invariance and poison unused current answer fields are checked. Interpolated fixed-aircraft velocity is uncertain, especially within0.245s sampling intervals; comparepacket/state query, not per-event fitted time shifts. No autonomous reflight or production defaults changed.
