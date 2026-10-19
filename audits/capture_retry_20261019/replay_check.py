@@ -15,7 +15,7 @@ ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'src'))
 from aim120_model.radar_seeker import RadarSeekerObserver
 from aim120_model.aerodynamics import body_axes_for_state
-from aim120_model.tracking import TargetState
+from aim120_model.target import TargetState
 
 ANCHORS={'118':('2026.10.08_11.49.38',2439170),'148':('2026.10.08_12.11.04',1612803)}
 C=np.diag([1.,1.,-1.]);H=1/48
