@@ -1,0 +1,130 @@
+name: Aerodynamic force isolation and reviewed delivery
+on:
+  push:
+    branches: ['audit/aero-energy-contract-20261019']
+    paths: ['.github/workflows/aero-energy-delivery.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Exact public source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore completed current-dev audit and bounded inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39179706161 --repo skyking882/missile_sim --name missile-sim-capture-retry-verified-20261019 --dir previous
+          gh run download 39250161718 --repo skyking882/missile_sim --name aero-energy-current-dev-20261019 --dir current
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy python3-pytest
+      - name: Run prescribed-attitude translation and numerical refinement
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p delivery/input delivery/results/energy delivery/receipts/main delivery/audits/aero_energy_20261019 delivery/config delivery/data/profile_sets/2.59.0.27/missiles delivery/workflows
+          cp -R previous/input/. delivery/input/
+          cp current/energy-results/* delivery/results/energy/
+          cp current/receipts/* delivery/receipts/main/
+          cp audits/aero_energy_20261019/*.py audits/aero_energy_20261019/PROTOCOL.md delivery/audits/aero_energy_20261019/
+          cp audits/aero_energy_20261019/reproduce.py delivery/
+          find src/aim120_model -type f -name '*.py' -exec cp --parents '{}' delivery/ \;
+          cp config/effective_surface_defaults.json delivery/config/
+          cp data/profile_sets/2.59.0.27/missiles/su_r_77_1.json delivery/data/profile_sets/2.59.0.27/missiles/
+          cp .github/workflows/aero-energy-*.yml delivery/workflows/
+          git rev-parse HEAD > delivery/analysis-commit.txt
+          /usr/bin/python3 -u delivery/audits/aero_energy_20261019/attitude_isolation.py --input delivery/input --main delivery/results/energy --out delivery/results/attitude 2>&1 | tee delivery/receipts/attitude.log
+          cp delivery/results/attitude/TABLES.md delivery/
+      - name: Record actual current-source tests without hiding failures
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          /usr/bin/python3 - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          tests=['tests/test_single_surface_game.py','tests/test_surface_runtime.py','tests/test_surface_stepping.py']
+          r=subprocess.run(['/usr/bin/python3','-m','pytest','-q',*tests],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+          Path('delivery/receipts/targeted-tests.log').write_text(r.stdout)
+          Path('delivery/receipts/targeted-tests.json').write_text(json.dumps({'tested_files':tests,'returncode':r.returncode,'scope':'Current pinned production tests, no test or production code modifications; not full project regression'},indent=2))
+          print('TARGETED_TEST_RESULT',r.returncode,r.stdout[-6000:])
+          PY
+      - name: Declare diagnostic boundaries and manifest
+        run: |
+          cat > delivery/README.md <<'MD'
+          # Current dev aerodynamic audit
+
+          The controlling model is dev ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d, EffectiveSurfaceGame/SurfaceRuntime with unchanged effective_surface_defaults and R77-1 profile. Relock is deliberately parked. Read TABLES.md and results/energy/summary.json, then results/attitude/summary.json.
+
+          The first test evaluates model forces at identical recorded own p/v/Q and integrates work/impulse over fixed time windows. It does not reproduce a free flight. The second test prescribes recorded Q(t) while integrating p/v continuously from a single initial state at0.25s; it deliberately removes attitude/control differences and is not an autonomous seeker/PN simulation. No coefficients, phase offsets or parameters are fitted. Tests cannot identify a true game coefficient uniquely from these two records.
+
+          Energy is specific e=v²/2+g*y. Positive excess means the model retains more energy. Required drag work subtracts observed delta_e from modeled thrust work; powered results remain conditional on thrust/mass/density. After7s the profile motor is off and thrust drops out. All forces assume the current zero-wind model. Ratios are diagnostic work ratios, not suggested multipliers. Long-window cancellation is exposed by all predeclared half-second bins. Interpolation error is not exhausted by quadrature refinement.
+
+          b5-derived time and the same velocity fields integrate position to submeter residual in primary windows; packet-time integration is provided as a sensitivity, not silently selected for better force scores. Nonpositive or long timestamp gaps break scoring; unsupported windows are retained explicitly. Source replay game version2.59.0.54 versus model profile2.59.0.27 remains an input caveat. No new WRPL decode or full native scan was performed in this branch.
+
+          No latest autonomous run under the user's local outputs/ was present on dev. These results must not be represented as rerunning that local trajectory, or as a newly measured partition of its endpoint error. The current source's test return code and full output are recorded in receipts/targeted-tests.*, including failures if any. No test was altered to force success.
+
+          ## Offline reproduction
+
+          ```bash
+          python3 reproduce.py /absolute/path/to/new-output
+          ```
+
+          Requires Python3, NumPy and SciPy. It verifies hashes and reruns both diagnostics, including24 force/propulsion symmetry checks and4/8 substep comparison. Four JSON result sets are compared structurally, integers/text exactly, floats with tolerance absolute1e-8+relative1e-11. This numerical tolerance is not a physical modeling error bound. There are no network calls and existing output directories are rejected.
+
+          Source model files in src/ are exact pinned production copies. Only audit files/workflows were added to the research branch. No changes to solver, PID, PN, observer, aerodynamic inputs or raw data. CI jobs are computations, not independent AI subagents.
+          MD
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=Path('delivery');m=[{'path':p.relative_to(r).as_posix(),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(r.rglob('*')) if p.is_file() and p!=r/'MANIFEST.json']
+          (r/'MANIFEST.json').write_text(json.dumps(m,indent=2))
+          PY
+      - name: Actually reproduce assembled diagnostics
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce.py "$RUNNER_TEMP/aero-reproduced" 2>&1 | tee delivery/receipts/reproduction.log
+          cp "$RUNNER_TEMP/aero-reproduced/receipt.json" delivery/receipts/reproduction.json
+      - name: Final source and file checks
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d
+          git diff --exit-code ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d HEAD -- src tests config data scripts docs
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery');r=json.loads((root/'receipts/reproduction.json').read_text());s=json.loads((root/'results/attitude/summary.json').read_text());v=json.loads((root/'results/energy/summary.json').read_text())
+          d={'reproduction':r,'force_identity_checks':v['verification'],'prescribed_attitude_contract_checks':s['contract_checks'],'current_source_tests':json.loads((root/'receipts/targeted-tests.json').read_text()),'source_diff':'src/tests/config/data/scripts/docs unchanged from pinned dev ab93a01'}
+          (root/'VERIFICATION.json').write_text(json.dumps(d,indent=2))
+          files=[{'path':p.relative_to(root).as_posix(),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(files,indent=2))
+          for f in files:assert hashlib.sha256((root/f['path']).read_bytes()).hexdigest()==f['sha256']
+          print('FINAL_VERIFICATION',json.dumps(d),flush=True);print('FILES_VERIFIED',len(files),sum(f['bytes'] for f in files))
+          PY
+      - name: Preserve actual reproduction error
+        if: failure()
+        run: |
+          tail -60 "$RUNNER_TEMP/aero-reproduced/energy.log" || true
+          tail -60 "$RUNNER_TEMP/aero-reproduced/attitude.log" || true
+          cp "$RUNNER_TEMP/aero-reproduced/receipt.json" delivery/receipts/ || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-aero-energy-reviewed-20261019
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
