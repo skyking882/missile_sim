@@ -1,0 +1,49 @@
+name: Game force update-order checks
+on:
+  push:
+    branches: ['experiment/aero-force-closure-20261019']
+    paths: ['.github/workflows/aero-force-operators.yml','audits/aero_force_closure_20261019/verify_and_extend.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  operators:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Exact public source
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore original evidence and first-pass output including its failed guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39251134054 --repo skyking882/missile_sim --name missile-sim-aero-energy-reviewed-20261019 --dir previous
+          gh run download 39254288506 --repo skyking882/missile_sim --name aero-force-closure-candidates-20261019 --dir first-pass
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy python3-pytest
+      - name: Actual native-force comparison and nine operator checks
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          /usr/bin/python3 -u audits/aero_force_closure_20261019/verify_and_extend.py --source previous --first first-pass/force-results --out operator-results 2>&1 | tee receipts/operators.log
+          /usr/bin/python3 -m pytest -q tests/test_single_surface_game.py tests/test_surface_runtime.py tests/test_surface_stepping.py 2>&1 | tee receipts/regression.log
+          git rev-parse HEAD > receipts/source-commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: aero-force-operator-checks-20261019
+          path: |
+            operator-results/
+            receipts/
+            audits/aero_force_closure_20261019/
+          retention-days: 14
+          compression-level: 1
