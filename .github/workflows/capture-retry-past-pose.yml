@@ -1,0 +1,45 @@
+name: Capture retry past-pose sensitivity
+on:
+  push:
+    branches: ['audit/capture-retry-schedule-20261019']
+    paths: ['.github/workflows/capture-retry-past-pose.yml','audits/capture_retry_20261019/past_pose_check.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  sensitivity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Exact public source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore completed reference evaluation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39179086963 --repo skyking882/missile_sim --name capture-retry-replay-20261019 --dir previous
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: One-sided own-pose and input-isolation checks
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          /usr/bin/python3 -u audits/capture_retry_20261019/past_pose_check.py --input previous/restored/bounded --baseline previous/replay-results --out sensitivity-results 2>&1 | tee receipts/sensitivity.log
+          git rev-parse HEAD > receipts/source-commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: capture-retry-past-pose-20261019
+          path: |
+            sensitivity-results/
+            receipts/
+            audits/capture_retry_20261019/
+          retention-days: 14
+          compression-level: 1
