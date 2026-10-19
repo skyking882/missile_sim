@@ -374,8 +374,19 @@ def simulate(
     launch_quaternion_xyzw: tuple[float, float, float, float] | None = None,
     guidance_input: Callable | None = None,
     infrared_seeker: Any | None = None,
+    strict_autonomous: bool = False,
+    observer_diagnostics: bool = False,
+    target_identity: Any | None = None,
+    launch_global_tick: int = 0,
 ) -> dict[str, Any]:
     """Run one missile and return a JSON-serializable, read-only result.
+
+    ``strict_autonomous=True`` requires external estimated data-link states;
+    missing/repeated packets coast history instead of copying target truth.
+    ``observer_diagnostics=True`` retains copied stages from the latest update.
+    ``target_identity=TrackIdentity(...)`` identifies the intended object without
+    equating it to the currently selected radar reflector. These options require
+    the active-radar surface sensor_track provider and are opt-in.
 
     ``infrared_seeker`` accepts InfraredSeekerConfig for optical sensor_track
     profiles. This opt-in includes game-style FOV gating, tracking suspension and
@@ -442,10 +453,10 @@ def simulate(
     initial prior in this mode. No estimate means no truth fallback. Same-object
     reacquisition retains history; a new reflector starts with zero velocity.
     ``angular_observer='q_capture'`` enables the empirical full-rate observer
-    for active radar sensor_track: previous body posture Q at acquisition,
-    received LOS prediction/correction with fixed gain 11.23 /s, and prediction
-    through missed echoes. It requires no replay rate/direction. None retains
-    the existing observer. It cannot be combined with target_observer or
+    for active radar sensor_track: current body posture Q at acquisition,
+    followed by one ordinary tick, interval-dependent received LOS correction,
+    and complete-rate prediction through missed echoes. It requires no replay
+    rate/direction. None retains the existing observer. It cannot be combined with target_observer or
     guidance_input. This is a game approximation, not recovered WT code.
     ``launch_quaternion_xyzw`` overrides only the initial body-to-world
     attitude (forward/up/right body axes, scalar-last xyzw, normalized).
@@ -484,7 +495,8 @@ def simulate(
                                     launcher_radar_gimbal_deg, bool(require_seeker_lock),launcher_support,
                                     seeker_search,min_altitude_m=min_altitude_m,chaff_capture=chaff_capture,track_gate_model=track_gate_model,target_observer=target_observer,
                                     launch_quaternion_xyzw=launch_quaternion_xyzw,launcher_radar_geometry=launcher_radar_geometry,
-                                    guidance_input=guidance_input,angular_observer=angular_observer,infrared_seeker=infrared_seeker)
+                                    guidance_input=guidance_input,angular_observer=angular_observer,infrared_seeker=infrared_seeker,
+                                    strict_autonomous=strict_autonomous,observer_diagnostics=observer_diagnostics,target_identity=target_identity,launch_global_tick=launch_global_tick)
         except ValueError as exc:
             raise SimulationInputError(str(exc)) from exc
     if model_mode not in {"general", "legacy_h2"}:
@@ -493,7 +505,7 @@ def simulate(
         raise SimulationInputError('min_altitude_m needs the general surface sensor_track runtime')
     if target_factory is not None or early_miss_s is not None or clutter_model is not None or cw_on_clear_beam \
             or multipath_gain is not None or launcher_radar_gimbal_deg is not None or launcher_radar_geometry is not None or require_seeker_lock or launcher_support is not None \
-            or seeker_search is not None or chaff_capture is not None or track_gate_model is not None or target_observer is not None or angular_observer is not None or launch_quaternion_xyzw is not None or guidance_input is not None or infrared_seeker is not None:
+            or seeker_search is not None or chaff_capture is not None or track_gate_model is not None or target_observer is not None or angular_observer is not None or launch_quaternion_xyzw is not None or guidance_input is not None or infrared_seeker is not None or strict_autonomous or observer_diagnostics or target_identity is not None or launch_global_tick != 0:
         raise SimulationInputError("外部目标模型、提前脱靶判定、杂波、多径、载机雷达和导引头锁定条件只支持通用 surface 运行时。")
 
     base_config = _validate_profile(missile_profile)

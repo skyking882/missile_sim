@@ -8,6 +8,7 @@ observation generation, terminal events and plotted target telemetry.
 from __future__ import annotations
 
 import copy
+import dataclasses
 import json
 import math
 from pathlib import Path
@@ -454,6 +455,12 @@ class SurfaceRuntime(EffectiveSurfaceGame):
         if observer is not None:
             result['angular_observer']=dict(observer.provenance, capture_count=observer.capture_count,
                 correction_count=observer.correction_count)
+        if isinstance(self.provider,SensorTrackProvider) and (self.provider.strict_autonomous or self.provider.observer_diagnostics):
+            result['observer_state_flow'] = dict(strict_autonomous=self.provider.strict_autonomous,
+                identity=dataclasses.asdict(self.provider.intended_target_identity),
+                # Only the final call's bounded stages are retained. Consumers
+                # can inspect stage_snapshots after each step for a longer log.
+                stages=[dataclasses.asdict(x) for x in self.provider.stage_snapshots])
         return result
 
     def simulate(self,end_time,early_miss_s=None):
@@ -467,7 +474,8 @@ class SurfaceRuntime(EffectiveSurfaceGame):
 def simulate_surface(profile,scenario,target_factory=None,early_miss_s=None,clutter_model=None,clutter_min_depression_deg=None,cw_on_clear_beam=False,multipath_gain=None,
                      launcher_radar_gimbal_deg=None,require_seeker_lock=False,launcher_support=None,
                      seeker_search=None, *, min_altitude_m=None,chaff_capture=None,track_gate_model=None,target_observer=None,
-                     launch_quaternion_xyzw=None,launcher_radar_geometry=None,guidance_input=None,angular_observer=None,infrared_seeker=None):
+                     launch_quaternion_xyzw=None,launcher_radar_geometry=None,guidance_input=None,angular_observer=None,infrared_seeker=None,
+                     strict_autonomous=False,observer_diagnostics=False,target_identity=None,launch_global_tick=0):
     """Run the surface model; min_altitude_m optionally floors INS y-up estimates.
 
     Pass ``min_altitude_m=50.0`` as a top-level keyword with sensor_track;
@@ -482,7 +490,8 @@ def simulate_surface(profile,scenario,target_factory=None,early_miss_s=None,clut
                            min_altitude_m=min_altitude_m,launch_quaternion_xyzw=launch_quaternion_xyzw,
                            guidance_input=guidance_input,infrared_seeker=infrared_seeker)
     _configure_runtime(runtime,clutter_model,clutter_min_depression_deg,cw_on_clear_beam,multipath_gain,
-                       launcher_radar_gimbal_deg,require_seeker_lock,launcher_support,seeker_search,chaff_capture,track_gate_model,target_observer,launcher_radar_geometry,angular_observer)
+                       launcher_radar_gimbal_deg,require_seeker_lock,launcher_support,seeker_search,chaff_capture,track_gate_model,target_observer,launcher_radar_geometry,angular_observer,
+                       strict_autonomous,observer_diagnostics,target_identity,launch_global_tick)
     lifetime=profile['performance']['lifetime_s'];requested=normalized['max_simulation_time_s'];end=min(lifetime,requested) if requested is not None else lifetime
     result=runtime.simulate(end,early_miss_s)
     config=copy.deepcopy(profile)
@@ -499,6 +508,8 @@ def simulate_surface(profile,scenario,target_factory=None,early_miss_s=None,clut
     model.update(pn_candidate=runtime.config['pn_candidate'],pn_gain=runtime.autopilot['propNavMult'],
                  pid_error_frame=runtime.config['pid_error_frame'],
                  pid_pressure_gain_convention=runtime.config['pid_pressure_gain_convention'])
+    if strict_autonomous or observer_diagnostics:
+        model['observer_state_flow']=copy.deepcopy(result['observer_state_flow'])
     if angular_observer is not None:
         model['angular_observer']=copy.deepcopy(runtime.provider.angular_observer.provenance)
     if infrared_seeker is not None:
@@ -577,7 +588,28 @@ def _configure_search(runtime,options):
 
 
 def _configure_runtime(runtime,clutter_model,clutter_min_depression_deg,cw_on_clear_beam,multipath_gain,
-                       launcher_radar_gimbal_deg,require_seeker_lock,launcher_support,seeker_search=None,chaff_capture=None,track_gate_model=None,target_observer=None,launcher_radar_geometry=None,angular_observer=None):
+                       launcher_radar_gimbal_deg,require_seeker_lock,launcher_support,seeker_search=None,chaff_capture=None,track_gate_model=None,target_observer=None,launcher_radar_geometry=None,angular_observer=None,
+                       strict_autonomous=False,observer_diagnostics=False,target_identity=None,launch_global_tick=0):
+    from .tracking import TrackIdentity
+    if isinstance(launch_global_tick, bool) or not isinstance(launch_global_tick, int):
+        raise ValueError('launch_global_tick must be an integer')
+    if isinstance(runtime.provider, SensorTrackProvider):
+        runtime.provider.radar.set_launch_global_tick(launch_global_tick)
+        runtime.config['capture_retry'] = dict(launch_global_tick=launch_global_tick,
+            tick_rate_hz=48, period_ticks=48, phase_tick=1,
+            first_attempt='immediate_when_enabled_and_search_ready', half_power_off_axis=True)
+    elif launch_global_tick != 0:
+        raise ValueError('launch_global_tick needs active radar sensor_track')
+    if target_identity is not None and not isinstance(target_identity, TrackIdentity):
+        raise ValueError('target_identity must be TrackIdentity or None')
+    if strict_autonomous or observer_diagnostics or target_identity is not None:
+        if not isinstance(runtime.provider,SensorTrackProvider):
+            raise ValueError('observer state-flow options need active radar sensor_track')
+        runtime.provider.strict_autonomous = bool(strict_autonomous)
+        runtime.provider.observer_diagnostics = bool(observer_diagnostics)
+        if target_identity is not None:
+            runtime.provider.intended_target_identity = target_identity
+            runtime.provider.radar.target_identity = target_identity
     from .observation import validate_target_observer
     validate_target_observer(target_observer)
     from .q_angular_observer import validate_angular_observer
@@ -640,8 +672,12 @@ def create_surface_missile(profile, *, launch_position_m, launch_velocity_mps,
                            require_seeker_lock=False, end_time_s=None, early_miss_s=None,
                            datalink_enabled=True, datalink_disconnect_time_s=None,
                            inertial_drift_direction=(0.,0.,1.),seeker_search=None,min_altitude_m=None,chaff_capture=None,track_gate_model=None,target_observer=None,
-                           launch_quaternion_xyzw=None,launcher_radar_geometry=None,guidance_input=None,angular_observer=None,infrared_seeker=None):
+                           launch_quaternion_xyzw=None,launcher_radar_geometry=None,guidance_input=None,angular_observer=None,infrared_seeker=None,
+                     strict_autonomous=False,observer_diagnostics=False,target_identity=None,launch_global_tick=0):
     """Create and begin a single-surface runtime from an explicit launch state.
+
+    ``launch_global_tick`` is the shared 48 Hz scene tick at launch; zero is
+    the standalone scene epoch. Search retries use this absolute clock.
 
     ``launch_position_m`` and ``launch_velocity_mps`` are finite xyz triples in
     the caller's shared x/y-up/z coordinate system. Velocity is retained exactly,
@@ -657,8 +693,9 @@ def create_surface_missile(profile, *, launch_position_m, launch_velocity_mps,
     first loss is permanent. It cannot be combined with the linear-launcher gimbal.
     ``angular_observer='q_capture'`` enables the empirical Q-at-acquisition
     complete-rate observer using received radar directions; no replay input is
-    needed. Q is applied once with the previous body posture. Subsequent echo
-    innovations use the shared 11.23 /s gain; missing echoes only predict.
+    needed. Q uses the current body posture once, followed by one ordinary
+    tick. Echo innovations use shared interval-dependent alpha/gain; missed
+    echoes only predict with the complete rate. No extra .8 factor is applied.
     This approximation is active-radar sensor_track only, mutually exclusive
     with target_observer/guidance_input; None retains the existing observer.
     ``infrared_seeker=InfraredSeekerConfig(...)`` opts optical sensor_track
@@ -667,6 +704,11 @@ def create_surface_missile(profile, *, launch_position_m, launch_velocity_mps,
     aircraft/global heat and flare/band inputs from the frozen datamine.
     None preserves the existing provider. This cannot combine with radar options
     or guidance_input. See infrared_seeker.py for evidence and limitations.
+    ``strict_autonomous=True`` forbids missing data-link estimates from using
+    target truth; gaps coast the owned prior. ``observer_diagnostics=True``
+    exposes copied stages of the latest provider call through stage_snapshots
+    and the final result. ``target_identity=TrackIdentity(...)`` supplies the
+    intended object's identity independently of its sensor source.
     Sensor options match public_api.simulate. ``end_time_s`` is capped by profile
     lifetime; omitted uses that lifetime. Early miss is disabled unless supplied.
     Result is the raw SurfaceRuntime sample/event result. Opt-in seeker_search
@@ -714,6 +756,7 @@ def create_surface_missile(profile, *, launch_position_m, launch_velocity_mps,
                            min_altitude_m=min_altitude_m,launch_quaternion_xyzw=launch_quaternion_xyzw,
                            guidance_input=guidance_input,infrared_seeker=infrared_seeker)
     _configure_runtime(runtime,clutter_model,clutter_min_depression_deg,cw_on_clear_beam,multipath_gain,
-                       launcher_radar_gimbal_deg,require_seeker_lock,launcher_support,seeker_search,chaff_capture,track_gate_model,target_observer,launcher_radar_geometry,angular_observer)
+                       launcher_radar_gimbal_deg,require_seeker_lock,launcher_support,seeker_search,chaff_capture,track_gate_model,target_observer,launcher_radar_geometry,angular_observer,
+                       strict_autonomous,observer_diagnostics,target_identity,launch_global_tick)
     lifetime=profile['performance']['lifetime_s']
     return runtime.begin(lifetime if end_time_s is None else min(lifetime,end_time_s),early_miss_s)

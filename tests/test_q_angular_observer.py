@@ -33,17 +33,30 @@ def advance(o, s, own, received=False, identity=('target',), closing=100.):
     return o.update(s, own, received=received, identity=identity, closing_mps=closing)
 
 
-def test_q_once_uses_previous_full_body_posture_and_native_axial_parity():
+def test_q_once_uses_current_full_body_posture_then_one_ordinary_update():
     o = QCaptureAngularObserver()
     old = missile()
     prior = solution(0.)
     advance(o, prior, old)
     n = scale(sub(prior.position, old.position), 1 / norm(sub(prior.position, old.position)))
     a = scale(cross(sub(prior.velocity, old.velocity), n), 1 / norm(sub(prior.position, old.position)))
-    axes = body_axes_for_state(old)
+    current = missile(-.6, -1.)
+    axes = body_axes_for_state(current)
     expected = add(add(scale(axes.forward, a[0]), scale(axes.up, a[1])), scale(axes.right, a[2]))
-    captured = advance(o, solution(.02, mode=TrackMode.RADAR_TRACK), missile(-.6, -1.), True)
-    assert captured.full_rate_rad_s == pytest.approx(expected)
+    captured = advance(o, solution(.02, mode=TrackMode.RADAR_TRACK), current, True)
+    assert o.capture_rate_seed == pytest.approx(expected)
+    h = 1 / 48
+    predicted = _rotate(n, expected, -h)
+    axis = cross(n, predicted)
+    theta = math.atan2(norm(axis), dot(n, predicted))
+    correction = scale(axis, (1 - .0031 / h) * theta / norm(axis))
+    post_rate = add(expected, scale(correction, 1 / (.078525 + h / 2)))
+    post_direction = _rotate(predicted, correction, -1.)
+    assert captured.full_rate_rad_s == pytest.approx(post_rate)
+    assert o.direction == pytest.approx(post_direction)
+    # This contraction comes from that ordinary update; no second .8 factor.
+    assert norm(sub(captured.full_rate_rad_s, expected)) > .001
+    assert o.correction_count == 1
     assert abs(dot(n, expected)) > .001
     assert o.capture_count == 1
     # Independent native construction: C flips polar z, axial = -C.
@@ -54,10 +67,10 @@ def test_q_once_uses_previous_full_body_posture_and_native_axial_parity():
     native_q_a = tuple(sum(native_cols[j][i] * native_a[j] for j in range(3)) for i in range(3))
     assert expected == pytest.approx(scale(C(native_q_a), -1.))
     # Next echo is precisely the prediction. Q must not be repeated.
-    predicted = _rotate(n, expected, -.02)
+    predicted = _rotate(post_direction, post_rate, -.02)
     p = add(missile().position, scale(predicted, 10000.))
     next_track = advance(o, solution(.04, p, mode=TrackMode.RADAR_TRACK), missile(), True)
-    assert next_track.full_rate_rad_s == pytest.approx(expected)
+    assert next_track.full_rate_rad_s == pytest.approx(post_rate)
     assert o.capture_count == 1
 
 
@@ -70,7 +83,8 @@ def test_innovation_sign_duplicate_coast_and_actual_expiry():
     angle = .01
     m = (math.cos(angle), math.sin(angle), 0.)
     corrected = advance(o, solution(.02, add(own.position, scale(m, 10000.)), mode=TrackMode.RADAR_TRACK), own, True)
-    assert corrected.full_rate_rad_s == pytest.approx((0., 0., -11.23 * angle))
+    assert corrected.full_rate_rad_s == pytest.approx((0., 0., -(1 - .0031/.02) * angle / (.078525 + .02/2)))
+    assert o.last_correction_interval_s == pytest.approx(.02)
     count = o.correction_count
     # A repeated accepted packet does not inject its different direction.
     duplicate = advance(o, solution(.04, (0., 5000., 10000.), mode=TrackMode.RADAR_TRACK, sample=.02), own, True)
@@ -103,6 +117,25 @@ def test_different_reflector_does_not_inherit_rate_even_after_loss():
     assert c.full_rate_rad_s == pytest.approx((0., 0., 0.), abs=1e-15)
 
 
+def test_available_full_prior_and_measurement_interval_survive_hold():
+    from dataclasses import replace
+    o = QCaptureAngularObserver()
+    own = missile(0., 0.)
+    full = (.04, -.03, .02)
+    advance(o, replace(solution(0.), full_rate_rad_s=full), own)
+    assert o.prior_rate == full  # Do not silently replace a full state by geometry.
+    first = advance(o, solution(1/48, mode=TrackMode.RADAR_TRACK), own, True)
+    assert o.capture_rate_seed == pytest.approx(full)
+    # Missing echoes propagate the full rate, including its axial component.
+    held = advance(o, solution(3/48, mode=TrackMode.RADAR_COAST, sample=1/48), own)
+    assert held.full_rate_rad_s == pytest.approx(first.full_rate_rad_s)
+    # Correction interval spans all missing measurements, not the last call dt.
+    measured = _rotate(o.direction, (0., .001, -.002), -.05)
+    advance(o, solution(4/48, add(own.position, scale(measured, 10000.)),
+                        mode=TrackMode.RADAR_TRACK), own, True)
+    assert o.last_correction_interval_s == pytest.approx(3/48)
+
+
 @pytest.fixture
 def profile():
     return json.loads((ROOT / 'data/profile_sets/2.59.0.27/missiles/su_r_77_1.json').read_text())
@@ -123,7 +156,8 @@ def test_public_batch_observer_is_causal_opt_in_and_feeds_full_rate_to_pn(profil
     explicit_none = entry(profile, scenario(), angular_observer=None)
     assert baseline == explicit_none
     result = entry(profile, scenario(), angular_observer='q_capture')
-    assert result['model']['angular_observer']['rate_correction_gain_per_s'] == 11.23
+    assert result['model']['angular_observer']['rate_correction_tau_s'] == .078525
+    assert result['model']['angular_observer']['direction_lag_s'] == .0031
     assert result['model']['angular_observer']['kind'] == 'assumed'
     tracks = [r for r in result['samples'] if r.get('guidance_full_rate_rad_s') is not None]
     assert tracks

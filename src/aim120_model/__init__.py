@@ -12,7 +12,7 @@ from .observation import (
 )
 from .radar_seeker import RadarDetection, RadarSeekerObserver, SeekerState
 from .simulator import H1Simulator
-from .tracking import AlphaBetaGate, TrackMode, TrackSolution
+from .tracking import AlphaBetaGate, TrackMode, TrackSolution, TrackIdentity, ObserverStageSnapshot, DatalinkObservation
 from .angular_guidance import AngularObservation, RecordedSeekerSample, RecordedSeekerHistory
 from .trajectory import TabulatedTargetModel, TabulatedTrajectory, TrajectoryPoint
 from .public_api import simulate
@@ -38,6 +38,9 @@ __all__ = [
     "AlphaBetaGate",
     "TrackMode",
     "TrackSolution",
+    "TrackIdentity",
+    "ObserverStageSnapshot",
+    "DatalinkObservation",
     "AngularObservation",
     "RecordedSeekerSample",
     "RecordedSeekerHistory",

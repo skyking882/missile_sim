@@ -29,6 +29,42 @@ class TrackMode(str, Enum):
 
 
 @dataclass(frozen=True)
+class TrackIdentity:
+    """Object identity, independent of the sensor currently reporting it.
+
+    Unknown is a real absence of classification, not an inferred aircraft.
+    Object IDs must be immutable so snapshots cannot change retroactively.
+    """
+    object_type: str = "unknown"
+    object_id: str | int | tuple | None = None
+
+    def __post_init__(self):
+        if self.object_type not in ("aircraft", "missile", "chaff", "unknown"):
+            raise ValueError("unsupported track object_type")
+        def immutable(value):
+            if isinstance(value, (tuple, list)):
+                return tuple(immutable(x) for x in value)
+            if value is None or isinstance(value, (str, int, float, bool)):
+                return value
+            raise ValueError("track object_id must be an immutable scalar or tuple")
+        object.__setattr__(self, "object_id", immutable(self.object_id))
+
+
+INTENDED_TARGET = TrackIdentity("unknown", "intended_target")
+
+
+def reflector_identity(identity, intended=INTENDED_TARGET, kind="unknown"):
+    """Translate existing association keys without guessing an object's type."""
+    if isinstance(identity, TrackIdentity):
+        return identity
+    if identity == ("target",):
+        return intended
+    if isinstance(identity, tuple) and len(identity) == 2 and identity[0] == "decoy":
+        return TrackIdentity(kind if kind in ("aircraft", "missile", "chaff") else "unknown", identity)
+    return None
+
+
+@dataclass(frozen=True)
 class TrackSolution:
     """A copied target solution presented to guidance.
 
@@ -49,6 +85,11 @@ class TrackSolution:
     # Includes the independent component along LOS; position/velocity alone
     # cannot reconstruct it. Relative to the missile consuming this solution.
     full_rate_rad_s: Vector | None = None
+    identity: TrackIdentity | None = None
+    # Origin of the estimated P/V survives changes of transport/mode/source.
+    estimate_source: str | None = None
+    # Publication is distinct from the state and original measurement times.
+    publication_time_s: float | None = None
 
     def __post_init__(self) -> None:
         position = as_vector(tuple(self.position))
@@ -66,6 +107,15 @@ class TrackSolution:
         object.__setattr__(self, "mode", TrackMode(self.mode))
         object.__setattr__(self, "valid", bool(self.valid))
         object.__setattr__(self, "source", str(self.source))
+        if self.identity is not None and not isinstance(self.identity, TrackIdentity):
+            raise TypeError("TrackSolution identity must be TrackIdentity or None")
+        if self.estimate_source is not None:
+            object.__setattr__(self, "estimate_source", str(self.estimate_source))
+        if self.publication_time_s is not None:
+            stamp = float(self.publication_time_s)
+            if not math.isfinite(stamp) or stamp < solution_time_s - 1e-12:
+                raise ValueError("publication must be finite and not precede state time")
+            object.__setattr__(self, "publication_time_s", stamp)
         if self.full_rate_rad_s is not None:
             rate = as_vector(tuple(self.full_rate_rad_s))
             if not all(math.isfinite(value) for value in rate):
@@ -75,6 +125,40 @@ class TrackSolution:
     @property
     def age_s(self) -> float:
         return max(0.0, self.solution_time_s - self.sample_time_s)
+
+
+@dataclass(frozen=True)
+class ObserverStageSnapshot:
+    """Copied state at one executed stage; update_index is not a physics tick.
+
+    The provider retains only this call's bounded tuple of snapshots. There is
+    no inferred capture sub-tick or implied replay serialization stage.
+    """
+    update_index: int
+    time_s: float
+    stage: str
+    intended_identity: TrackIdentity
+    reflector_identity: TrackIdentity | None
+    estimator_identity: TrackIdentity | None
+    estimate: TrackSolution | None
+    measurement_cache: TrackSolution | None
+    previous_accepted_time_s: float | None
+    accepted_measurement_time_s: float | None
+    angular_state_time_s: float | None
+    publication_time_s: float | None
+    antenna_axis_world: Vector | None
+    target_los_estimate_world: Vector | None
+    track_direction_world: Vector | None
+    full_rate_world_rad_s: Vector | None
+    range_m: float | None
+    closing_mps: float | None
+    radial_source: str | None
+    reason: str = ""
+    seed_source: str | None = None
+    seed_rate_world_rad_s: Vector | None = None
+    measurement_range_m: float | None = None
+    measurement_relative_radial_mps: float | None = None
+    measurement_source: str | None = None
 
 
 @dataclass
@@ -192,6 +276,8 @@ class AlphaBetaStateObserver:
             mode=measurement.mode,
             valid=True,
             source=source,
+            identity=measurement.identity,
+            estimate_source=measurement.estimate_source or measurement.source,
         )
         self.update_count += 1
         self.last_dt_s, self.last_prediction, self.last_innovation = dt, predicted, innovation
@@ -212,14 +298,18 @@ class DatalinkObservation:
     velocity: Vector
     sample_time_s: float
     source: str = "external_datalink"
+    identity: TrackIdentity | None = None
+    full_rate_rad_s: Vector | None = None
 
     def __post_init__(self) -> None:
         copied = TrackSolution(self.position, self.velocity, self.sample_time_s,
-                               self.sample_time_s, TrackMode.DATALINK, True, self.source)
+                               self.sample_time_s, TrackMode.DATALINK, True, self.source,
+                               self.full_rate_rad_s, self.identity, self.source)
         object.__setattr__(self, "position", copied.position)
         object.__setattr__(self, "velocity", copied.velocity)
         object.__setattr__(self, "sample_time_s", copied.sample_time_s)
         object.__setattr__(self, "source", copied.source)
+        object.__setattr__(self, "full_rate_rad_s", copied.full_rate_rad_s)
 
 
-__all__ = ["AlphaBetaGate", "AlphaBetaStateObserver", "DatalinkObservation", "TrackMode", "TrackSolution"]
+__all__ = ["AlphaBetaGate", "AlphaBetaStateObserver", "DatalinkObservation", "TrackMode", "TrackSolution", "TrackIdentity", "ObserverStageSnapshot"]

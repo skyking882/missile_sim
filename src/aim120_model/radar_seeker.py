@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any
 
@@ -13,9 +13,10 @@ from .aerodynamics import body_axes_for_state
 from .dynamics import SimState
 from .math3d import Vector, add, clamp, cross, dot, norm, normalize, scale, sub
 from .target import TargetState
-from .tracking import AlphaBetaGate, TrackMode, TrackSolution
+from .tracking import AlphaBetaGate, TrackMode, TrackSolution, INTENDED_TARGET, reflector_identity
 from .units import deg_to_rad, rad_to_deg
-from .radar_geometry import full_cone_half_angle_rad, limited_antenna_direction
+from .radar_geometry import limited_antenna_direction
+from .capture_retry import RetryClock
 
 
 class SeekerState(str, Enum):
@@ -36,6 +37,8 @@ class RadarDetection:
     los_rate_deg_s: float
     look_down: bool
     notch_half_width_mps: float = 0.0
+    attempted: bool = True
+    scheduler_reason: str = ""
 
 
 def _number(mapping: dict[str, Any], *keys: str, default: float) -> float:
@@ -226,7 +229,7 @@ class SeekerSearch:
         side = antenna.get('side_lobes_sensitivity_db')
         if isinstance(side, bool) or not isinstance(side, (int, float)) or not math.isfinite(side) or side > 0:
             raise ValueError(kind + '.antenna.side_lobes_sensitivity_db is required and must be finite and <= 0')
-        return full_cone_half_angle_rad(width), 10. ** (side / 10.)
+        return deg_to_rad(width), 10. ** (side / 10.)
 
     @staticmethod
     def gain(theta, antenna):
@@ -327,7 +330,8 @@ class SeekerSearch:
 class RadarSeekerObserver:
     """Generate a copied radar track from target truth and deterministic gates."""
 
-    def __init__(self, sensor_model: dict[str, Any] | None = None, lock_range_m: float | None = None):
+    def __init__(self, sensor_model: dict[str, Any] | None = None, lock_range_m: float | None = None,
+                 *, launch_global_tick: int = 0):
         sensor_model = sensor_model if isinstance(sensor_model, dict) else {}
         self.sensor_model = sensor_model
         self.search = None
@@ -343,9 +347,14 @@ class RadarSeekerObserver:
         self.active = _boolean(self.radar_config, "active", default=_boolean(sensor_model, "active_radar", default=False))
         # time_s throughout the observation API is age since missile launch.
         self.startup_delay_s = max(0.0, _number(sensor_model, "lock_timeout_s", default=0.0))
+        self.set_launch_global_tick(launch_global_tick)
         self.use_target_velocity = _boolean(sensor_model, "use_target_velocity", "useTargetVel", default=True)
         self.position_only_measurements = False
         self.measurement_identity = None
+        self.measurement_cache = None
+        self.last_antenna_axis_world = None
+        self.target_identity = INTENDED_TARGET
+        self.selected_reflector_identity = None
         self.estimated_track = None
         lock_range_default = math.inf if lock_range_m is None else float(lock_range_m)
         self.lock_range_m = _number(sensor_model, "lock_range_m", "lockDistance", default=lock_range_default)
@@ -356,6 +365,7 @@ class RadarSeekerObserver:
             "prolongationTimeMax",
             default=1.0,
         )
+        self.capture_retry = RetryClock(hold_ticks=round(48*self.prolongation_time_max_s))
         self.lock_angle_max_rad = deg_to_rad(_number(self.radar_config, "lock_angle_max_deg", "lockAngleMax", default=180.0))
         self.angle_max_rad = deg_to_rad(_number(self.radar_config, "angle_max_deg", "angleMax", default=180.0))
         self.rate_max_rad_s = deg_to_rad(_number(self.radar_config, "rate_max_deg_s", "rateMax", default=math.inf))
@@ -404,19 +414,18 @@ class RadarSeekerObserver:
         receiver_antenna = receiver_antenna if isinstance(receiver_antenna, dict) else {}
         self.resolution_range_m = abs(_number(distance_cfg, "width_m", "width", default=300.0))
         self.resolution_doppler_mps = max(target_width, 1.0e-9)
-        # The legacy profile key names sensitivity, but its angular value is
-        # the full cone width, not a mechanical limit or an off-axis radius.
+        # Single-leg power is half at this off-axis radius; not a hard cutoff.
         beam_width_deg = _number(receiver_antenna, "angle_half_sens_deg", "angleHalfSens", default=15.0)
-        self.beam_half_rad = full_cone_half_angle_rad(beam_width_deg)
+        self.beam_half_rad = deg_to_rad(beam_width_deg)
         transmitter_antenna = (self.radar_config.get("transmitter") or {}).get("antenna") or {}
-        self.illumination_half_rad = min(self.beam_half_rad, full_cone_half_angle_rad(_number(
+        self.illumination_half_rad = min(self.beam_half_rad, deg_to_rad(_number(
             transmitter_antenna, "angle_half_sens_deg", "angleHalfSens", default=beam_width_deg)))
         # Half-sensitivity widths describe Gaussian antenna power, not a
         # visibility boundary. Keep the receiver width separately for resolution
         # cells and clutter geometry.
         def antenna(kind, fallback_width):
             cfg = (self.radar_config.get(kind) or {}).get('antenna') or {}
-            half = full_cone_half_angle_rad(_number(cfg, 'angle_half_sens_deg', 'angleHalfSens', default=fallback_width))
+            half = deg_to_rad(_number(cfg, 'angle_half_sens_deg', 'angleHalfSens', default=fallback_width))
             side_db = min(0., _number(cfg, 'side_lobes_sensitivity_db', 'sideLobesSensitivity', default=-math.inf))
             return half, 10. ** (side_db / 10.)
         self.receiver_antenna = antenna('receiver', beam_width_deg)
@@ -463,6 +472,7 @@ class RadarSeekerObserver:
         return self._state
 
     def reset(self) -> None:
+        self.capture_retry = RetryClock(hold_ticks=round(48*self.prolongation_time_max_s))
         if self.search is not None:
             self.search = SeekerSearch(self, self.search.options)
         self._state = SeekerState.SEARCH
@@ -478,6 +488,9 @@ class RadarSeekerObserver:
         self.last_detection = None
         self.last_solution = None
         self.measurement_identity = None
+        self.measurement_cache = None
+        self.selected_reflector_identity = None
+        self.last_antenna_axis_world = None
         self.estimated_track = None
         self.search_estimate_position = None
         if self.chaff_capture is not None:
@@ -640,7 +653,57 @@ class RadarSeekerObserver:
             return 'INS_range_search_disabled'
         return None
 
-    def update(
+    def update(self, time_s, dt_s, missile_state, target_truth, decoys=None, target_rcs_m2=1.0):
+        """Evaluate existing radar physics, then publish association metadata.
+
+        The recorded axis is the model's pointing candidate, not a decoded WT
+        antenna. Measurement P/V remain separate from provider-corrected state.
+        """
+        self.last_antenna_axis_world = None
+        if self.active:
+            tick = self.launch_global_tick + math.floor(float(time_s)*48+1e-8)
+            activation = self._search_activation_reason(time_s, missile_state)
+            outcome = []
+            def evaluate(searching):
+                result = self._update(time_s, dt_s, missile_state, target_truth, decoys, target_rcs_m2)
+                outcome.append(result)
+                return result[0].valid
+            decision = self.capture_retry.step(tick,
+                enabled=time_s >= self.startup_delay_s-1e-12,
+                search_ready=activation is None, evaluate=evaluate)
+            if outcome:
+                detection, solution = outcome[0]
+                detection = replace(detection, scheduler_reason=decision.reason)
+            else:
+                reason = ('duplicate_global_tick' if decision.attempted else
+                    ('startup_delay' if decision.reason == 'not_enabled' else
+                     activation if decision.reason == 'search_not_ready' else decision.reason))
+                detection = replace(self._detection(False, reason, 0., 0., 0., 0., 0., False),
+                    attempted=False, scheduler_reason=reason)
+                detection, solution = self._invalid_result(detection, time_s)
+            self.last_detection = detection
+        else:
+            detection, solution = self._update(time_s, dt_s, missile_state, target_truth,
+                                               decoys, target_rcs_m2)
+        if solution is not None:
+            if detection.valid:
+                identity = reflector_identity(self.measurement_identity, self.target_identity, self.last_reflector)
+                self.selected_reflector_identity = identity
+                solution = replace(solution, identity=identity, estimate_source=solution.source)
+                self.measurement_cache = solution
+            else:
+                solution = replace(solution, identity=self.selected_reflector_identity,
+                    estimate_source=(self.measurement_cache.estimate_source if self.measurement_cache else solution.source))
+            self.last_solution = solution
+        return detection, solution
+
+    def set_launch_global_tick(self, tick: int) -> None:
+        """Global 48 Hz launch epoch; standalone scenes default to tick zero."""
+        if isinstance(tick, bool) or not isinstance(tick, int):
+            raise ValueError('launch_global_tick must be an integer')
+        self.launch_global_tick = tick
+
+    def _update(
         self,
         time_s: float,
         dt_s: float,
@@ -834,6 +897,7 @@ class RadarSeekerObserver:
 
     def _antenna_center(self, missile_state, fallback_los, searching, time_s=None):
         if self.search is not None:
+            self.last_antenna_axis_world = tuple(self.search.beam)
             return self.search.beam
         estimate = self.search_estimate_position if searching else self.track_gate_estimate
         if estimate is None:
@@ -843,7 +907,8 @@ class RadarSeekerObserver:
             estimate = add(self._last_position, scale(self._last_velocity, age))
         relative = None if estimate is None else sub(estimate, missile_state.position)
         direction = fallback_los if relative is None or norm(relative) <= 1e-12 else normalize(relative)
-        return self.pointable_direction(missile_state, direction, searching)
+        self.last_antenna_axis_world = self.pointable_direction(missile_state, direction, searching)
+        return self.last_antenna_axis_world
 
     def _reflector_check(self, effective_dt, missile_state, position, velocity, track_hold, searching, *, capture=False, antenna_center=None, time_s=None, rcs_m2=1.):
         """The single-target gates applied to one reflector -> (reason, detection kwargs, LOS)."""
@@ -969,6 +1034,7 @@ class RadarSeekerObserver:
         # clipping. The antenna beam independently tests the reachable center.
         antenna_center = (self.search.beam if self.search is not None else
                           self.pointable_direction(missile_state, center, not tracking))
+        self.last_antenna_axis_world = tuple(antenna_center)
         checked = []
         for r in reflectors:
             kind, identity, position, velocity, rcs, release = r
