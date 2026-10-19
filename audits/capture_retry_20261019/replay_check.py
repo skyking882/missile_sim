@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import numpy as np
 from scipy.spatial.transform import Rotation,Slerp
 from retry_clock import RetryClock
+from history_window import select_window
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'src'))
 from aim120_model.radar_seeker import RadarSeekerObserver
@@ -44,8 +45,9 @@ class LoggedRadar(RadarSeekerObserver):
         return value
 
 def build_frames(history,info,unit,clock):
-    rs=history;ts=np.array([r['tick'] for r in rs]);assert np.all(np.diff(ts)>0)
-    epoch=int(info['epoch_tick']);first=min(r['tick'] for r in rs if r['code']==31)
+    epoch=int(info['epoch_tick']);rs,window_info=select_window(history,epoch)
+    ts=np.array([r['tick'] for r in rs]);assert np.all(np.diff(ts)>0)
+    first=min(r['tick'] for r in rs if r['code']==31)
     priors=[r for r in rs if r['tick']<first and r['code']==25];assert priors
     pts=[r['tick'] for r in priors]
     # Deduplicate identical timestamp rows explicitly; conflicting positions fail.
@@ -82,7 +84,7 @@ def build_frames(history,info,unit,clock):
         if tick in ts:
             orig=rs[bisect.bisect_left(ts,tick)];np.testing.assert_allclose(p,orig['p'],atol=1e-9,rtol=0);savedown_checks+=1
         frames.append(dict(tick=tick,age=(tick-epoch)/48,position=C@p,velocity=C@v,quaternion=quat,target_position=C@tp,target_velocity=C@tv,prior_position=C@est,prior_velocity=C@np.array(prior['Vs']),prior_source_tick=prior['tick'],packet_time_s=packet,target_query_time_s=time_target,target_bracket_s=[tt[k],tt[k+1]],own_bracket_ticks=[a['tick'],b['tick']]))
-    meta=dict(first_available_age=(int(ts[0])-epoch)/48,first_available_before_startup=(int(ts[0])-epoch)/48<.75,last_prior_tick=priors[-1]['tick'],independent_target_eid=unit['eid'],independent_target_name=unit['unit_name'],target_duplicate_identical_rows=duplicates,saved_own_checks=savedown_checks,epoch_tick=epoch)
+    meta=dict(first_available_age=(int(ts[0])-epoch)/48,first_available_before_startup=(int(ts[0])-epoch)/48<.75,last_prior_tick=priors[-1]['tick'],independent_target_eid=unit['eid'],independent_target_name=unit['unit_name'],target_duplicate_identical_rows=duplicates,saved_own_checks=savedown_checks,epoch_tick=epoch,window=window_info)
     return clean(frames),meta
 
 def simulate(frames,profile,rcs,width,policy):
