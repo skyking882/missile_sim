@@ -6,7 +6,7 @@ from native_paths import recovery_path
 
 META=dict(replay='synthetic_contract',eid=1,uid=1,family='R-77-1')
 def row(t,code=31,timer=0.,flag=0):
-    return dict(tick=t,index=t,packet_ms=round(1000*t/48),code=code,timer=timer,flag=flag,key=7,raw_sha=str(t),Ps=np.array([1.,2.,3.]),Vs=np.array([3.,4.,5.]),w=np.array([.1,.2,.3.]),n=np.array([1.,0.,0.]))
+    return dict(tick=t,index=t,packet_ms=round(1000*t/48),code=code,timer=timer,flag=flag,key=7,raw_sha=str(t),Ps=np.array([1.,2.,3.]),Vs=np.array([3.,4.,5.]),w=np.array([.1,.2,.3]),n=np.array([1.,0.,0.]))
 
 class TimingTests(unittest.TestCase):
     def test_phase_all_offsets(self):
