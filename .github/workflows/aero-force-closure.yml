@@ -1,0 +1,53 @@
+name: Unretuned game force closure experiment
+on:
+  push:
+    branches: ['experiment/aero-force-closure-20261019']
+    paths: ['.github/workflows/aero-force-closure.yml','audits/aero_force_closure_20261019/compare_candidates.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Read exact public source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore completed original force audit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39251134054 --repo skyking882/missile_sim --name missile-sim-aero-energy-reviewed-20261019 --dir previous
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy python3-pytest
+      - name: Select one unretuned mechanism then test the other event
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          /usr/bin/python3 -u audits/aero_force_closure_20261019/compare_candidates.py --source previous --out force-results 2>&1 | tee receipts/comparison.log
+          git rev-parse HEAD > receipts/source-commit.txt
+      - name: Preserve production baseline and tests
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d
+          git diff --exit-code ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d HEAD -- src tests config data
+          /usr/bin/python3 -m pytest -q tests/test_single_surface_game.py tests/test_surface_runtime.py tests/test_surface_stepping.py 2>&1 | tee receipts/regression.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: aero-force-closure-candidates-20261019
+          path: |
+            force-results/
+            receipts/
+            audits/aero_force_closure_20261019/
+          retention-days: 14
+          compression-level: 1
