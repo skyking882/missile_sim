@@ -10,6 +10,8 @@ from scipy.spatial.transform import Rotation
 import replay_check as R
 
 def past_pose(frames,history):
+    epoch=round(frames[0]['tick']-48*frames[0]['age'])
+    history,_=R.select_window(history,epoch)
     ticks=[r['tick'] for r in history];out=[];errors=[]
     for frame in frames:
         tick=frame['tick'];j=bisect.bisect_left(ticks,tick)-1
