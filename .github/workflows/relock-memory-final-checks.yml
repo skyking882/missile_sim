@@ -1,0 +1,52 @@
+name: Relock memory source-adjacent final checks
+on:
+  push:
+    branches: ['audit/relock-gate-memory-20261019']
+    paths: ['.github/workflows/relock-memory-final-checks.yml','audits/relock_gate_memory_20261019/final_checks.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  final:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Exact public source
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Completed evidence plus native index stream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39258582546 --repo skyking882/missile_sim --name relock-memory-native-inputs-20261019 --dir source
+          gh run download 39259442338 --repo skyking882/missile_sim --name relock-memory-gate-results-20261019 --dir initial
+          gh run download 39261539919 --repo skyking882/missile_sim --name relock-memory-reviewed-20261019 --dir review
+          gh run download 39055559128 --repo skyking882/missile_sim --name psvs-linux-derived-9f28aeb --dir derived
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Check real consecutive records and accepted-observation controls
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          /usr/bin/python3 -u audits/relock_gate_memory_20261019/adjacency.py --input source/input --derived derived --out adjacency 2>&1 | tee receipts/adjacency.log
+          /usr/bin/python3 -u audits/relock_gate_memory_20261019/final_checks.py --input source/input --main initial/results --review review/review-results --adjacency adjacency --out final-results 2>&1 | tee receipts/final.log
+          git rev-parse HEAD > receipts/source-commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: relock-memory-final-checks-20261019
+          path: |
+            final-results/
+            adjacency/
+            receipts/
+            audits/relock_gate_memory_20261019/
+          retention-days: 14
+          compression-level: 1
