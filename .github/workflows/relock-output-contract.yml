@@ -1,0 +1,76 @@
+name: Relock output contract and full observed flow
+on:
+  push:
+    branches: ['audit/relock-output-contract-20261019']
+    paths: ['.github/workflows/relock-output-contract.yml','audits/relock_output_20261019/*.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Exact public source without submodule initialization
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore immutable evidence and independent aircraft histories
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39229417053 --repo skyking882/missile_sim --name missile-sim-relock-mechanism-20261019 --dir prior
+          gh run download 39055559128 --repo skyking882/missile_sim --name psvs-linux-derived-9f28aeb --dir derived
+          gh run download 39055471867 --repo skyking882/missile_sim --name psvs-frozen-decoder-reference-2dc243b --dir reference
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Compile and check frozen raw bundle
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          python3 -m py_compile audits/relock_output_20261019/inspect_flow.py audits/relock_output_20261019/review_flow.py
+          python3 tools/verify_bundle.py > receipts/original-before.json
+          git rev-parse HEAD > receipts/source-commit.txt
+      - name: Include unsuccessful held episodes and inspect expiry state sources
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u audits/relock_output_20261019/inspect_flow.py --reference reference --derived derived --prior prior --out flow-results > receipts/native-flow.log 2>&1
+          /usr/bin/python3 -u audits/relock_output_20261019/review_flow.py --prior prior --native flow-results --out flow-review > receipts/review.log 2>&1
+          /usr/bin/python3 - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('flow-results/summary.json').read_text());v=json.loads(Path('flow-review/verification.json').read_text())
+          for k in ('counts','cohort','archive_unique_states_checked','code_counts','transition_counts','transition_groups','stage29_groups'):
+              print('FLOW',k,json.dumps(s[k]),flush=True)
+          for k,e in s['episode_groups'].items():print('EPISODE_GROUP',k,json.dumps({a:b for a,b in e.items() if a!='strict_late_returns'}),flush=True)
+          for x in s['anchors']:
+              r=x['diagnostic']
+              if (r['uid']==118 and r['tick1']<11600) or (r['uid']==148 and 15000<r['tick1']<15110):print('ANCHOR_SOURCE',json.dumps(r),flush=True)
+          print('INDEPENDENT_REVIEW',json.dumps({k:z for k,z in v.items() if k not in ('branch_31_29_31','exceptions_to_PV_refresh_rate_hold')}),flush=True)
+          print('EXCEPTION_COUNT',len(v['exceptions_to_PV_refresh_rate_hold']))
+          print('EXCEPTION_EXAMPLES',json.dumps(v['exceptions_to_PV_refresh_rate_hold'][:12]))
+          PY
+          python3 tools/verify_bundle.py > receipts/original-after.json
+      - name: Preserve actual failures
+        if: failure()
+        run: |
+          tail -70 receipts/native-flow.log || true
+          tail -70 receipts/review.log || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: relock-output-contract-20261019
+          path: |
+            flow-results/
+            flow-review/
+            receipts/
+            audits/relock_output_20261019/
+          retention-days: 14
+          compression-level: 1
