@@ -2,7 +2,7 @@ name: Paper PN verified delivery
 on:
   push:
     branches: ['experiment/paper-pn-comparison-20261020']
-    paths: ['.github/workflows/paper-pn-delivery.yml']
+    paths: ['.github/workflows/paper-pn-delivery.yml','tools/review_paper_pn_20261020.py','tools/reproduce_paper_pn_20261020.py']
 permissions:
   contents: read
   actions: read
@@ -61,27 +61,23 @@ jobs:
           cat > delivery/README.md <<'MD'
           # Paper-defined spherical-frame PN versus WT replay input
 
-          Read RESULTS.md and review/TABLES.md. This is a controlled War Thunder replay/model experiment, not a real-weapon implementation, recovery of private game source, or proof that the game contains a coordinate bug.
-
-          Original law: Yang & Yang (1996), JGCD19(3),721-724, doi10.2514/3.21685, Eq8c/9a. The author-hosted full-text HTML was read; inaccessible PDF download endpoints were not visually inspected. The spherical-frame spin was independently derived and verified against finite-difference orthonormal-frame rotation. No article PDF/text is redistributed here.
+          Read RESULTS.md and review/TABLES.md. This is a controlled War Thunder replay/model experiment, not a real-weapon implementation, recovery of private game source, or proof of a game coordinate bug. Yang & Yang (1996), JGCD19(3),721-724, doi10.2514/3.21685, Eq8c/9a is the paper reference. Author-hosted full-text HTML was read; unavailable PDF download endpoints were not visually inspected. No paper PDF/text is redistributed.
 
           ## Offline reproduction
 
-          Python3 with NumPy and SciPy is required. The actual CI used Ubuntu Python3.12, NumPy1.26.4 and SciPy1.11.4.
+          Python3, NumPy and SciPy are required. The actual CI uses Ubuntu Python3.12, NumPy1.26.4 and SciPy1.11.4.
 
           ```bash
           python3 reproduce.py /absolute/path/to/new-output
           ```
 
-          The entrypoint verifies package hashes, recomputes36,254 fixed-input PN comparisons, reruns10 fixed-window candidate trajectories plus6 integration sensitivities, independently reviews formula/limiter/input isolation, and compares all numerical JSON outputs. It makes no network calls and refuses an existing output directory. Float comparison tolerance is absolute1e-8+relative1e-11; integer/text/structure equality is exact. This tolerance is computational, not a physical accuracy criterion.
+          The entrypoint verifies hashes, recomputes36,254 same-input PN comparisons, reruns10 candidate trajectories and6 integration sensitivities, independently reviews formula/limiter/input isolation, and compares all numerical JSON outputs. No network calls; existing output directories are refused. Float tolerance absolute1e-8+relative1e-11 is computational, not physical. Integer/text/structure comparisons are exact.
 
-          ## Input boundary
+          Both trajectories start once at a recorded continuous TRK boundary, not at launch. Initial p/v/Q are recorded and body omega is estimated from the preceding pose. Controller integrals and previous errors are unknown and identically zero. Thereafter p/v/Q evolve freely. All candidates use the same recorded AngularObservation adapter and target-motion reconstruction; only rate consumed by PN changes. No autonomous radar/capture/held association is validated. Existing gains, loft, limits, controls and plant are unchanged. Raw requests are not measured game accelerations.
 
-          Both simulations start once at an existing continuous TRK boundary, not at launch. Initial p/v/Q are recorded; initial body omega is estimated from the preceding pose. Controller integrals and previous errors are unknown and initialized identically to zero. Thereafter p/v/Q are freely integrated. The same recorded AngularObservation adapter supplies all candidates and reconstructs target motion using the full original rate; only the angular rate finally consumed by PN is varied. No autonomous radar, capture, held or target-association model is being validated here.
+          World-up is the primary fixed spherical pole. Two other predeclared fixed poles are reported without choosing a best pole per case. The specified spherical-frame rate is not arbitrary lambda. Formula similarity, recorded-state equality and actual game implementation are distinct claims.
 
-          World-up is the primary fixed spherical pole. Two other predeclared fixed poles are reported without selecting a different best pole per case. Gain, loft, projection/limit, control and plant are unchanged. Raw PN requests are not measured game vehicle accelerations. Formula similarity, agreement with recorded rate, and game-source identification are separate claims.
-
-          input/ preserves original parsed records and source hashes. commands/ has every fixed-input calculation. flights/ preserves all candidates and4/8-substep traces. review/ checks an independent scalar azimuth derivative, the production acceleration limiter, raw SHA identities, identical initial states and common target motion. src/ and config/ are unchanged frozen source needed for offline rerun. No fonts, proprietary game executables, or full copyrighted paper are included.
+          input/ contains original parsed states and source hashes. commands/ and flights/ contain all comparisons. review/ checks a separate scalar azimuth derivative, production acceleration limiting, raw SHA identities, identical initial states and shared target motion. src/ and config/ are unchanged frozen source. The previous delivery attempt reached all numerical assertions but failed when logging because review.py omitted import json; this was corrected without changing comparison equations or outputs. Completed reproduction receipts, not that failed run, determine delivery status.
           MD
           python3 - <<'PY'
           import json,hashlib
@@ -104,7 +100,7 @@ jobs:
           import json,hashlib
           from pathlib import Path
           root=Path('delivery');r=json.loads((root/'receipts/REPRODUCTION.json').read_text());v=json.loads((root/'review/verification.json').read_text())
-          (root/'VERIFICATION.md').write_text('# Completed independent arithmetic and numerical reproduction\n\n```json\n'+json.dumps({k:x for k,x in r.items() if k!='details'},indent=2)+'\n```\n\n```json\n'+json.dumps(v,indent=2)+'\n```\n\nSame-data checks, not new blind game trials or independent AI reviewers. Production source/parameters were not modified.\n')
+          (root/'VERIFICATION.md').write_text('# Completed independent arithmetic and numerical reproduction\n\n```json\n'+json.dumps({k:x for k,x in r.items() if k!='details'},indent=2)+'\n```\n\n```json\n'+json.dumps(v,indent=2)+'\n```\n\nSame-data checks, not new blind game trials or independent AI reviewers. Production source/parameters unchanged.\n')
           rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
           (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
           for x in rows:
