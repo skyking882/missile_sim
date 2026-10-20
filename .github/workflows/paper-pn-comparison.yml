@@ -1,0 +1,71 @@
+name: Paper PN fixed-input and runtime comparison
+on:
+  push:
+    branches: ['experiment/paper-pn-comparison-20261020']
+    paths: ['.github/workflows/paper-pn-comparison.yml','audits/paper_pn_20261020/*.py']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [commands, flights]
+    steps:
+      - name: Exact source without unrelated submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore completed original game-state evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39263363711 --repo skyking882/missile_sim --name missile-sim-relock-gate-memory-reviewed-20261019 --dir memory
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy python3-pytest
+      - name: Verify source archive and retain bounded input
+        run: |
+          mkdir -p input receipts
+          python3 - <<'PY'
+          import gzip,hashlib,json,shutil
+          from pathlib import Path
+          src=Path('memory');rows=json.loads((src/'MANIFEST.json').read_text())
+          for r in rows:
+              p=src/r['path'];assert p.stat().st_size==r['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==r['sha256'],str(p)
+          out=Path('input')
+          for name in ('fresh.json.gz','anchors.json.gz'):shutil.copy2(src/'input'/name,out/name)
+          manifest=[dict(path=p.name,bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(out.iterdir())]
+          (out/'MANIFEST.json').write_text(json.dumps(manifest,indent=2));Path('receipts/input-provenance.json').write_text(json.dumps(dict(source_run=39263363711,verified_source_files=len(rows),bounded=manifest),indent=2))
+          print('INPUT_VERIFIED',len(rows),manifest)
+          PY
+      - name: Run actual fixed experiment
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -m py_compile audits/paper_pn_20261020/*.py
+          if [ '${{ matrix.part }}' = commands ]; then
+            /usr/bin/python3 -u audits/paper_pn_20261020/compare.py --input input --out results 2>&1 | tee receipts/execution.log
+          else
+            /usr/bin/python3 -u audits/paper_pn_20261020/flights.py --input input --out results 2>&1 | tee receipts/execution.log
+          fi
+          git rev-parse HEAD > receipts/source-commit.txt
+          git fetch --depth=1 origin ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d
+          git diff --exit-code ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d HEAD -- src tests config data
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: paper-pn-${{ matrix.part }}-20261020
+          path: |
+            results/
+            receipts/
+            input/
+            audits/paper_pn_20261020/
+          retention-days: 14
+          compression-level: 1
