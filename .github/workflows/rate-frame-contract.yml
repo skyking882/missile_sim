@@ -1,0 +1,151 @@
+name: Rate frame contract verified comparison
+on:
+  push:
+    branches: ['audit/rate-frame-contract-20261020']
+    paths: ['.github/workflows/rate-frame-contract.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [contract, propagation]
+    steps:
+      - name: Exact public source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore immutable bounded input
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 39281930196 --repo skyking882/missile_sim --name axial-rate-mechanism-20261019 --dir previous
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Fixed candidate comparison
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir receipts
+          /usr/bin/python3 -m py_compile audits/rate_frame_contract_20261020/*.py
+          /usr/bin/python3 -u audits/rate_frame_contract_20261020/check_frames.py --input previous/bounded --out results --mode ${{ matrix.mode }} 2>&1 | tee receipts/execution.log
+          git rev-parse HEAD > receipts/source-commit.txt
+          git fetch --depth=1 origin ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d
+          git diff --exit-code ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d HEAD -- src tests config data
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: rate-frame-${{ matrix.mode }}-20261020
+          path: |
+            results/
+            receipts/
+          retention-days: 14
+          compression-level: 1
+  review:
+    needs: compare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Exact public source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Download completed parallel computations and original bounded states
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download "$GITHUB_RUN_ID" --repo skyking882/missile_sim --name rate-frame-contract-20261020 --dir received/contract
+          gh run download "$GITHUB_RUN_ID" --repo skyking882/missile_sim --name rate-frame-propagation-20261020 --dir received/propagation
+          gh run download 39281930196 --repo skyking882/missile_sim --name axial-rate-mechanism-20261019 --dir previous
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Independent numerical world-equation review
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p delivery/input delivery/contract delivery/propagation delivery/receipts/contract delivery/receipts/propagation delivery/audits/rate_frame_contract_20261020
+          cp -R previous/bounded/. delivery/input/
+          cp received/contract/results/* delivery/contract/
+          cp received/propagation/results/* delivery/propagation/
+          cp received/contract/receipts/* delivery/receipts/contract/
+          cp received/propagation/receipts/* delivery/receipts/propagation/
+          cp audits/rate_frame_contract_20261020/*.py audits/rate_frame_contract_20261020/PROTOCOL.md delivery/audits/rate_frame_contract_20261020/
+          cp audits/rate_frame_contract_20261020/reproduce.py delivery/
+          cp .github/workflows/rate-frame-contract.yml delivery/
+          git rev-parse HEAD > delivery/SOURCE_COMMIT.txt
+          /usr/bin/python3 -u audits/rate_frame_contract_20261020/review.py --input delivery/input --contract delivery/contract --propagation delivery/propagation --out delivery/review > delivery/receipts/review.log 2>&1
+          cat delivery/receipts/review.log
+          git fetch --depth=1 origin ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d
+          git diff --exit-code ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d HEAD -- src tests config data
+          printf 'src tests config data unchanged from dev ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d\n' > delivery/receipts/UNCHANGED.txt
+      - name: Prepare portable manifest
+        run: |
+          cat > delivery/README.md <<'MD'
+          # Rate frame contract: completed game-state experiments
+
+          Start with review/TABLES.md and contract/summary.json, propagation/summary.json, review/verification.json. The frozen hypotheses compare world-expressed angular rate, inertial rate in body components, and body-relative rate. Current own Q is a permitted recorded input; the initial direction/rate are seeded once and later direction values only score the predictions. There is no per-case fitting or PN/flight integration. Independent CI jobs are not AI subagents.
+
+          Important correction: prior actual_gimbal results used positive native ray z, inconsistent with the frozen decoder's negative z convention. Only that old gimbal comparison is superseded. Corrected gimbal and Q-contract checks are included here. This does not imply a production decoder change.
+
+          Offline reproduction, requiring Python3, NumPy and SciPy:
+
+          ```bash
+          python3 reproduce.py /absolute/path/to/new-output
+          ```
+
+          It verifies the delivery manifest, recomputes both comparisons and the independent world-equation RK4 review, and compares all JSON results. No network requests or WRPL/native rebuild are made. Existing output directories are refused. Integer/structure comparisons are exact; float tolerance absolute1e-8+relative1e-11 is computational reproduction tolerance, not physical accuracy. All source rows and SHA identifiers are retained.
+
+          Correct body-coordinate propagation is not the same as applying Q once at capture. If raw output is world-expressed, hidden body-frame tracking with world serialization is still possible. None of these tests directly observes private game implementation or proves developer intent. Production source, controls, raw data and parameters are unchanged.
+          MD
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery');rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          PY
+      - name: Execute packaged reproduction
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce.py "$RUNNER_TEMP/rate-frame-rerun" 2>&1 | tee delivery/receipts/reproduction.log
+          cp "$RUNNER_TEMP/rate-frame-rerun/REPRODUCTION.json" delivery/receipts/
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('delivery');rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for r in rows:
+              p=root/r['path'];assert p.stat().st_size==r['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==r['sha256']
+          rep=json.loads((root/'receipts/REPRODUCTION.json').read_text())
+          print('FINAL_RECEIPT',json.dumps(dict(files=len(rows),bytes=sum(x['bytes'] for x in rows),reproduction={k:v for k,v in rep.items() if k!='details'})),flush=True)
+          PY
+      - name: Preserve failure diagnostics
+        if: failure()
+        run: |
+          tail -70 delivery/receipts/review.log || true
+          tail -70 "$RUNNER_TEMP/rate-frame-rerun/review.log" || true
+          cp "$RUNNER_TEMP/rate-frame-rerun/REPRODUCTION.json" delivery/receipts/ || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-rate-frame-contract-reviewed-20261020
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
