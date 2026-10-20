@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read-only checks for game-replay PN comparisons; not independent game truth."""
 from __future__ import annotations
-import argparse,math,sys
+import argparse,json,math,sys
 from pathlib import Path
 from types import SimpleNamespace
 import numpy as np
@@ -60,10 +60,10 @@ def main():
     receipt=dict(scope='Independent scalar/angle expressions and unchanged production limiter; same game-state data, not independent investigators, new replays or direct game-command measurements.',input_files_verified=checked,command_source_row_checks=checks,maximum_arithmetic_differences=maximum,flight_reference_score_checks=flight_checks,maximum_reference_score_difference_m=score_difference,maximum_target_input_difference_across_guidance_variants=target_difference,initial_own_state_identical=True,intermodel=intermodel,production_limiter_contract=cfg['pid_error_frame'],scope_limit='Commands are PN-only. Flights retain the existing loft logic, controller, and plant. Controller memory is unknown and initialized identically to zero.')
     A.save(z.out/'verification.json',receipt)
     commands=A.read(z.commands/'summary.json')
-    lines=['# 实际执行的论文PN对照','','## 相同输入的指令差异','','单位：角速度deg/s，加速度g。下表是同一已有PN计算使用不同rate的结果，不是游戏直接记录的请求。投影／限幅使用冻结生产配置。','','| 样本 | 记录数 | 轴向差RMS | 原始请求差RMS | 投影限幅后差RMS | 请求夹角中位数 |','|---|---:|---:|---:|---:|---:|']
+    lines=['# 实际执行的论文PN对照','','## 相同输入的指令差异','','单位：角速度deg/s，加速度g。下表是同一已有PN计算使用不同rate的结果，不是游戏直接记录的请求。投影／限幅使用冻结生产配置。','','| 样本 | 记录数 | 轴向差RMS | 原始请求差RMS | 投影限幅后差RMS | 请求夹角中位数 |','|---|---:|---:|---:|---:|---:|---:|']
     for name,s in commands['groups'].items():
         m=s['metrics'];lines.append(f"| {name} | {s['n']} | {m['lambda_difference_deg_s']['rms']:.6f} | {m['paper_difference_g']['rms']:.6f} | {m['paper_limited_difference_g']['rms']:.6f} | {m['paper_angle_deg']['median']:.6f} |")
-    lines+=['','## 条件TRK窗口自由积分','','每段只初始化一次位置/速度/姿态；后续不重置。只替换制导端rate，原始完整rate仍用于共同回放适配器。最大误差按共同原始保存节点评分。','','| 案例 | rate选择 | 最大3D偏差m | 末点3D偏差m | 最大横向偏差m | 最大速率差m/s | 末点高度差m |','|---|---|---:|---:|---:|---:|---:|']
+    lines+=['','## 条件TRK窗口自由积分','','每段只初始化一次位置/速度/姿态；后续不重置。只替换制导端rate，原始完整rate仍用于共同回放适配器。最大误差按共同原始保存节点评分。','','| 案例 | rate选择 | 最大3D偏差m | 末点3D偏差m | 最大横向偏差m | 最大速率差m/s | 末点高度差m |','|---|---|---:|---:|---:|---:|---:|---:|']
     for uid,c in summary['cases'].items():
         for r in c['models']:lines.append(f"| {uid} | {r['kind']} | {r['maximum_position_error_m']:.6f} | {r['terminal']['position_error_m']:.6f} | {r['maximum_cross_track_m']:.6f} | {r['maximum_abs_speed_error_mps']:.6f} | {r['terminal']['position_error_xyz_runtime_m'][1]:.6f} |")
     lines+=['','## 积分敏感性','','| 案例 | rate选择 | 4到8子步的最大轨迹差m |','|---|---|---:|']
