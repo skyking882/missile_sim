@@ -1,0 +1,127 @@
+name: Paper PN verified delivery
+on:
+  push:
+    branches: ['experiment/paper-pn-comparison-20261020']
+    paths: ['.github/workflows/paper-pn-delivery.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  deliver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Exact public source without submodules
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin https://github.com/skyking882/missile_sim.git
+          git -c submodule.recurse=false fetch --depth=1 origin "$GITHUB_SHA"
+          git -c submodule.recurse=false checkout --detach FETCH_HEAD
+      - name: Restore completed command and flight experiments
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 39472539243 --repo skyking882/missile_sim --name paper-pn-commands-20261020 --dir received/commands
+          gh run download 39472539243 --repo skyking882/missile_sim --name paper-pn-flights-20261020 --dir received/flights
+      - run: sudo apt-get update -qq && sudo apt-get install -y python3-numpy python3-scipy
+      - name: Assemble exact portable source and inputs
+        run: |
+          set -euo pipefail
+          mkdir -p delivery/input delivery/commands delivery/flights delivery/receipts/commands delivery/receipts/flights delivery/audits/paper_pn_20261020 delivery/tools delivery/config delivery/data/profile_sets/2.59.0.27/missiles delivery/workflows
+          cp -R received/commands/input/. delivery/input/
+          cp received/commands/results/* delivery/commands/
+          cp received/flights/results/* delivery/flights/
+          cp received/commands/receipts/* delivery/receipts/commands/
+          cp received/flights/receipts/* delivery/receipts/flights/
+          cp audits/paper_pn_20261020/* delivery/audits/paper_pn_20261020/
+          cp audits/paper_pn_20261020/RESULTS.md delivery/
+          cp tools/review_paper_pn_20261020.py delivery/tools/
+          cp tools/reproduce_paper_pn_20261020.py delivery/reproduce.py
+          cp config/effective_surface_defaults.json delivery/config/
+          cp data/profile_sets/2.59.0.27/missiles/su_r_77_1.json delivery/data/profile_sets/2.59.0.27/missiles/
+          find src/aim120_model -type f -name '*.py' -exec cp --parents '{}' delivery/ \;
+          cp .github/workflows/paper-pn-*.yml delivery/workflows/
+          git rev-parse HEAD > delivery/SOURCE_COMMIT.txt
+          git fetch --depth=1 origin ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d
+          git diff --exit-code ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d HEAD -- src tests config data
+          printf 'src tests config data unchanged from ab93a013dbe5ed8010e3f925a4bcbc1fa83d6f8d\n' > delivery/receipts/UNCHANGED.txt
+          cmp received/commands/input/MANIFEST.json received/flights/input/MANIFEST.json
+      - name: Independent spherical derivative and production limiter checks
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/tools/review_paper_pn_20261020.py --input delivery/input --commands delivery/commands --flights delivery/flights --out delivery/review 2>&1 | tee delivery/receipts/review.log
+      - name: Readme and package manifest
+        run: |
+          cat > delivery/README.md <<'MD'
+          # Paper-defined spherical-frame PN versus WT replay input
+
+          Read RESULTS.md and review/TABLES.md. This is a controlled War Thunder replay/model experiment, not a real-weapon implementation, recovery of private game source, or proof that the game contains a coordinate bug.
+
+          Original law: Yang & Yang (1996), JGCD19(3),721-724, doi10.2514/3.21685, Eq8c/9a. The author-hosted full-text HTML was read; inaccessible PDF download endpoints were not visually inspected. The spherical-frame spin was independently derived and verified against finite-difference orthonormal-frame rotation. No article PDF/text is redistributed here.
+
+          ## Offline reproduction
+
+          Python3 with NumPy and SciPy is required. The actual CI used Ubuntu Python3.12, NumPy1.26.4 and SciPy1.11.4.
+
+          ```bash
+          python3 reproduce.py /absolute/path/to/new-output
+          ```
+
+          The entrypoint verifies package hashes, recomputes36,254 fixed-input PN comparisons, reruns10 fixed-window candidate trajectories plus6 integration sensitivities, independently reviews formula/limiter/input isolation, and compares all numerical JSON outputs. It makes no network calls and refuses an existing output directory. Float comparison tolerance is absolute1e-8+relative1e-11; integer/text/structure equality is exact. This tolerance is computational, not a physical accuracy criterion.
+
+          ## Input boundary
+
+          Both simulations start once at an existing continuous TRK boundary, not at launch. Initial p/v/Q are recorded; initial body omega is estimated from the preceding pose. Controller integrals and previous errors are unknown and initialized identically to zero. Thereafter p/v/Q are freely integrated. The same recorded AngularObservation adapter supplies all candidates and reconstructs target motion using the full original rate; only the angular rate finally consumed by PN is varied. No autonomous radar, capture, held or target-association model is being validated here.
+
+          World-up is the primary fixed spherical pole. Two other predeclared fixed poles are reported without selecting a different best pole per case. Gain, loft, projection/limit, control and plant are unchanged. Raw PN requests are not measured game vehicle accelerations. Formula similarity, agreement with recorded rate, and game-source identification are separate claims.
+
+          input/ preserves original parsed records and source hashes. commands/ has every fixed-input calculation. flights/ preserves all candidates and4/8-substep traces. review/ checks an independent scalar azimuth derivative, the production acceleration limiter, raw SHA identities, identical initial states and common target motion. src/ and config/ are unchanged frozen source needed for offline rerun. No fonts, proprietary game executables, or full copyrighted paper are included.
+          MD
+          python3 - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          root=Path('delivery');rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2));print('MANIFEST_BEFORE_RERUN',len(rows))
+          PY
+      - name: Actually rerun packaged inputs and compare outputs
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -u delivery/reproduce.py "$RUNNER_TEMP/paper-pn-rerun" 2>&1 | tee delivery/receipts/reproduction.log
+          cp "$RUNNER_TEMP/paper-pn-rerun/REPRODUCTION.json" delivery/receipts/
+      - name: Final complete validation receipt
+        run: |
+          python3 - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          root=Path('delivery');r=json.loads((root/'receipts/REPRODUCTION.json').read_text());v=json.loads((root/'review/verification.json').read_text())
+          (root/'VERIFICATION.md').write_text('# Completed independent arithmetic and numerical reproduction\n\n```json\n'+json.dumps({k:x for k,x in r.items() if k!='details'},indent=2)+'\n```\n\n```json\n'+json.dumps(v,indent=2)+'\n```\n\nSame-data checks, not new blind game trials or independent AI reviewers. Production source/parameters were not modified.\n')
+          rows=[dict(path=p.relative_to(root).as_posix(),bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(root.rglob('*')) if p.is_file() and p!=root/'MANIFEST.json']
+          (root/'MANIFEST.json').write_text(json.dumps(rows,indent=2))
+          for x in rows:
+              p=root/x['path'];assert p.stat().st_size==x['bytes'] and hashlib.sha256(p.read_bytes()).hexdigest()==x['sha256']
+          print('FINAL_DELIVERY',json.dumps(dict(files_verified=len(rows),bytes=sum(x['bytes'] for x in rows),reproduction={k:x for k,x in r.items() if k!='details'})),flush=True)
+          PY
+      - name: Preserve actual failure diagnostics
+        if: failure()
+        run: |
+          cp "$RUNNER_TEMP/paper-pn-rerun/REPRODUCTION.json" delivery/receipts/ || true
+          tail -60 "$RUNNER_TEMP/paper-pn-rerun/commands.log" || true
+          tail -60 "$RUNNER_TEMP/paper-pn-rerun/flights.log" || true
+          tail -60 "$RUNNER_TEMP/paper-pn-rerun/review.log" || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: missile-sim-paper-pn-reviewed-20261020
+          path: delivery/
+          retention-days: 14
+          compression-level: 1
