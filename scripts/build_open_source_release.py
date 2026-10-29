@@ -107,6 +107,16 @@ for profile_set in ("2.57.1.107", "2.59.0.27"):
         relative = profile_path.relative_to(ROOT).as_posix()
         FILES[relative] = relative
 
+# The reconstructed candidate owns its arithmetic and data inside the package.
+# Include only source and JSON-decoded resource formats, never local caches.
+for candidate_path in sorted((ROOT / "src/aim120_model/reconstructed").rglob("*")):
+    if candidate_path.is_file() and candidate_path.suffix in {".py", ".json", ".blk"}:
+        relative = candidate_path.relative_to(ROOT).as_posix()
+        FILES[relative] = relative
+for test_name in ("test_reconstructed_infrared.py", "test_reconstructed_sarh.py", "test_reconstructed_runtime.py", "test_shared_responses.py"):
+    relative = "tests/" + test_name
+    FILES[relative] = relative
+
 FORBIDDEN_BYTE_PATTERNS = (
     b"cf-turnstile-response",
     b"token_sha256",

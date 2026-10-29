@@ -1,0 +1,1012 @@
+{
+  "source_version": "2.59.0.80",
+  "representation": "JSON-decoded original .blk resources; not BLKX text syntax",
+  "missiles": {
+    "atam_mistral": {
+      "file": "atam_mistral.blk",
+      "variants": [
+        "atam_mistral.blk"
+      ],
+      "unsupported_features": []
+    },
+    "atam_mistral_a129": {
+      "file": "atam_mistral_a129.blk",
+      "variants": [
+        "atam_mistral_a129.blk"
+      ],
+      "unsupported_features": []
+    },
+    "br_maa_1": {
+      "file": "br_maa_1.blk",
+      "variants": [
+        "br_maa_1.blk",
+        "br_maa_1_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "cn_ld10": {
+      "file": "cn_ld10.blk",
+      "variants": [
+        "cn_ld10.blk"
+      ],
+      "unsupported_features": []
+    },
+    "cn_pf10": {
+      "file": "cn_pf10.blk",
+      "variants": [
+        "cn_pf10.blk"
+      ],
+      "unsupported_features": []
+    },
+    "cn_pl11": {
+      "file": "cn_pl11.blk",
+      "variants": [
+        "cn_pl11.blk"
+      ],
+      "unsupported_features": []
+    },
+    "cn_pl12": {
+      "file": "cn_pl12.blk",
+      "variants": [
+        "cn_pl12.blk",
+        "cn_pl12_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "cn_pl12a": {
+      "file": "cn_pl12a.blk",
+      "variants": [
+        "cn_pl12a.blk",
+        "cn_pl12a_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "cn_pl15": {
+      "file": "cn_pl15.blk",
+      "variants": [
+        "cn_pl15.blk",
+        "cn_pl15_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "cn_pl8b": {
+      "file": "cn_pl8b.blk",
+      "variants": [
+        "cn_pl8b.blk",
+        "cn_pl8b_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "cn_sd10a": {
+      "file": "cn_sd10a.blk",
+      "variants": [
+        "cn_sd10a.blk",
+        "cn_sd10a_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "cn_ty_90": {
+      "file": "cn_ty_90.blk",
+      "variants": [
+        "cn_ty_90.blk"
+      ],
+      "unsupported_features": []
+    },
+    "de_x4_ruhrstahl": {
+      "file": "de_x4_ruhrstahl.blk",
+      "variants": [
+        "de_x4_ruhrstahl.blk"
+      ],
+      "unsupported_features": [
+        "command_guidance"
+      ]
+    },
+    "fr_aa20": {
+      "file": "fr_aa20.blk",
+      "variants": [
+        "fr_aa20.blk"
+      ],
+      "unsupported_features": [
+        "command_guidance"
+      ]
+    },
+    "fr_matra_super_530d": {
+      "file": "fr_matra_super_530d.blk",
+      "variants": [
+        "fr_matra_super_530d.blk",
+        "fr_matra_super_530d_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "fr_matra_super_530f": {
+      "file": "fr_matra_super_530f.blk",
+      "variants": [
+        "fr_matra_super_530f.blk",
+        "fr_matra_super_530f_default.blk",
+        "fr_matra_super_530f_mirage_2000.blk",
+        "fr_matra_super_530f_mirage_2000_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "fr_mica_em": {
+      "file": "fr_mica_em.blk",
+      "variants": [
+        "fr_mica_em.blk",
+        "fr_mica_em_default.blk"
+      ],
+      "unsupported_features": [
+        "thrust_vector"
+      ]
+    },
+    "fr_r_511_matra": {
+      "file": "fr_r_511_matra.blk",
+      "variants": [
+        "fr_r_511_matra.blk"
+      ],
+      "unsupported_features": []
+    },
+    "fr_r_530_matra_ir": {
+      "file": "fr_r_530_matra_ir.blk",
+      "variants": [
+        "fr_r_530_matra_ir.blk"
+      ],
+      "unsupported_features": []
+    },
+    "fr_r_530_matra_radar": {
+      "file": "fr_r_530_matra_radar.blk",
+      "variants": [
+        "fr_r_530_matra_radar.blk"
+      ],
+      "unsupported_features": []
+    },
+    "fr_r_550_magic": {
+      "file": "fr_r_550_magic.blk",
+      "variants": [
+        "fr_r_550_magic.blk"
+      ],
+      "unsupported_features": []
+    },
+    "fr_r_550_magic_2": {
+      "file": "fr_r_550_magic_2.blk",
+      "variants": [
+        "fr_r_550_magic_2.blk",
+        "fr_r_550_magic_2_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "il_derby": {
+      "file": "il_derby.blk",
+      "variants": [
+        "il_derby.blk",
+        "il_derby_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "il_pyton_3": {
+      "file": "il_pyton_3.blk",
+      "variants": [
+        "il_pyton_3.blk",
+        "il_pyton_3_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "il_pyton_4": {
+      "file": "il_pyton_4.blk",
+      "variants": [
+        "il_pyton_4.blk"
+      ],
+      "unsupported_features": []
+    },
+    "il_shafrir_1": {
+      "file": "il_shafrir_1.blk",
+      "variants": [
+        "il_shafrir_1.blk"
+      ],
+      "unsupported_features": []
+    },
+    "il_shafrir_2": {
+      "file": "il_shafrir_2.blk",
+      "variants": [
+        "il_shafrir_2.blk",
+        "il_shafrir_2_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "ir_fakour_90": {
+      "file": "ir_fakour_90.blk",
+      "variants": [
+        "ir_fakour_90.blk"
+      ],
+      "unsupported_features": []
+    },
+    "ir_sedjil": {
+      "file": "ir_sedjil.blk",
+      "variants": [
+        "ir_sedjil.blk"
+      ],
+      "unsupported_features": []
+    },
+    "il_aspide_1a": {
+      "file": "it_aspide_1a.blk",
+      "variants": [
+        "it_aspide_1a.blk"
+      ],
+      "unsupported_features": []
+    },
+    "jp_aam3": {
+      "file": "jp_aam3.blk",
+      "variants": [
+        "jp_aam3.blk",
+        "jp_aam3_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "jp_aam4": {
+      "file": "jp_aam4.blk",
+      "variants": [
+        "jp_aam4.blk",
+        "jp_aam4_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r3s": {
+      "file": "ro_a91.blk",
+      "variants": [
+        "ro_a91.blk",
+        "ro_a91_default.blk",
+        "su_r_3s.blk",
+        "su_r_3s_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "r_darter": {
+      "file": "r_darter.blk",
+      "variants": [
+        "r_darter.blk",
+        "r_darter_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_9m336": {
+      "file": "su_9m336.blk",
+      "variants": [
+        "su_9m336.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_9m342": {
+      "file": "su_9m342.blk",
+      "variants": [
+        "su_9m342.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_9m39": {
+      "file": "su_9m39.blk",
+      "variants": [
+        "su_9m39.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_pl2": {
+      "file": "su_pl2.blk",
+      "variants": [
+        "su_pl2.blk",
+        "su_pl2_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_pl5b": {
+      "file": "su_pl5b.blk",
+      "variants": [
+        "su_pl5b.blk",
+        "su_pl5b_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_pl5c": {
+      "file": "su_pl5c.blk",
+      "variants": [
+        "su_pl5c.blk",
+        "su_pl5c_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "pl_5e2": {
+      "file": "su_pl5e2.blk",
+      "variants": [
+        "su_pl5e2.blk",
+        "su_pl5e2_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_pl7": {
+      "file": "su_pl7.blk",
+      "variants": [
+        "su_pl7.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_pl8": {
+      "file": "su_pl8.blk",
+      "variants": [
+        "su_pl8.blk",
+        "su_pl8_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "cn_pl9": {
+      "file": "su_pl9.blk",
+      "variants": [
+        "su_pl9.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_rvv_ae": {
+      "file": "su_rvv_ae.blk",
+      "variants": [
+        "su_rvv_ae.blk",
+        "su_rvv_ae_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_77_1": {
+      "file": "su_r_77_1.blk",
+      "variants": [
+        "su_rvv_sd.blk",
+        "su_rvv_sd_default.blk",
+        "su_r_77_1.blk",
+        "su_r_77_1_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r13m": {
+      "file": "su_r_13m.blk",
+      "variants": [
+        "su_r_13m.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r13m1": {
+      "file": "su_r_13m1.blk",
+      "variants": [
+        "su_r_13m1.blk",
+        "su_r_13m1_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r23r": {
+      "file": "su_r_23r.blk",
+      "variants": [
+        "su_r_23r.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_23t": {
+      "file": "su_r_23t.blk",
+      "variants": [
+        "su_r_23t.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_24r": {
+      "file": "su_r_24r.blk",
+      "variants": [
+        "su_r_24r.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_24t": {
+      "file": "su_r_24t.blk",
+      "variants": [
+        "su_r_24t.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_27er": {
+      "file": "su_r_27er.blk",
+      "variants": [
+        "su_r_27er.blk",
+        "su_r_27er_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_27er1": {
+      "file": "su_r_27er1.blk",
+      "variants": [
+        "su_r_27er1.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_27et": {
+      "file": "su_r_27et.blk",
+      "variants": [
+        "su_r_27et.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_27et1": {
+      "file": "su_r_27et1.blk",
+      "variants": [
+        "su_r_27et1.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_27r": {
+      "file": "su_r_27r.blk",
+      "variants": [
+        "su_r_27r.blk",
+        "su_r_27r_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_27r1": {
+      "file": "su_r_27r1.blk",
+      "variants": [
+        "su_r_27r1.blk",
+        "su_r_27r1_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_27t": {
+      "file": "su_r_27t.blk",
+      "variants": [
+        "su_r_27t.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_27t1": {
+      "file": "su_r_27t1.blk",
+      "variants": [
+        "su_r_27t1.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r3r": {
+      "file": "su_r_3r.blk",
+      "variants": [
+        "su_r_3r.blk",
+        "su_r_3r_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_40rd": {
+      "file": "su_r_40rd.blk",
+      "variants": [
+        "su_r_40rd.blk",
+        "su_r_40rd_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_40td": {
+      "file": "su_r_40td.blk",
+      "variants": [
+        "su_r_40td.blk",
+        "su_r_40td_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_60": {
+      "file": "su_r_60.blk",
+      "variants": [
+        "su_r_60.blk",
+        "su_r_60_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_60m": {
+      "file": "su_r_60m.blk",
+      "variants": [
+        "su_r_60m.blk",
+        "su_r_60m_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_60mk": {
+      "file": "su_r_60mk.blk",
+      "variants": [
+        "su_r_60mk.blk",
+        "su_r_60mk_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "su_r_73": {
+      "file": "su_r_73.blk",
+      "variants": [
+        "su_r_73.blk",
+        "su_r_73_default.blk"
+      ],
+      "unsupported_features": [
+        "thrust_vector"
+      ]
+    },
+    "su_r_73e": {
+      "file": "su_r_73e.blk",
+      "variants": [
+        "su_r_73e.blk",
+        "su_r_73e_default.blk"
+      ],
+      "unsupported_features": [
+        "thrust_vector"
+      ]
+    },
+    "su_r_77": {
+      "file": "su_r_77.blk",
+      "variants": [
+        "su_r_77.blk",
+        "su_r_77_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "swd_rb24": {
+      "file": "swd_rb24.blk",
+      "variants": [
+        "swd_rb24.blk",
+        "swd_rb24_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "swd_rb24j": {
+      "file": "swd_rb24j.blk",
+      "variants": [
+        "swd_rb24j.blk",
+        "swd_rb24j_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "swd_rb27": {
+      "file": "swd_rb27.blk",
+      "variants": [
+        "swd_rb27.blk"
+      ],
+      "unsupported_features": []
+    },
+    "swd_rb28": {
+      "file": "swd_rb28.blk",
+      "variants": [
+        "swd_rb28.blk"
+      ],
+      "unsupported_features": []
+    },
+    "swd_rb71": {
+      "file": "swd_rb71.blk",
+      "variants": [
+        "swd_rb71.blk",
+        "swd_rb71_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "swd_rb74": {
+      "file": "swd_rb74.blk",
+      "variants": [
+        "swd_rb74.blk",
+        "swd_rb74_bol_pod.blk",
+        "swd_rb74_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "swd_rb74m": {
+      "file": "swd_rb74m.blk",
+      "variants": [
+        "swd_rb74m.blk",
+        "swd_rb74m_bol_pod.blk",
+        "swd_rb74m_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "swd_rb99": {
+      "file": "swd_rb99.blk",
+      "variants": [
+        "swd_rb99.blk",
+        "swd_rb99_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "sws_flz_lwf_63": {
+      "file": "sws_flz_lwf_63.blk",
+      "variants": [
+        "sws_flz_lwf_63.blk"
+      ],
+      "unsupported_features": []
+    },
+    "sws_flz_lwf_63_75": {
+      "file": "sws_flz_lwf_63_75.blk",
+      "variants": [
+        "sws_flz_lwf_63_75.blk"
+      ],
+      "unsupported_features": []
+    },
+    "sws_flz_lwf_63_80": {
+      "file": "sws_flz_lwf_63_80.blk",
+      "variants": [
+        "sws_flz_lwf_63_80.blk"
+      ],
+      "unsupported_features": []
+    },
+    "sws_flz_lwf_ll_64": {
+      "file": "sws_flz_lwf_ll_64.blk",
+      "variants": [
+        "sws_flz_lwf_ll_64.blk"
+      ],
+      "unsupported_features": []
+    },
+    "uk_fireflash": {
+      "file": "uk_fireflash.blk",
+      "variants": [
+        "uk_fireflash.blk"
+      ],
+      "unsupported_features": [
+        "command_guidance"
+      ]
+    },
+    "uk_firestreak": {
+      "file": "uk_firestreak.blk",
+      "variants": [
+        "uk_firestreak.blk",
+        "uk_firestreak_default.blk",
+        "uk_firestreak_javelin.blk"
+      ],
+      "unsupported_features": []
+    },
+    "uk_redtop": {
+      "file": "uk_redtop.blk",
+      "variants": [
+        "uk_redtop.blk"
+      ],
+      "unsupported_features": []
+    },
+    "uk_skyflash_aim_7": {
+      "file": "uk_skyflash_aim_7.blk",
+      "variants": [
+        "uk_skyflash_aim_7.blk"
+      ],
+      "unsupported_features": []
+    },
+    "uk_skyflash_aim_7_dogfight": {
+      "file": "uk_skyflash_aim_7_dogfight.blk",
+      "variants": [
+        "uk_skyflash_aim_7_dogfight.blk",
+        "uk_skyflash_aim_7_dogfight_default.blk",
+        "uk_skyflash_aim_7_dogfight_tornado.blk",
+        "uk_skyflash_aim_7_dogfight_tornado_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "uk_skyflash_temp": {
+      "file": "uk_skyflash_temp.blk",
+      "variants": [
+        "uk_skyflash_temp.blk"
+      ],
+      "unsupported_features": []
+    },
+    "uk_sraam": {
+      "file": "uk_sraam.blk",
+      "variants": [
+        "uk_sraam.blk",
+        "uk_sraam_default.blk"
+      ],
+      "unsupported_features": [
+        "thrust_vector"
+      ]
+    },
+    "us_agm_122": {
+      "file": "us_agm_122.blk",
+      "variants": [
+        "us_agm_122.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim4g_falcon": {
+      "file": "us_aim4g_falcon.blk",
+      "variants": [
+        "us_aim4d_falcon.blk",
+        "us_aim4g_falcon.blk",
+        "us_aim4g_falcon_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim4f_falcon": {
+      "file": "us_aim4f_falcon.blk",
+      "variants": [
+        "us_aim4f_falcon.blk",
+        "us_aim4f_falcon_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim7c_sparrow": {
+      "file": "us_aim7c_sparrow.blk",
+      "variants": [
+        "us_aim7c_sparrow.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim7d_sparrow": {
+      "file": "us_aim7d_sparrow.blk",
+      "variants": [
+        "us_aim7d_sparrow.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim7e2_dogfight_sparrow": {
+      "file": "us_aim7e2_dogfight_sparrow.blk",
+      "variants": [
+        "us_aim7e2_dogfight_sparrow.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim7e_sparrow": {
+      "file": "us_aim7e_sparrow.blk",
+      "variants": [
+        "us_aim7e_sparrow.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim7f_sparrow": {
+      "file": "us_aim7f_sparrow.blk",
+      "variants": [
+        "us_aim7f_sparrow.blk",
+        "us_aim7f_sparrow_default.blk",
+        "us_aim7f_sparrow_fa_18.blk",
+        "us_aim7f_sparrow_f_14.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim7m_sparrow": {
+      "file": "us_aim7m_sparrow.blk",
+      "variants": [
+        "us_aim7m_sparrow.blk",
+        "us_aim7m_sparrow_default.blk",
+        "us_aim7m_sparrow_fa_18.blk",
+        "us_aim7m_sparrow_f_14.blk",
+        "us_aim7m_sparrow_f_15.blk",
+        "us_aim7m_sparrow_f_15_default.blk",
+        "us_aim7m_sparrow_f_16.blk",
+        "us_aim7m_sparrow_f_16_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim7p_sparrow": {
+      "file": "us_aim7p_sparrow_fa_18.blk",
+      "variants": [
+        "us_aim7p_sparrow_fa_18.blk",
+        "us_aim7p_sparrow_fa_18_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim92_stinger": {
+      "file": "us_aim92_stinger.blk",
+      "variants": [
+        "us_aim92_stinger.blk",
+        "us_aim92_stinger_atas_tiger.blk",
+        "us_aim92_stinger_left.blk",
+        "us_aim92_stinger_right.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9b_fgw_2_sidewinder": {
+      "file": "us_aim9b_fgw_2_sidewinder.blk",
+      "variants": [
+        "us_aim9b_fgw_2_sidewinder.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9b_sidewinder": {
+      "file": "us_aim9b_sidewinder.blk",
+      "variants": [
+        "us_aim9b_sidewinder.blk",
+        "us_aim9b_sidewinder_cwp.blk",
+        "us_aim9b_sidewinder_default.blk",
+        "us_aim9b_sidewinder_default_group.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9c_sidewinder": {
+      "file": "us_aim9c_sidewinder.blk",
+      "variants": [
+        "us_aim9c_sidewinder.blk",
+        "us_aim9c_sidewinder_default.blk",
+        "us_aim9c_sidewinder_default_group.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9d_sidewinder": {
+      "file": "us_aim9d_sidewinder.blk",
+      "variants": [
+        "us_aim9d_sidewinder.blk",
+        "us_aim9d_sidewinder_cwp.blk",
+        "us_aim9d_sidewinder_default.blk",
+        "us_aim9d_sidewinder_default_group.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9e_sidewinder": {
+      "file": "us_aim9e_sidewinder.blk",
+      "variants": [
+        "us_aim9e_sidewinder.blk",
+        "us_aim9e_sidewinder_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9g_sidewinder": {
+      "file": "us_aim9g_sidewinder.blk",
+      "variants": [
+        "us_aim9g_sidewinder.blk",
+        "us_aim9g_sidewinder_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9h_sidewinder": {
+      "file": "us_aim9h_sidewinder.blk",
+      "variants": [
+        "us_aim9h_sidewinder.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9j_sidewinder": {
+      "file": "us_aim9j_sidewinder.blk",
+      "variants": [
+        "us_aim9j_sidewinder.blk",
+        "us_aim9j_sidewinder_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9l_i_1_sidewinder": {
+      "file": "us_aim9l_i_1_sidewinder.blk",
+      "variants": [
+        "us_aim9l_i_1_sidewinder.blk",
+        "us_aim9l_i_1_sidewinder_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9l_i_sidewinder": {
+      "file": "us_aim9l_i_sidewinder.blk",
+      "variants": [
+        "us_aim9l_i_sidewinder.blk",
+        "us_aim9l_i_sidewinder_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9l_sidewinder": {
+      "file": "us_aim9l_sidewinder.blk",
+      "variants": [
+        "us_aim9l_sidewinder.blk",
+        "us_aim9l_sidewinder_bol_pod.blk",
+        "us_aim9l_sidewinder_default.blk",
+        "us_aim9l_sidewinder_default_bol_pod.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9m_sidewinder": {
+      "file": "us_aim9m_sidewinder.blk",
+      "variants": [
+        "us_aim9m_sidewinder.blk",
+        "us_aim9m_sidewinder_bol_pod.blk",
+        "us_aim9m_sidewinder_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9n_sidewinder": {
+      "file": "us_aim9n_sidewinder.blk",
+      "variants": [
+        "us_aim9n_sidewinder.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9p4_sidewinder": {
+      "file": "us_aim9p4_sidewinder.blk",
+      "variants": [
+        "us_aim9p4_sidewinder.blk",
+        "us_aim9p4_sidewinder_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim9p_sidewinder": {
+      "file": "us_aim9p_sidewinder.blk",
+      "variants": [
+        "us_aim9p_sidewinder.blk",
+        "us_aim9p_sidewinder_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim_120a": {
+      "file": "us_aim_120a.blk",
+      "variants": [
+        "us_aim_120a.blk",
+        "us_aim_120a_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim_120b": {
+      "file": "us_aim_120b.blk",
+      "variants": [
+        "us_aim_120b.blk",
+        "us_aim_120b_bol_pod.blk",
+        "us_aim_120b_default.blk",
+        "us_aim_120b_default_switzerland.blk",
+        "us_aim_120b_switzerland.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim_120c_5": {
+      "file": "us_aim_120c_5.blk",
+      "variants": [
+        "us_aim_120c_5.blk",
+        "us_aim_120c_5_default.blk",
+        "us_aim_120c_5_default_switzerland.blk",
+        "us_aim_120c_5_switzerland.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim_120c_7": {
+      "file": "us_aim_120c_7.blk",
+      "variants": [
+        "us_aim_120c_7.blk",
+        "us_aim_120c_7_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim_120d": {
+      "file": "us_aim_120d.blk",
+      "variants": [
+        "us_aim_120d.blk",
+        "us_aim_120d_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim_26b": {
+      "file": "us_aim_26b.blk",
+      "variants": [
+        "us_aim_26b.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim_54a": {
+      "file": "us_aim_54a.blk",
+      "variants": [
+        "us_aim_54a.blk",
+        "us_aim_54a_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim_54b": {
+      "file": "us_aim_54b.blk",
+      "variants": [
+        "us_aim_54b.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim_54c": {
+      "file": "us_aim_54c.blk",
+      "variants": [
+        "us_aim_54c.blk",
+        "us_aim_54c_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_aim_54c_plus": {
+      "file": "us_aim_54c_plus.blk",
+      "variants": [
+        "us_aim_54c_plus.blk",
+        "us_aim_54c_plus_default.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_fim_92b": {
+      "file": "us_fim-92b.blk",
+      "variants": [
+        "us_fim-92b.blk"
+      ],
+      "unsupported_features": []
+    },
+    "us_starstreak": {
+      "file": "us_starstreak.blk",
+      "variants": [
+        "us_starstreak.blk"
+      ],
+      "unsupported_features": [
+        "beam_riding",
+        "command_guidance"
+      ]
+    }
+  }
+}

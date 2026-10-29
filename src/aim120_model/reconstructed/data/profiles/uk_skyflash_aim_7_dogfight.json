@@ -1,0 +1,540 @@
+{
+  "schema_version": 1,
+  "missile_id": "uk_skyflash_aim_7_dogfight",
+  "display_name": "Skyflash Dogfight",
+  "country": "United Kingdom",
+  "category": "air_to_air",
+  "model_status": "experimental",
+  "model_family": {
+    "dynamics": "h2_reduced_order",
+    "propulsion": "staged_solid_rocket",
+    "aerodynamics": "conventional_fin",
+    "control": "aerodynamic_fin",
+    "guidance": "pn"
+  },
+  "geometry": {
+    "initial_mass_kg": 195.04,
+    "caliber_m": 0.2032,
+    "length_m": 3.6676,
+    "wing_area_multiplier": 3.25,
+    "reference_area_mode": "caliber_times_wing_multiplier",
+    "fin_moment_arm_m": 0.052
+  },
+  "propulsion": {
+    "stages": [
+      {
+        "name": "boost",
+        "duration_s": 2.8,
+        "thrust_n": 31143.83,
+        "mass_lost_kg": 41.54999999999998,
+        "isp_s": 214.01210945520944,
+        "fire_delay_s": 0.25,
+        "parameter_sources": {
+          "duration_s": {
+            "kind": "datamine",
+            "source_field": "rocket.timeFire",
+            "notes": "直接读取顶层燃烧时间。"
+          },
+          "thrust_n": {
+            "kind": "datamine",
+            "source_field": "rocket.force",
+            "notes": "直接读取顶层推力。"
+          },
+          "mass_lost_kg": {
+            "kind": "derived",
+            "source_field": "rocket.mass - rocket.massEnd",
+            "notes": "由阶段开始质量和阶段末质量相减。"
+          },
+          "isp_s": {
+            "kind": "derived",
+            "source_field": "thrust_n / (mass_flow_kg_s * g0)",
+            "notes": "由推力、阶段失重和公共重力常数计算。"
+          }
+        }
+      }
+    ],
+    "mach_thrust_correction": null,
+    "parameter_sources": {
+      "stages": {
+        "kind": "datamine",
+        "source_field": "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight.blkx",
+        "notes": "阶段由顶层 timeFire/force 或嵌套 propulsion impulse 批量解析。"
+      },
+      "mach_thrust_correction": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "该条目未声明可直接映射的 Mach 推力修正。"
+      }
+    }
+  },
+  "aerodynamics": {
+    "cx_k": 1.4125,
+    "cy_k": 3.5,
+    "cx_vs_aoa": {
+      "model": "not_declared",
+      "coefficient_per_rad2": null
+    },
+    "max_cy_at_aoa": {
+      "value": null,
+      "aoa_rad": null
+    },
+    "fins_lateral_acceleration_g": 25.0,
+    "fin_moment_arm_m": 0.052,
+    "fin_aoa_limit_rad": {
+      "horizontal": 0.16,
+      "vertical": 0.16
+    },
+    "mach_drag_correction": {
+      "model": "not_declared",
+      "parameters": null
+    },
+    "mach_lift_correction": {
+      "model": "lookup_table",
+      "parameters": [
+        [
+          0.8,
+          0.815
+        ],
+        [
+          1.0,
+          1.0
+        ],
+        [
+          1.2,
+          1.0
+        ],
+        [
+          1.6,
+          0.874
+        ],
+        [
+          2.0,
+          0.698
+        ],
+        [
+          2.4,
+          0.629
+        ],
+        [
+          2.8,
+          0.562
+        ],
+        [
+          4.0,
+          0.436
+        ]
+      ]
+    },
+    "drag_scale": 1.0,
+    "lift_area_scale": 3.25,
+    "parameter_sources": {
+      "cx_k": {
+        "kind": "datamine",
+        "source_field": "rocket.CxK",
+        "notes": "直接读取轴向阻力系数标度。"
+      },
+      "cy_k": {
+        "kind": "datamine",
+        "source_field": "rocket.CyK",
+        "notes": "保留显式 CyK；缺失为 null。内部参考面积与运行时映射仍待识别。"
+      },
+      "cx_vs_aoa": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "本弹 rocket BLKX 未提供专属 CxAoA；共享 ballistics 值单独记录在来源 manifest，不填入本弹系数槽位。"
+      },
+      "max_cy_at_aoa": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "保留显式 CyMaxAoA；不把系数值解释为角度，未提供的角度为 null。"
+      },
+      "fins_lateral_acceleration_g": {
+        "kind": "assumed",
+        "source_field": "rocket.finsLatAccel",
+        "notes": "原始数值直接保留；加速度单位、参考工况及力通道含义尚未识别，字段名沿用 schema。"
+      },
+      "fin_moment_arm_m": {
+        "kind": "assumed",
+        "source_field": "rocket.distFromCmToStab",
+        "notes": "原始稳定性相关数值保留；实际力臂单位及力矩映射尚未独立识别。"
+      },
+      "fin_aoa_limit_rad": {
+        "kind": "datamine",
+        "source_field": "rocket.finsAoaHor/finsAoaVer",
+        "notes": "保留配平迎角限制的原始弧度值；字段名沿用既有 schema，不识别为实际舵偏角。"
+      },
+      "mach_drag_correction": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "datamine 未提供可直接映射的 Mach 阻力修正表。"
+      },
+      "mach_lift_correction": {
+        "kind": "datamine",
+        "source_field": "rocket.CyMachMult.CyMachMult*",
+        "notes": "按索引保留 Mach/升力乘子；插值及外推规则不由原始表证明。"
+      },
+      "drag_scale": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "中性候选标度 1.0；不是 datamine 识别结果。"
+      },
+      "lift_area_scale": {
+        "kind": "datamine",
+        "source_field": "rocket.wingAreaMult",
+        "notes": "直接读取翼面积标度。"
+      }
+    }
+  },
+  "performance": {
+    "maximum_speed_mps": 2000.0,
+    "maximum_distance_m": 50000.0,
+    "lifetime_s": 40.0,
+    "maximum_mach": 4.0,
+    "minimum_distance_m": 30.0,
+    "range_reference_m": 50000.0,
+    "load_factor_max_g": 25.0,
+    "limit_semantics": {
+      "maximum_speed_mps": "hard_limit",
+      "maximum_distance_m": "event_threshold",
+      "lifetime_s": "hard_limit"
+    },
+    "parameter_sources": {
+      "maximum_speed_mps": {
+        "kind": "datamine",
+        "source_field": "rocket.endSpeed",
+        "notes": "直接读取速度上限字段。"
+      },
+      "maximum_distance_m": {
+        "kind": "datamine",
+        "source_field": "rocket.maxDistance",
+        "notes": "直接读取最大距离事件字段。"
+      },
+      "lifetime_s": {
+        "kind": "datamine",
+        "source_field": "rocket.timeLife",
+        "notes": "直接读取寿命字段。"
+      },
+      "maximum_mach": {
+        "kind": "datamine",
+        "source_field": "rocket.machMax",
+        "notes": "直接读取 Mach 上限字段。"
+      },
+      "minimum_distance_m": {
+        "kind": "datamine",
+        "source_field": "rocket.minDistance",
+        "notes": "直接读取最小距离字段。"
+      },
+      "range_reference_m": {
+        "kind": "datamine",
+        "source_field": "rocket.rangeMax",
+        "notes": "直接读取显示/性能参考距离。"
+      },
+      "load_factor_max_g": {
+        "kind": "datamine",
+        "source_field": "rocket.loadFactorMax",
+        "notes": "保留最大过载/性能标示参数；不由此证明游戏对实际过载作硬裁剪。"
+      }
+    }
+  },
+  "guidance": {
+    "guidance_type": "pn",
+    "maximum_lateral_acceleration_g": 25.0,
+    "maximum_angular_rate_deg_s": 44.0,
+    "pn_gain": 4.0,
+    "lock_range_m": null,
+    "lofting_enabled": false,
+    "lofting_elevation_deg": 0.0,
+    "loft_exit_distance_m": null,
+    "loft_exit_time_to_go_s": null,
+    "flight_time_gain_table": null,
+    "proximity_radius_m": 15.25,
+    "seeker_type": "radar",
+    "parameter_sources": {
+      "guidance_type": {
+        "kind": "derived",
+        "source_field": "model_family.guidance",
+        "notes": "由原始制导结构和 loft 标志映射到显式 v1 模型族；不支持类型保持原值，不做 PN 退化。"
+      },
+      "maximum_lateral_acceleration_g": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.reqAccelMax",
+        "notes": "直接读取制导横向指令上限，不等同于实战达到过载。"
+      },
+      "maximum_angular_rate_deg_s": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.radarSeeker.rateMax",
+        "notes": "直接读取 seeker rateMax；语义是 seeker 角速率上限。"
+      },
+      "pn_gain": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.propNavMult",
+        "notes": "直接读取比例导引增益；非 PN 制导 profile 仅保留原始可用字段。"
+      },
+      "lock_range_m": {
+        "kind": "derived",
+        "source_field": "rocket.guidance.radarSeeker.rangeMax/range",
+        "notes": "缺少 lockDistance 时使用 seeker rangeMax/range 作为锁定距离代理。"
+      },
+      "lofting_enabled": {
+        "kind": "derived",
+        "source_field": "rocket.guidance.guidanceAutopilot.loftEnabled",
+        "notes": "存在 true 时映射为 pn_loft，否则按未启用处理。"
+      },
+      "lofting_elevation_deg": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "直接读取 loft 仰角；未声明时使用 0 度占位。"
+      },
+      "loft_exit_distance_m": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "datamine 未提供与此字段语义一致的退出距离。"
+      },
+      "loft_exit_time_to_go_s": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "datamine 未提供与此字段语义一致的剩余时间门槛。"
+      },
+      "flight_time_gain_table": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "按索引读取飞行时间控制增益表；缺失时保留 null，由运行时显式回退。"
+      },
+      "proximity_radius_m": {
+        "kind": "datamine",
+        "source_field": "rocket.proximityFuse.radius",
+        "notes": "优先读取 proximityFuse.radius；缺失时使用 shutterDamageRadius 作为代理。"
+      },
+      "seeker_type": {
+        "kind": "datamine",
+        "source_field": "rocket.guidanceType",
+        "notes": "直接读取 seeker 制导类型标签。"
+      },
+      "time_to_hit_gain_table": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "Raw knots preserved; an absent table means unit gain in the shared runtime."
+      }
+    },
+    "sensor_model": {
+      "active_radar": null,
+      "inertial_navigation": null,
+      "use_target_velocity": null,
+      "lock_after_launch": true,
+      "lock_timeout_s": 0.75,
+      "break_lock_max_time_s": 7.0,
+      "inertial_drift_speed_mps": null,
+      "datalink": null,
+      "reconnect_datalink": false,
+      "radar_seeker": {
+        "band": 8.0,
+        "active": null,
+        "angle_gate_rate_deg_s": 30.0,
+        "prolongation_time_max_s": 1.0,
+        "multipath_effect": [
+          0.0,
+          1.0,
+          60.0,
+          0.0
+        ],
+        "side_lobes_attenuation_db": -20.0,
+        "lock_angle_max_deg": 35.0,
+        "angle_max_deg": 46.0,
+        "rate_max_deg_s": 44.0,
+        "doppler_speed_gate": {
+          "filter_alpha": 0.2,
+          "filter_beta": 0.02,
+          "search_range_mps": 150.0
+        },
+        "dist_gate": {
+          "filter_alpha": null,
+          "filter_beta": null,
+          "search_range_m": null
+        },
+        "transmitter": {
+          "power": 200.0,
+          "antenna": {
+            "angle_half_sens_deg": 10.0,
+            "side_lobes_sensitivity_db": -30.0
+          }
+        },
+        "receiver": {
+          "rcs_m2": 2.0,
+          "range_m": 37000.0,
+          "range_max_m": 60000.0,
+          "time_gain_control": false,
+          "antenna": {
+            "angle_half_sens_deg": 10.0,
+            "side_lobes_sensitivity_db": -17.0
+          }
+        },
+        "doppler_speed": {
+          "presents": true,
+          "min_mps": -3000.0,
+          "max_mps": 3000.0,
+          "width_mps": 20.0,
+          "ref_width_mps": 100.0,
+          "signal_width_min_mps": 4.0
+        },
+        "distance": {
+          "presents": null,
+          "min_m": null,
+          "max_m": null,
+          "width_m": null,
+          "signal_width_min_m": null,
+          "ref_width_m": null
+        }
+      },
+      "parameter_sources": {
+        "active_radar": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.radarSeeker.active",
+          "notes": "直接读取主动雷达标志。"
+        },
+        "inertial_navigation": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.inertialNavigation",
+          "notes": "直接读取惯性导航标志。"
+        },
+        "use_target_velocity": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.useTargetVel",
+          "notes": "直接读取目标速度使用标志。"
+        },
+        "lock_after_launch": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.lockAfterLaunch",
+          "notes": "直接读取发射后锁定标志。"
+        },
+        "lock_timeout_s": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.lockTimeOut",
+          "notes": "直接读取锁定超时字段；本阶段只保留。"
+        },
+        "break_lock_max_time_s": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.breakLockMaxTime",
+          "notes": "直接读取惯性保持最大时间。"
+        },
+        "inertial_drift_speed_mps": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.inertialGuidance.inertialNavigationDriftSpeed",
+          "notes": "直接读取惯性导航漂移速度。"
+        },
+        "datalink": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.inertialGuidance.datalink",
+          "notes": "直接读取数据链标志。"
+        },
+        "reconnect_datalink": {
+          "kind": "assumed",
+          "source_field": null,
+          "notes": "原始字段缺失，按计划固定为 false。"
+        },
+        "radar_seeker": {
+          "kind": "datamine",
+          "source_field": "rocket.guidance.radarSeeker",
+          "notes": "保留主动雷达原始映射值。"
+        }
+      }
+    },
+    "loft_target_elevation_deg": null,
+    "loft_angle_to_acceleration_multiplier": null,
+    "loft_omega_max_deg_s": null,
+    "time_to_hit_gain_table": null
+  },
+  "control": {
+    "pid": {
+      "p": 0.0025,
+      "i": 0.029,
+      "d": 0.0008,
+      "integral_limit": 1.0
+    },
+    "base_indicated_speed_kmh": 1800.0,
+    "fin_command_limit": 1.0,
+    "actuator_time_constant_s": null,
+    "max_pitch_yaw_rate_deg_s": null,
+    "identified_controller": null,
+    "parameter_sources": {
+      "pid.p": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.accelControlProp",
+        "notes": "直接读取比例控制项。"
+      },
+      "pid.i": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.accelControlIntg",
+        "notes": "直接读取积分控制项。"
+      },
+      "pid.d": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.accelControlDiff",
+        "notes": "直接读取微分控制项。"
+      },
+      "pid.integral_limit": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.accelControlIntgLim",
+        "notes": "直接读取积分限幅。"
+      },
+      "base_indicated_speed_kmh": {
+        "kind": "datamine",
+        "source_field": "rocket.guidance.guidanceAutopilot.baseIndSpeed",
+        "notes": "直接读取自动驾驶仪基准指示空速；原始数值按 km/h 候选语义保留，确切求解公式尚未确认。"
+      },
+      "fin_command_limit": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "标准化舵面命令中性上限 1.0；datamine 未声明该接口量。"
+      },
+      "actuator_time_constant_s": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "datamine 未提供独立舵机时间常数。"
+      },
+      "max_pitch_yaw_rate_deg_s": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "datamine 未提供导弹俯仰/偏航速率上限。"
+      },
+      "identified_controller": {
+        "kind": "assumed",
+        "source_field": null,
+        "notes": "没有外部识别控制器结果；不得把 PID 与独立识别层混合。"
+      }
+    }
+  },
+  "provenance": {
+    "source_name": "War Thunder public datamine",
+    "source_version": "2.59.0.27",
+    "source_commit": "4ac255b829a27346b9300fccdc138362c2535fbe",
+    "retrieved_date": "2026-09-22",
+    "source_files": [
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight.blkx",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight_default.blkx",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight_tornado.blkx",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight_tornado_default.blkx"
+    ],
+    "source_sha256": {
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight.blkx": "9aa5d385b7c828ef777d3612956c8458b170612d5412e88af8b3d8337aadf878",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight_default.blkx": "9aa5d385b7c828ef777d3612956c8458b170612d5412e88af8b3d8337aadf878",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight_tornado.blkx": "487bf4f0343ee05ef2f190d709d3aa48a32eb0b1291b05b1c11d34440d6e72ab",
+      "aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight_tornado_default.blkx": "487bf4f0343ee05ef2f190d709d3aa48a32eb0b1291b05b1c11d34440d6e72ab"
+    },
+    "notes": "批处理导入；canonical source=aces.vromfs.bin_u/gamedata/weapons/rocketguns/uk_skyflash_aim_7_dogfight.blkx；raw bulletName='uk_skyflash_aim_7_dogfight'。按 bulletName 去重，保留所有 default、平台和吊舱变体路径。本 profile 是实验性数据层，不代表端到端轨迹已验证；缺失字段保留 null 或中性占位。"
+  },
+  "validation": {
+    "status": "experimental",
+    "validated_cases": [],
+    "known_limitations": [
+      "仅完成 profile contract smoke，不等同于 War Thunder/external reference 求解器复现。",
+      "本弹 rocket BLKX 未声明的 CxAoA、CyK、Mach 气动修正和舵机动态未被虚构；共享 ballistics 字段单独记录。",
+      "reqAccelMax 是制导指令上限，不是时间域实际达到过载。",
+      "loadFactorMax 是机体横向过载上限，写入 performance.load_factor_max_g。"
+    ]
+  },
+  "runtime": {
+    "implemented": true,
+    "config_path": null,
+    "notes": "使用公共 Python profile_h2_universal_v2 模型层并叠加本 JSON 的导弹参数；仍保持 experimental 状态。"
+  }
+}

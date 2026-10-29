@@ -24,15 +24,13 @@ from aim120_model.public_api import (
     UnsupportedPhysicsError,
     simulate,
 )
-from aim120_model.profile_catalog import load_profile_catalog
+from aim120_model.reconstructed import library_profiles
 from missile_gui.library import public_profile, scan_library
 
 
 LOGGER = logging.getLogger("missile_gui")
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
-_, ACTIVE_PROFILE_SET = load_profile_catalog(PROJECT_DIR)
-MISSILES_DIR = ACTIVE_PROFILE_SET["profiles_dir"]
 MAX_REQUEST_BYTES = 1_000_000
 
 
@@ -42,7 +40,7 @@ class GuiServer(ThreadingHTTPServer):
 
 
 class GuiHandler(BaseHTTPRequestHandler):
-    server_version = "MissileGUI/1.1.0"
+    server_version = "MissileGUI/1.2.0rc3"
 
     def log_message(self, format: str, *args: Any) -> None:
         LOGGER.info("%s - %s", self.client_address[0], format % args)
@@ -61,12 +59,7 @@ class GuiHandler(BaseHTTPRequestHandler):
         self._json(status, {"ok": False, "error": {"code": code, "message": message}})
 
     def _profiles(self) -> tuple[list[dict[str, Any]], list[str]]:
-        return scan_library(
-            MISSILES_DIR,
-            PROJECT_DIR,
-            expected_source_version=ACTIVE_PROFILE_SET["source_version"],
-            expected_source_commit=ACTIVE_PROFILE_SET["source_commit"],
-        )
+        return library_profiles(), []
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
         path = urlparse(self.path).path

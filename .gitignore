@@ -5,6 +5,8 @@
 # Non-hidden local build, analysis, and evidence outputs.
 *.py[cod]
 dist/
+build/
+src/*.egg-info/
 outputs/
 data/raw/
 data/datamine/

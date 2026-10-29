@@ -231,7 +231,10 @@ def simulate_surface(profile,scenario):
     from .profile_adapter import unsupported_model_types
     if unsupported_model_types(profile):raise ValueError('Unsupported guidance/physics family')
     normalized=validate_scenario(scenario)
-    defaults=json.loads((Path(__file__).resolve().parents[2]/'config/effective_surface_defaults.json').read_text())
+    defaults_path=Path(__file__).resolve().parents[2]/'config/effective_surface_defaults.json'
+    if not defaults_path.is_file():
+        defaults_path=Path(__file__).with_name('reconstructed')/'data/legacy_effective_surface_defaults.json'
+    defaults=json.loads(defaults_path.read_text())
     runtime=SurfaceRuntime(profile,normalized,_case_from_scenario(normalized),defaults)
     lifetime=profile['performance']['lifetime_s'];requested=normalized['max_simulation_time_s'];end=min(lifetime,requested) if requested is not None else lifetime
     result=runtime.simulate(end)

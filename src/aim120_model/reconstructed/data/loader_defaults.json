@@ -1,0 +1,404 @@
+{
+  "guidance": {
+    "permanentlyActivated": 0,
+    "reacquireTarget": 1,
+    "disableTOFInHud": 0,
+    "name": "weapon"
+  },
+  "guidance/table0": {
+    "rangeOptMax": [
+      9072.8798828125,
+      79333.5,
+      10269.2001953125,
+      82135.0
+    ],
+    "altDiff": [
+      0.0,
+      0.0
+    ]
+  },
+  "guidance/table1": {
+    "rangeOptMax": [
+      14578.2001953125,
+      93337.6015625,
+      16342.2001953125,
+      98597.296875
+    ],
+    "altDiff": [
+      0.0,
+      0.0
+    ]
+  },
+  "guidance/table2": {
+    "rangeOptMax": [
+      30777.0,
+      119866.0,
+      34066.80078125,
+      126101.0
+    ],
+    "altDiff": [
+      0.0,
+      0.0
+    ]
+  },
+  "guidance/table3": {
+    "rangeOptMax": [
+      72171.796875,
+      133424.0,
+      78612.5,
+      140043.0
+    ],
+    "altDiff": [
+      0.0,
+      0.0
+    ]
+  },
+  "guidance/radarSeeker": {
+    "visibilityType": "",
+    "targetSignatureType": "",
+    "aircraftAsTarget": 1,
+    "groundVehiclesAsTarget": 0,
+    "targetRadiusMin": 0.0,
+    "targetSizeToBeamWidthMax": 1000.0,
+    "groundClutter": 1,
+    "illuminationMultMin": 0.0,
+    "name": null,
+    "absDopplerSpeed": 0,
+    "mainBeamDopplerSpeed": 0,
+    "mainBeamNotchWidth": -2.0,
+    "mainBeamNotchMaxElevation": 90.0,
+    "zeroDopplerNotchWidth": -2.0,
+    "dopplerSpeedToDistMult": 0.0,
+    "distToDopplerSpeedMult": 0.0,
+    "searchFov": 360.0,
+    "scanHalfSector": 0.0,
+    "scanPeriod": 1.0,
+    "useTargetId": 0,
+    "mandatoryDesignationSources": 1,
+    "designationSourceTypeMask": 64,
+    "arretAngles": [
+      0.0,
+      0.0
+    ],
+    "filterAlpha": 0.8500000238418579,
+    "filterBetta": 0.20000000298023224,
+    "trackResetTimeMax": 1.0,
+    "distance": {
+      "presents": false
+    }
+  },
+  "guidance/radarSeeker/transmitter": {
+    "mainLobeMultipathDistance": 0.0,
+    "mainLobeMultipathMultiplier": 0.0,
+    "mainLobeMultipathHeightRange": [
+      0.0,
+      0.0
+    ]
+  },
+  "guidance/radarSeeker/receiver": {
+    "signal": 1.0,
+    "range0": 16000.0,
+    "range1": 16000.0,
+    "range2": 16000.0,
+    "range3": 16000.0,
+    "range4": 16000.0,
+    "range5": 16000.0,
+    "range6": 16000.0,
+    "range7": 16000.0,
+    "range8": 16000.0,
+    "range9": 16000.0,
+    "range10": 16000.0,
+    "range11": 16000.0,
+    "range12": 16000.0,
+    "range13": 16000.0,
+    "range14": 16000.0,
+    "range15": 16000.0,
+    "range16": 16000.0,
+    "range17": 16000.0,
+    "range18": 16000.0,
+    "range19": 16000.0,
+    "range20": 16000.0,
+    "range21": 16000.0,
+    "range22": 16000.0,
+    "range23": 16000.0,
+    "range24": 16000.0,
+    "range25": 16000.0,
+    "range26": 16000.0,
+    "range27": 16000.0,
+    "range28": 16000.0,
+    "range29": 16000.0,
+    "range30": 16000.0,
+    "range31": 16000.0,
+    "timeGainControlDistRange": [
+      250.0,
+      2500.0
+    ]
+  },
+  "guidance/radarSeeker/distance": {
+    "maxUnambiguousValue": 300000.0,
+    "leakMult": 0.0
+  },
+  "guidance/radarSeeker/dopplerSpeed": {
+    "maxUnambiguousValue": 6000.0,
+    "leakMult": 0.0
+  },
+  "guidance/radarSeeker/distGate": {
+    "accelLimit": [
+      2147440000.0,
+      2147440000.0
+    ],
+    "limitTimeOut": 2147440000.0
+  },
+  "guidance/radarSeeker/dopplerSpeedGate": {
+    "rateLimit": [
+      2147440000.0,
+      2147440000.0
+    ],
+    "limitTimeOut": 2147440000.0
+  },
+  "guidance/inertialGuidance": {
+    "gnss": 0,
+    "reconnectDatalink": 0,
+    "datalinkChannelsMax": 32,
+    "keepDatalinkChannelsForLast": 0,
+    "indicateOnHud": 1
+  },
+  "guidance/guidanceAutopilot": {
+    "elevationAdd": 0.0,
+    "purePursuit": 0,
+    "angleToAccelMult": 0.0,
+    "rangeToLoftElevation": [
+      0.0,
+      24.0,
+      0.0,
+      24.0
+    ],
+    "altitudeHoldEnabled": 0,
+    "useAbsoluteAltitude": 0,
+    "altitudeDiffToClimb": 0.0,
+    "altitudeRateRateToClimb": 0.0,
+    "climbDiffToAccelMult": 0.0,
+    "timeToHitBreakAltitudeHold": -2147440000.0,
+    "altitudeHoldAngleLimith": [
+      -2147440000.0,
+      2147440000.0
+    ],
+    "courseErrorAngleToAccelMult": 0.0,
+    "courseErrorFinalAngleCorrection": 2147440000.0,
+    "altitudeHoldTargetOmegaMax": 2147440000.0,
+    "velFrameReference": 1,
+    "propNavAccelMax": 1000.0,
+    "limitAoa": 0,
+    "aoaMax": 0.0,
+    "loftEnabled": false
+  },
+  "": {
+    "aerodynamicAxisAngles": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "CxAoA": 0.30000001192092896,
+    "CyK": 2.200000047683716,
+    "WdK": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fluidResistanceMultiplier": 1.0,
+    "fluidRotationResistanceMultiplier": 0.0,
+    "brakeTime": [
+      2147440000.0,
+      2147440000.0
+    ],
+    "brakeAltitude": [
+      -2147440000.0,
+      -2147440000.0
+    ],
+    "brakeCxK": 0.0,
+    "brakeArm": 0.0,
+    "operated": 0,
+    "operatedDist": 500.0,
+    "needLos": 1,
+    "wired": 0,
+    "limitDistanceToOwner": 0,
+    "maxDistanceToOwner": 0.0,
+    "maxDistanceToOwnerTime": 0.0,
+    "maxDistanceToOwnerIas": 41868.98828125,
+    "visualRecon": 0,
+    "autoLeveling": 0,
+    "rollStabilization": 0,
+    "rollStabilizationAngle": 0.0,
+    "rollStabilizationDelay": 0.5,
+    "rollStabilizationTorque": -1.0,
+    "rollStabilizationAngleToRate": 7.5,
+    "rollStabilizationOmegaMult": 0.2800000011920929,
+    "controlSensitivity": 1.0,
+    "autoAiming": 0,
+    "autoAimingFirstPerson": 0,
+    "autoAimingInArcade": 1,
+    "autoAimingMultiChannel": 0,
+    "autoAimingMaxAngle": 170.0,
+    "autoAimingResolutionAngle": 3.0,
+    "irBeaconBand": 4,
+    "treesTransparency": 0.20000000298023224,
+    "aimSensitivity": 20.0,
+    "aimLevelingSensitivity": 20.0,
+    "aimMaxCorrectionDistance": 100.0,
+    "aimCorrectionSmoothingDistance": 50.0,
+    "aimCorrectionSmoothingDistanceMult": 0.25,
+    "aimCorrectionShiftTimeMult": 20.0,
+    "aimCorrectionNormDamping": 2.5,
+    "aimCorrectionPerpDamping": 4.25,
+    "aimCorrectionVelMin": 1.0,
+    "maxAxisValues": 3.1415927410125732,
+    "maxLateralAcceleration": 5.0,
+    "operationTimer": 0.0,
+    "forceAutoAimingTimer": 0.0,
+    "rotationRocketX": 0.0,
+    "visRotationFreqX": 0.0,
+    "overallRadius": 0.0,
+    "overallLength": 0.0,
+    "mountOffset": 0.0,
+    "gunnerFilterMaxDistMult": 1.0,
+    "armDistance": 0.0,
+    "lifeTime": 300.0,
+    "armTime": 5.0,
+    "explDist": 5.0,
+    "spinOffset": -1.0,
+    "spinFreq": -1.0,
+    "aimPosOffset": [
+      0.0,
+      0.0
+    ],
+    "precision": 1,
+    "isHasTVChannel": 0,
+    "gunnerOpticsName": null,
+    "isHasLaserChannel": 0,
+    "opticSightFov": [
+      -1.0,
+      -1.0
+    ],
+    "isBeamRider": 0,
+    "hasTracerTrail": 0,
+    "tracerTrailEmitter": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "canAimBySensor": 0,
+    "destructionExplosionFx": "",
+    "destructionFireFx": "",
+    "destructionBreakFx": "",
+    "operatedLostTimeLife": 10.0,
+    "fuseArmDelay": 0.0,
+    "thrustVectoringAngle": 0.0,
+    "factorIndex": -1,
+    "massFlow": 0.0,
+    "isp": 0.0,
+    "force1": 0.0,
+    "isp1": 0.0,
+    "massFlow1": 0.0,
+    "orientationTorque": 0.0,
+    "thrustDeviation": 0.0,
+    "extPressureToThrustMult": [
+      0.0,
+      1.0,
+      0.0,
+      1.0
+    ],
+    "aiGroundOnly": 0,
+    "aiAirOnly": 0,
+    "spawnExplosionWreckage": 1,
+    "spawnExplosionFx": 0,
+    "explosionSoundType": "",
+    "aiDeviation": 0.30000001192092896,
+    "canChangeFuseMode": 0,
+    "proximityFuseRange": 10.0,
+    "proximityFuseArmDistance": 10.0,
+    "proximityFuseArmDistanceToTarget": -1.0,
+    "proximityFuseDetectAir": 1,
+    "proximityFuseDetectGround": 1,
+    "proximityFuseDetectDeadUnits": 0,
+    "separationTime": -1.0,
+    "strikingPartsCnt": 0,
+    "smokeSightEffect": null,
+    "smokeSightEffect2": null,
+    "inactiveAtStage1": 0,
+    "inactiveAtStage2": 0,
+    "launchZoneDistance": -1.0,
+    "enableLaunchZone": 0,
+    "advancedSpread": 0.0,
+    "velSpread": 1.0,
+    "surfacingFx": "",
+    "isGuided": 0,
+    "chartShootElevation": 0.0,
+    "chartStaticElevation": 0,
+    "CyMaxAoA": 1.0
+  },
+  "DamageParts/body": {
+    "oneSided": 0,
+    "externalArmor": 0,
+    "createSecondaryShatters": 1,
+    "allowRicochet": 1,
+    "detachable": 0,
+    "disableProjectleBreaking": 0,
+    "useForSeriousHit": 1,
+    "checkFuseRelDamageThreshold": 1,
+    "simpleRicochet": 0,
+    "ldmInner": 0,
+    "embedded": 0,
+    "reactiveArmor": 0,
+    "ignoreDeadWithSplash": 0,
+    "castOnKillAfterTankPartDead": 0,
+    "variableThickness": 0,
+    "castOnHitOfSelfDamage": 1,
+    "disableShatterStopChanceOnDeadPart": 0,
+    "hitTestType": null,
+    "stopChanceOnDeadPart": 0.0,
+    "restrainExplosionDamage": 1.0,
+    "materialDensity": 7700.0,
+    "dmgState": -1.0,
+    "responseImpulse": 0.0,
+    "slopeMinCaliber": 0.0,
+    "kineticPenetrationToArmorThreshold": -1.0,
+    "solidArmorTestDepth": -1.0,
+    "splashPenetrationToArmorThreshold": 0.0,
+    "ricochetAngle": 0.0,
+    "armorEffectiveThicknessMax": 2147440000.0,
+    "armorThrough": 0.0,
+    "armorQuality": 1.0,
+    "restrainDamage": 0.0,
+    "ricochetDamage": 0.0,
+    "ignoreSolidDimension": 0,
+    "minSolidArmorThickness": 0.0,
+    "armorSplashThicknessFloor": 0.0,
+    "armorSplashThicknessMapVoxelSize": 0.0,
+    "legacyShatterDamage": 0,
+    "physMaterial": null
+  },
+  "DamageEffects/part": {
+    "defaultEffectPart": null
+  },
+  "DamageEffects/part/onHit": {
+    "damage": 0.0,
+    "fHitCritical": 0,
+    "isSingleAction": 0,
+    "impulse": 0.0
+  },
+  "DamageEffects/part/onKill": {
+    "damage": 0.0,
+    "fHitCritical": 0,
+    "isSingleAction": 0,
+    "impulse": 0.0
+  },
+  "proximityFuse": {
+    "minimalAltitude": -1.0,
+    "armDistance": 10.0,
+    "armDistanceToTarget": -1.0,
+    "detectAirUnits": 1,
+    "detectGroundUnits": 1,
+    "detectGround": 1,
+    "detectDeadUnits": 0
+  }
+}

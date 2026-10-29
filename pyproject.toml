@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aim120a-local-model"
-version = "1.1.0"
-description = "Standalone auditable Python forward model for AIM-120A-like trajectory simulation"
+version = "1.2.0rc3"
+description = "Reconstructed Python missile dynamics and IR/ARH/PD-SARH scene simulation candidate"
 requires-python = ">=3.10"
 dependencies = []
 
@@ -14,6 +14,10 @@ gui = []
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"aim120_model.reconstructed" = ["data/*.json", "data/raw/*.blk", "data/infrared/*.json", "data/profiles/*.json"]
+"missile_gui" = ["static/*.html", "static/*.js", "static/*.css"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

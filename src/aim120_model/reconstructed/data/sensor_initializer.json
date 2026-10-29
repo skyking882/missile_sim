@@ -1,0 +1,2122 @@
+[
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "opticalTreesTransparencyTreshold",
+    "present": true,
+    "value": 0.02,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "opticalCloudsTransparencyTreshold",
+    "present": true,
+    "value": 1,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "airframeOpticBrightnessMult",
+    "present": false,
+    "value": 200.0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "weaponAirframeOpticBrightnessMult",
+    "present": true,
+    "value": 3000.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "sunIlluminationOpticFactor",
+    "present": false,
+    "value": 0.6000000238418579,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "airframeOpticBrightnessSourceMask",
+    "present": false,
+    "value": 1,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "fuelFireBurningCapacityPercent",
+    "present": false,
+    "value": 0.05000000074505806,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "fuelFireAirframeInfraRedBrightnessMult",
+    "present": false,
+    "value": 700.0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "engineInfraRedBrightnessAspectMultFront",
+    "present": true,
+    "value": 0.0006,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "engineInfraRedBrightnessAspectMultSide",
+    "present": true,
+    "value": 0.06,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "engineInfraRedBrightnessAspectMultRear",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "engineAfterburnerInfraRedBrightnessAspectMultFront",
+    "present": true,
+    "value": 0.05,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "engineAfterburnerInfraRedBrightnessAspectMultSide",
+    "present": true,
+    "value": 0.12,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "engineAfterburnerInfraRedBrightnessAspectMultRear",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "airframeInfraRedBrightnessMult",
+    "present": true,
+    "value": 200.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "weaponAirframeInfraRedBrightnessMult",
+    "present": true,
+    "value": 750.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "airframeInfraRedBrightnessSourcesMask",
+    "present": true,
+    "value": 2,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "airframeInfraRedTemperatureMachBase",
+    "present": true,
+    "value": 0.8,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "airframeInfraRedTemperatureRatioToBrightnessPwr",
+    "present": true,
+    "value": 10.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "weaponAirframeInfraRedTemperatureRatioToBrightnessPwr",
+    "present": true,
+    "value": 8.5,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "sunInfraRedBrightnessMult",
+    "present": true,
+    "value": 0.0001,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "fuelFireEnginesInfraRedBrightnessMult",
+    "present": false,
+    "value": 2000.0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "engineInfraRedBrightnessSourcesMask",
+    "present": true,
+    "value": 1,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "engineAfterburnerInfraRedBrightnessSourcesMask",
+    "present": true,
+    "value": 128,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "rocketEngineInfraRedBrightnessSourcesMask",
+    "present": true,
+    "value": 4,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "sunInfraRedBrightnessSourcesMask",
+    "present": true,
+    "value": 4,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "useMachTemperatureRockets",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "laserDesignatorTreesTransparencyTreshold",
+    "present": true,
+    "value": 0.25,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "laserDesignatorSourcesMask",
+    "present": false,
+    "value": 15,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "laserBeamRidingSourcesMask",
+    "present": false,
+    "value": 16,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "laserBeamAngleMult",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk [root reflection fields]",
+    "key": "irUnitReflectionCoeff",
+    "present": false,
+    "value": 1.0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk [root reflection fields]",
+    "key": "laserReflectionCoeff",
+    "present": false,
+    "value": 1.0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "aircraftRadarCrossSectionParams0",
+    "present": false,
+    "value": 0.014069699682295322,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "aircraftRadarCrossSectionParams1",
+    "present": false,
+    "value": 1.899999976158142,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "propellerRadarCrossSectionMult",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "aircraftRadarCrossSectionAspectMultFront",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "aircraftRadarCrossSectionAspectMultSide",
+    "present": true,
+    "value": 1.2,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "aircraftRadarCrossSectionAspectMultRear",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "vehicleRadarCrossSectionParams0",
+    "present": false,
+    "value": 6.034176349639893,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "vehicleRadarCrossSectionParams1",
+    "present": false,
+    "value": 0.6000000238418579,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "weaponCrossSectionParams0",
+    "present": false,
+    "value": 0.005627799779176712,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "weaponCrossSectionParams1",
+    "present": false,
+    "value": 1.899999976158142,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "weaponRadarCrossSectionAspectMultFront",
+    "present": false,
+    "value": 1.0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "weaponRadarCrossSectionAspectMultSide",
+    "present": false,
+    "value": 1.0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "weaponRadarCrossSectionAspectMultRear",
+    "present": false,
+    "value": 1.0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "airframeRadarCrossSectionSourcesMask",
+    "present": true,
+    "value": 32768,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "propellersRadarCrossSectionSourcesMask",
+    "present": true,
+    "value": 65536,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "radarAntipodEffect",
+    "present": true,
+    "value": [
+      0.0,
+      1.0,
+      100.0,
+      0.0
+    ],
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band0",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band1",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band2",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band3",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band4",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band5",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band6",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band7",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band8",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band9",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band10",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band11",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band12",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band13",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band14",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band15",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band16",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band17",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band18",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band19",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band20",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band21",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band22",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band23",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band24",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band25",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band26",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band27",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band28",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band29",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band30",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "band31",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "crossSectionMult",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection0",
+    "key": "treesNonTransparencyMult",
+    "present": true,
+    "value": 0.001,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band0",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band1",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band2",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band3",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band4",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band5",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band6",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band7",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band8",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band9",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band10",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band11",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band12",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band13",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band14",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band15",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band16",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band17",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band18",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band19",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band20",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band21",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band22",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band23",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band24",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band25",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band26",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band27",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band28",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band29",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band30",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "band31",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "crossSectionMult",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection1",
+    "key": "treesNonTransparencyMult",
+    "present": true,
+    "value": 0.004,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band0",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band1",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band2",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band3",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band4",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band5",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band6",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band7",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band8",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band9",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band10",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band11",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band12",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band13",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band14",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band15",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band16",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band17",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band18",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band19",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band20",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band21",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band22",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band23",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band24",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band25",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band26",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band27",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band28",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band29",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band30",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "band31",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "crossSectionMult",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection2",
+    "key": "treesNonTransparencyMult",
+    "present": true,
+    "value": 0.008,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band0",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band1",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band2",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band3",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band4",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band5",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band6",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band7",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band8",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band9",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band10",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band11",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band12",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band13",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band14",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band15",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band16",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band17",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band18",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band19",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band20",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band21",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band22",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band23",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band24",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band25",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band26",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band27",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band28",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band29",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band30",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "band31",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "crossSectionMult",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection3",
+    "key": "treesNonTransparencyMult",
+    "present": true,
+    "value": 0.016,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band0",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band1",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band2",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band3",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band4",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band5",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band6",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band7",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band8",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band9",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band10",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band11",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band12",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band13",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band14",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band15",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band16",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band17",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band18",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band19",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band20",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band21",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band22",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band23",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band24",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band25",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band26",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band27",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band28",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band29",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band30",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "band31",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "crossSectionMult",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants/radarFrequencyBandCrossSection4",
+    "key": "treesNonTransparencyMult",
+    "present": true,
+    "value": 0.25,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "monostaticRadarBackScatteringMult",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "bistaticRadarBackScatteringMult",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "bistaticRadarRangeGateBeamToAreaMult",
+    "present": true,
+    "value": [
+      7.0,
+      7.0
+    ],
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "bistaticRadarRangeGateAreaMin",
+    "present": true,
+    "value": [
+      45.0,
+      45.0
+    ],
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "bistaticRadarRangeGateAreaMax",
+    "present": true,
+    "value": [
+      90.0,
+      90.0
+    ],
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "bistaticRadarRangeGateBeamToSectorMult",
+    "present": true,
+    "value": [
+      1.0,
+      0.2
+    ],
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "bistaticRadarRangeGateSectorMin",
+    "present": true,
+    "value": [
+      10.0,
+      10.0
+    ],
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "bistaticRadarRangeGateSectorMax",
+    "present": true,
+    "value": [
+      90.0,
+      90.0
+    ],
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "bistaticRadarSpeedGateBeamToAreaMult",
+    "present": true,
+    "value": [
+      10.0,
+      30.0
+    ],
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "bistaticRadarSpeedGateAreaMin",
+    "present": true,
+    "value": [
+      0.0,
+      0.0
+    ],
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "bistaticRadarSpeedGateAreaMax",
+    "present": true,
+    "value": [
+      90.0,
+      90.0
+    ],
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "bistaticRadarSpeedGateBeamToSectorMult",
+    "present": true,
+    "value": [
+      0.5,
+      0.5
+    ],
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "bistaticRadarSpeedGateSectorMin",
+    "present": true,
+    "value": [
+      5.0,
+      5.0
+    ],
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "bistaticRadarSpeedGateSectorMax",
+    "present": true,
+    "value": [
+      90.0,
+      90.0
+    ],
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "sensorsDetectDeadUnits",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "sensorsSeparateServerSideDetection",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "dontUsePredictionVolumesForSensors",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "aircraftDesignationFoV",
+    "present": false,
+    "value": 0.0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "radarVisualDesignationForAI",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "writeAllSensorsToClientReplay",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "radarDetectRockets",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "radarDetectBombs",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "radarLosCheckTimeOut",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "radarErrorSpeed",
+    "present": true,
+    "value": 0.15,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "radarErrorGain",
+    "present": true,
+    "value": 7.5,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "radarDetectedTargetActivityTimeMult",
+    "present": true,
+    "value": 2.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "radarDetectedTargetSelectionRelSpeedMin",
+    "present": true,
+    "value": 20.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "radarScanPatternsBarsOneWay",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "radarTargetsMaxTime",
+    "present": true,
+    "value": 4.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "showSecondaryTargetsOfInterest",
+    "present": true,
+    "value": false,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "maxRadarSingleGroundReflectionLimit",
+    "present": false,
+    "value": 0.800000011920929,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "sumRadarGroundReflectionsFactor",
+    "present": false,
+    "value": 0.5,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "useRadarScanZoneForDetectionRange",
+    "present": true,
+    "value": false,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "hasPointOfInterestMemory",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "activeSonarReflectionMult",
+    "present": true,
+    "value": 40000000000.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "saclosMissileBeaconInfraRedBrightnessMult",
+    "present": true,
+    "value": 0.1,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "saclosMissileBeaconInfraRedBrightnessSourceBand",
+    "present": true,
+    "value": 4,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/sensorsConstants",
+    "key": "ircmFailGuidanceThreshold",
+    "present": false,
+    "value": 0.019999999552965164,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "singleTargetDetectionSensitivityMult",
+    "present": true,
+    "value": 0.5,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "antipodEffect",
+    "present": false,
+    "value": [
+      0.0,
+      1.0,
+      100.0,
+      0.0
+    ],
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "multipathEffect",
+    "present": false,
+    "value": [
+      0.0,
+      1.0,
+      100.0,
+      0.0
+    ],
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "mainLobeMultipathDistance",
+    "present": true,
+    "value": 0.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "mainLobeMultipathMultiplier",
+    "present": true,
+    "value": 0.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "mainLobeMultipathHeightRange",
+    "present": true,
+    "value": [
+      0.0,
+      0.0
+    ],
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "monostaticBackScatteringMult",
+    "present": false,
+    "value": 1.0,
+    "source": "original caller default"
+  },
+  {
+    "path": "<native empty>",
+    "key": "mult",
+    "present": false,
+    "value": 1.0,
+    "source": "original caller default"
+  },
+  {
+    "path": "<native empty>",
+    "key": "beamToAreaMult",
+    "present": false,
+    "value": [
+      7.0,
+      7.0
+    ],
+    "source": "original caller default"
+  },
+  {
+    "path": "<native empty>",
+    "key": "areaMin",
+    "present": false,
+    "value": [
+      45.0,
+      45.0
+    ],
+    "source": "original caller default"
+  },
+  {
+    "path": "<native empty>",
+    "key": "areaMax",
+    "present": false,
+    "value": [
+      90.0,
+      90.0
+    ],
+    "source": "original caller default"
+  },
+  {
+    "path": "<native empty>",
+    "key": "beamToSectorMult",
+    "present": false,
+    "value": [
+      1.0,
+      0.20000000298023224
+    ],
+    "source": "original caller default"
+  },
+  {
+    "path": "<native empty>",
+    "key": "sectorMin",
+    "present": false,
+    "value": [
+      9.999999046325684,
+      9.999999046325684
+    ],
+    "source": "original caller default"
+  },
+  {
+    "path": "<native empty>",
+    "key": "sectorMax",
+    "present": false,
+    "value": [
+      90.0,
+      90.0
+    ],
+    "source": "original caller default"
+  },
+  {
+    "path": "<native empty>",
+    "key": "beamToAreaMult",
+    "present": false,
+    "value": [
+      10.0,
+      30.0
+    ],
+    "source": "original caller default"
+  },
+  {
+    "path": "<native empty>",
+    "key": "areaMin",
+    "present": false,
+    "value": [
+      0.0,
+      0.0
+    ],
+    "source": "original caller default"
+  },
+  {
+    "path": "<native empty>",
+    "key": "areaMax",
+    "present": false,
+    "value": [
+      90.0,
+      90.0
+    ],
+    "source": "original caller default"
+  },
+  {
+    "path": "<native empty>",
+    "key": "beamToSectorMult",
+    "present": false,
+    "value": [
+      0.5,
+      0.5
+    ],
+    "source": "original caller default"
+  },
+  {
+    "path": "<native empty>",
+    "key": "sectorMin",
+    "present": false,
+    "value": [
+      4.999999523162842,
+      4.999999523162842
+    ],
+    "source": "original caller default"
+  },
+  {
+    "path": "<native empty>",
+    "key": "sectorMax",
+    "present": false,
+    "value": [
+      90.0,
+      90.0
+    ],
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "directionWithinMainLobe",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "angleFinderZoneToMainBeamWidth",
+    "present": true,
+    "value": 2.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "directionMainBeamWidthMin",
+    "present": false,
+    "value": 0.0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "useRefWidthForTargets",
+    "present": true,
+    "value": false,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "chaffLineOfSight",
+    "present": true,
+    "value": false,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "chaffAttenuationPower",
+    "present": true,
+    "value": 0.35,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "sizeDependentDopplerSpeedWidth",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk/radarCommon",
+    "key": "useTraceCache",
+    "present": false,
+    "value": 0,
+    "source": "original caller default"
+  },
+  {
+    "path": "config/gameplay.blk [root reflection fields]",
+    "key": "weaponLockDeadUnits",
+    "present": true,
+    "value": true,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk [root reflection fields]",
+    "key": "weaponLosCheckTimeOut",
+    "present": true,
+    "value": 1.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk [root reflection fields]",
+    "key": "postArretTimeOut",
+    "present": true,
+    "value": 0.5,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk [root reflection fields]",
+    "key": "lockResetMinAcquisitionTime",
+    "present": true,
+    "value": 5.0,
+    "source": "resource"
+  },
+  {
+    "path": "config/gameplay.blk [root reflection fields]",
+    "key": "counterMeasureDirDeceptionTreshold",
+    "present": false,
+    "value": 0.01745329238474369,
+    "source": "original caller default"
+  }
+]

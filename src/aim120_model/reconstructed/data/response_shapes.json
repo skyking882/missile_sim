@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "scope": "One common dimensionless shape set; original resource values supply all weapon, aircraft and cloud scales",
+  "shapes": {
+    "antenna": {"main_width": 1.2327895, "side_width": 0.8434639, "main_power": 2.047624416601663, "side_power": 1.0543101454221588, "sidelobe_weight_power": 0.625},
+    "receiver": {"endpoint_power": 8.0, "power_unit": 1.0, "sensitivity": 1.0},
+    "motor": {"tilt": 0.08, "bulge": 0.06},
+    "aircraft": {"area_fraction": 0.04, "aspect_power": 1.1},
+    "chaff": {"radius_scale": 1.1991920641510138, "speed_scale": 1.0813890919275225, "density_scale": 1.3278351976005174, "density_power": 1.6931585468357417, "response_scale": 1.0, "reflection_power": 2.0, "body_area_fraction": 0.006}
+  },
+  "parameter_sources": {
+    "antenna": "Main/side exponents and width ratios extracted from the previously accepted local point-gain fit, normalized by that reference resource's own half-angle. Sidelobe weight power .625 is a rounded shared shape choice. No original beam width is stored here.",
+    "chaff_expansion": "Dimensionless radius/speed/density ratios and density exponent extracted from the accepted rational cloud-response fit, divided by its original global resource scales. Response scale 1 preserves the original density*time scale; not independently validated for every resource.",
+    "receiver": "Endpoint power mean p=8, saturating P/(P+1) and unit sensitivity are common model choices, not recovered native constants or per-missile fits. The power unit is in the raw game's power units, not a claimed watt calibration.",
+    "motor": "Common model choice q(u)=1+tilt*(1-2u)+bulge*(6u*(1-u)-1); unit integral over one stage. Force, duration, delay, mass endpoints and pressure knots remain original inputs; no trajectory/TRK fitting.",
+    "aircraft_and_reflection": "Projected-area fraction, log-aspect power, body-area fraction and smooth reflection saturation are common model choices, not per-object calibration. Raw dimensions, aspect factors, cloud radius cap, multiplier and envelope supply scales."
+  }
+}

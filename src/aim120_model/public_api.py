@@ -322,6 +322,7 @@ def simulate(
     scenario: dict[str, Any],
     *,
     model_mode: str = "general",
+    scene: Any | None = None,
 ) -> dict[str, Any]:
     """Run one missile and return a JSON-serializable, read-only result.
 
@@ -329,7 +330,17 @@ def simulate(
     entry point.
     """
 
-    if model_mode == "general" and "model_family" in missile_profile:
+    if model_mode in {"general", "reconstructed"} and "model_family" in missile_profile:
+        from .reconstructed.runtime import simulate_reconstructed
+        try:
+            return simulate_reconstructed(missile_profile, scenario, scene=scene)
+        except NotImplementedError as exc:
+            raise UnsupportedPhysicsError(str(exc)) from exc
+        except ValueError as exc:
+            raise SimulationInputError(str(exc)) from exc
+    if scene is not None:
+        raise SimulationInputError("Independent scenes require the reconstructed model")
+    if model_mode == "legacy_surface" and "model_family" in missile_profile:
         if missile_profile.get("_runtime_unsupported"):
             raise UnsupportedPhysicsError("不支持的制导或物理类型：" + "、".join(missile_profile["_runtime_unsupported"]))
         from .surface_runtime import simulate_surface
@@ -337,7 +348,7 @@ def simulate(
             return simulate_surface(missile_profile, scenario)
         except ValueError as exc:
             raise SimulationInputError(str(exc)) from exc
-    if model_mode not in {"general", "legacy_h2"}:
+    if model_mode not in {"general", "legacy_h2", "legacy_surface"}:
         raise SimulationInputError(f"未知模型模式：{model_mode}。")
 
     base_config = _validate_profile(missile_profile)

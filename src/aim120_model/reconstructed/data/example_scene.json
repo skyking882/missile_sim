@@ -1,0 +1,28 @@
+{
+  "launch_speed_kmh": 1080.0,
+  "launch_altitude_m": 1000.0,
+  "launch_pitch_deg": 0.0,
+  "launch_heading_deg": 0.0,
+  "target_speed_kmh": 360.0,
+  "target_altitude_m": 1000.0,
+  "initial_distance_m": 2000.0,
+  "target_azimuth_deg": 0.0,
+  "target_heading_deg": 0.0,
+  "target_vertical_heading_deg": 0.0,
+  "target_constant_turn_g": 0.0,
+  "max_simulation_time_s": 1.5,
+  "observation_mode": "sensor_track",
+  "loft_enabled": false,
+  "target_aircraft": "su_30mkm",
+  "infrared_source": "explicit_bands",
+  "target_ir": {"0": 1.0, "1": 1.0, "7": 0.0},
+  "target_ir_description": "Authored demonstration scene directional signatures/C0 before propagation; not a measured Su-30 thermal source. C0=24034.501953125",
+  "target_engine": {"throttle": 1.0, "afterburner": false, "running": true},
+  "illuminator": {
+    "position_m": [-1000.0, 1000.0, 0.0],
+    "velocity_mps": [100.0, 0.0, 0.0],
+    "track_scene_target": true,
+    "enabled": true,
+    "waveform": "pd"
+  }
+}

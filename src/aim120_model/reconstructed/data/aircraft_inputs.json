@@ -1,0 +1,509 @@
+{
+  "source_version": "2.59.0.80",
+  "aircraft": {
+    "av_8b_plus": {
+      "source": "gamedata/flightmodels/av_8b_plus.blk",
+      "fm_source": "gamedata/flightmodels/fm/av_8b_plus.blk",
+      "Length": 14.12,
+      "Span": 9.25
+    },
+    "av_8b_plus_italy": {
+      "source": "gamedata/flightmodels/av_8b_plus_italy.blk",
+      "fm_source": "gamedata/flightmodels/fm/av_8b_plus.blk",
+      "Length": 14.12,
+      "Span": 9.25
+    },
+    "ef_2000_aesa": {
+      "source": "gamedata/flightmodels/ef_2000_aesa.blk",
+      "fm_source": "gamedata/flightmodels/fm/ef_2000_aesa.blk",
+      "Length": 19.4,
+      "Span": 11.0
+    },
+    "ef_2000_block_10": {
+      "source": "gamedata/flightmodels/ef_2000_block_10.blk",
+      "fm_source": "gamedata/flightmodels/fm/ef_2000_block_10.blk",
+      "Length": 19.4,
+      "Span": 11.0
+    },
+    "ef_2000_fgr4": {
+      "source": "gamedata/flightmodels/ef_2000_fgr4.blk",
+      "fm_source": "gamedata/flightmodels/fm/typhoon_fgr4.blk",
+      "Length": 19.4,
+      "Span": 11.0
+    },
+    "ef_2000_typhoon_aesa": {
+      "source": "gamedata/flightmodels/ef_2000_typhoon_aesa.blk",
+      "fm_source": "gamedata/flightmodels/fm/ef_2000_typhoon_aesa.blk",
+      "Length": 19.4,
+      "Span": 11.0
+    },
+    "ef_2000a": {
+      "source": "gamedata/flightmodels/ef_2000a.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_2000a.blk",
+      "Length": 19.4,
+      "Span": 11.0
+    },
+    "ef_2000a_aesa": {
+      "source": "gamedata/flightmodels/ef_2000a_aesa.blk",
+      "fm_source": "gamedata/flightmodels/fm/ef_2000a_aesa.blk",
+      "Length": 19.4,
+      "Span": 11.0
+    },
+    "f-5th_thailand": {
+      "source": "gamedata/flightmodels/f-5th_thailand.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_5t_thailand.blk",
+      "Length": 14.68,
+      "Span": 8.14
+    },
+    "f_15c_baz_msip": {
+      "source": "gamedata/flightmodels/f_15c_baz_msip.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_15c_baz_msip.blk",
+      "Length": 19.4,
+      "Span": 13.06
+    },
+    "f_15c_golden_eagle": {
+      "source": "gamedata/flightmodels/f_15c_golden_eagle.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_15c_golden_eagle.blk",
+      "Length": 19.4,
+      "Span": 13.06
+    },
+    "f_15c_msip2": {
+      "source": "gamedata/flightmodels/f_15c_msip2.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_15c_msip2.blk",
+      "Length": 19.4,
+      "Span": 13.06
+    },
+    "f_15e": {
+      "source": "gamedata/flightmodels/f_15e.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_15e.blk",
+      "Length": 19.4,
+      "Span": 13.06
+    },
+    "f_15i_raam": {
+      "source": "gamedata/flightmodels/f_15i_raam.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_15i_raam.blk",
+      "Length": 19.4,
+      "Span": 13.06
+    },
+    "f_15j_kai": {
+      "source": "gamedata/flightmodels/f_15j_kai.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_15j_kai.blk",
+      "Length": 19.4,
+      "Span": 13.06
+    },
+    "f_16a_block_15_adf": {
+      "source": "gamedata/flightmodels/f_16a_block_15_adf.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_16a_block_15_adf.blk",
+      "Length": 15.1,
+      "Span": 9.44
+    },
+    "f_16a_block_15_adf_italy": {
+      "source": "gamedata/flightmodels/f_16a_block_15_adf_italy.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_16a_block_15_adf_italy.blk",
+      "Length": 15.1,
+      "Span": 9.44
+    },
+    "f_16a_block_15_ocu_thailand": {
+      "source": "gamedata/flightmodels/f_16a_block_15_ocu_thailand.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_16a_block_15_ocu_thailand.blk",
+      "Length": 15.1,
+      "Span": 9.44
+    },
+    "f_16a_block_20_mlu": {
+      "source": "gamedata/flightmodels/f_16a_block_20_mlu.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_16a_block_20_mlu.blk",
+      "Length": 15.1,
+      "Span": 9.44
+    },
+    "f_16a_block_72v_china": {
+      "source": "gamedata/flightmodels/f_16a_block_72v_china.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_16a_block_72v_china.blk",
+      "Length": 15.1,
+      "Span": 9.44
+    },
+    "f_16am_block_15_mlu_belgium": {
+      "source": "gamedata/flightmodels/f_16am_block_15_mlu_belgium.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_16am_block_15_mlu_belgium.blk",
+      "Length": 15.1,
+      "Span": 9.44
+    },
+    "f_16am_block_20_mlu_netherlands": {
+      "source": "gamedata/flightmodels/f_16am_block_20_mlu_netherlands.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_16a_block_20_mlu.blk",
+      "Length": 15.1,
+      "Span": 9.44
+    },
+    "f_16am_block_20_mlu_norway": {
+      "source": "gamedata/flightmodels/f_16am_block_20_mlu_norway.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_16a_block_20_mlu.blk",
+      "Length": 15.1,
+      "Span": 9.44
+    },
+    "f_16c_block_40_barak_2": {
+      "source": "gamedata/flightmodels/f_16c_block_40_barak_2.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_16c_block_40_barak_2.blk",
+      "Length": 15.1,
+      "Span": 9.44
+    },
+    "f_16c_block_50": {
+      "source": "gamedata/flightmodels/f_16c_block_50.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_16c_block_50.blk",
+      "Length": 15.1,
+      "Span": 9.44
+    },
+    "f_16c_block_52_aesa": {
+      "source": "gamedata/flightmodels/f_16c_block_52_aesa.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_16c_block_52_aesa.blk",
+      "Length": 15.1,
+      "Span": 9.44
+    },
+    "f_16d_block_40_barak_2": {
+      "source": "gamedata/flightmodels/f_16d_block_40_barak_2.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_16d_block_40_barak_2.blk",
+      "Length": 15.1,
+      "Span": 9.44
+    },
+    "f_16i_sufa": {
+      "source": "gamedata/flightmodels/f_16i_sufa.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_16i_sufa.blk",
+      "Length": 15.1,
+      "Span": 9.44
+    },
+    "f_16xl": {
+      "source": "gamedata/flightmodels/f_16xl.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_16xl.blk",
+      "Length": 16.7,
+      "Span": 10.7
+    },
+    "f_2a": {
+      "source": "gamedata/flightmodels/f_2a.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_2a.blk",
+      "Length": 16.0,
+      "Span": 11.0
+    },
+    "f_2a_adtw": {
+      "source": "gamedata/flightmodels/f_2a_adtw.blk",
+      "fm_source": "gamedata/flightmodels/fm/f_2a_adtw.blk",
+      "Length": 16.0,
+      "Span": 11.0
+    },
+    "fa_18a_hug_2_raaf": {
+      "source": "gamedata/flightmodels/fa_18a_hug_2_raaf.blk",
+      "fm_source": "gamedata/flightmodels/fm/fa_18a_hug_2_raaf.blk",
+      "Length": 17.1,
+      "Span": 11.5
+    },
+    "fa_18c_finland": {
+      "source": "gamedata/flightmodels/fa_18c_finland.blk",
+      "fm_source": "gamedata/flightmodels/fm/fa_18c_finland.blk",
+      "Length": 17.1,
+      "Span": 11.5
+    },
+    "fa_18c_late": {
+      "source": "gamedata/flightmodels/fa_18c_late.blk",
+      "fm_source": "gamedata/flightmodels/fm/fa_18c_late.blk",
+      "Length": 17.1,
+      "Span": 11.5
+    },
+    "fa_18c_late_switzerland": {
+      "source": "gamedata/flightmodels/fa_18c_late_switzerland.blk",
+      "fm_source": "gamedata/flightmodels/fm/fa_18c_late_switzerland.blk",
+      "Length": 17.1,
+      "Span": 11.5
+    },
+    "fa_18c_mlu_2_finland": {
+      "source": "gamedata/flightmodels/fa_18c_mlu_2_finland.blk",
+      "fm_source": "gamedata/flightmodels/fm/fa_18c_mlu_2_finland.blk",
+      "Length": 17.1,
+      "Span": 11.5
+    },
+    "fa_18d_late_malaysia": {
+      "source": "gamedata/flightmodels/fa_18d_late_malaysia.blk",
+      "fm_source": "gamedata/flightmodels/fm/fa_18d_late_malaysia.blk",
+      "Length": 17.1,
+      "Span": 11.5
+    },
+    "fa_18e_block_2": {
+      "source": "gamedata/flightmodels/fa_18e_block_2.blk",
+      "fm_source": "gamedata/flightmodels/fm/fa_18e_block_2.blk",
+      "Length": 18.35,
+      "Span": 13.68
+    },
+    "fa_18f_block_2_raaf": {
+      "source": "gamedata/flightmodels/fa_18f_block_2_raaf.blk",
+      "fm_source": "gamedata/flightmodels/fm/fa_18f_block_2_raaf.blk",
+      "Length": 18.35,
+      "Span": 13.68
+    },
+    "j_10a": {
+      "source": "gamedata/flightmodels/j_10a.blk",
+      "fm_source": "gamedata/flightmodels/fm/j_10a.blk",
+      "Length": 14.6,
+      "Span": 9.2
+    },
+    "j_10c": {
+      "source": "gamedata/flightmodels/j_10c.blk",
+      "fm_source": "gamedata/flightmodels/fm/j_10c.blk",
+      "Length": 14.6,
+      "Span": 9.2
+    },
+    "j_11": {
+      "source": "gamedata/flightmodels/j_11.blk",
+      "fm_source": "gamedata/flightmodels/fm/j_11.blk",
+      "Length": 21.93,
+      "Span": 14.7
+    },
+    "j_11a": {
+      "source": "gamedata/flightmodels/j_11a.blk",
+      "fm_source": "gamedata/flightmodels/fm/j_11a.blk",
+      "Length": 21.93,
+      "Span": 14.7
+    },
+    "j_11b": {
+      "source": "gamedata/flightmodels/j_11b.blk",
+      "fm_source": "gamedata/flightmodels/fm/j_11b.blk",
+      "Length": 21.93,
+      "Span": 14.7
+    },
+    "j_15t": {
+      "source": "gamedata/flightmodels/j_15t.blk",
+      "fm_source": "gamedata/flightmodels/fm/j_15t.blk",
+      "Length": 21.93,
+      "Span": 14.7
+    },
+    "j_16": {
+      "source": "gamedata/flightmodels/j_16.blk",
+      "fm_source": "gamedata/flightmodels/fm/j_16.blk",
+      "Length": 21.93,
+      "Span": 14.7
+    },
+    "j_8f": {
+      "source": "gamedata/flightmodels/j_8f.blk",
+      "fm_source": "gamedata/flightmodels/fm/j_8f.blk",
+      "Length": 14.1,
+      "Span": 9.3
+    },
+    "jf_17": {
+      "source": "gamedata/flightmodels/jf_17.blk",
+      "fm_source": "gamedata/flightmodels/fm/jf_17.blk",
+      "Length": 14.1,
+      "Span": 9.4
+    },
+    "jh_7a2": {
+      "source": "gamedata/flightmodels/jh_7a2.blk",
+      "fm_source": "gamedata/flightmodels/fm/jh_7a2.blk",
+      "Length": 21.03,
+      "Span": 12.71
+    },
+    "kfir_c10_colombia": {
+      "source": "gamedata/flightmodels/kfir_c10_colombia.blk",
+      "fm_source": "gamedata/flightmodels/fm/kfir_c10_colombia.blk",
+      "Length": 15.01,
+      "Span": 8.22
+    },
+    "m_346fa": {
+      "source": "gamedata/flightmodels/m_346fa.blk",
+      "fm_source": "gamedata/flightmodels/fm/m_346fa.blk",
+      "Length": 11.5,
+      "Span": 10.1
+    },
+    "mig_29_9_12g": {
+      "source": "gamedata/flightmodels/mig_29_9_12g.blk",
+      "fm_source": "gamedata/flightmodels/fm/mig_29_9_12g.blk",
+      "Length": 15.1,
+      "Span": 11.36
+    },
+    "mig_29_9_13": {
+      "source": "gamedata/flightmodels/mig_29_9_13.blk",
+      "fm_source": "gamedata/flightmodels/fm/mig_29_9_13.blk",
+      "Length": 15.1,
+      "Span": 11.36
+    },
+    "mig_29kr_9_41r": {
+      "source": "gamedata/flightmodels/mig_29kr_9_41r.blk",
+      "fm_source": "gamedata/flightmodels/fm/mig_29kr_9_41r.blk",
+      "Length": 15.1,
+      "Span": 11.9
+    },
+    "mig_29m_9_15": {
+      "source": "gamedata/flightmodels/mig_29m_9_15.blk",
+      "fm_source": "gamedata/flightmodels/fm/mig_29m_9_15.blk",
+      "Length": 15.1,
+      "Span": 11.36
+    },
+    "mig_29n": {
+      "source": "gamedata/flightmodels/mig_29n.blk",
+      "fm_source": "gamedata/flightmodels/fm/mig_29_9_12g.blk",
+      "Length": 15.1,
+      "Span": 11.36
+    },
+    "mig_29smt_9_19": {
+      "source": "gamedata/flightmodels/mig_29smt_9_19.blk",
+      "fm_source": "gamedata/flightmodels/fm/mig_29smt_9_19.blk",
+      "Length": 15.1,
+      "Span": 11.36
+    },
+    "mig_35": {
+      "source": "gamedata/flightmodels/mig_35.blk",
+      "fm_source": "gamedata/flightmodels/fm/mig_35.blk",
+      "Length": 15.1,
+      "Span": 11.9
+    },
+    "mirage_2000_5eg_mk2_greece": {
+      "source": "gamedata/flightmodels/mirage_2000_5eg_mk2_greece.blk",
+      "fm_source": "gamedata/flightmodels/fm/mirage_2000_5f.blk",
+      "Length": 15.3,
+      "Span": 9.0
+    },
+    "mirage_2000_5ei": {
+      "source": "gamedata/flightmodels/mirage_2000_5ei.blk",
+      "fm_source": "gamedata/flightmodels/fm/mirage_2000_5ei.blk",
+      "Length": 15.3,
+      "Span": 9.0
+    },
+    "mirage_2000_5f": {
+      "source": "gamedata/flightmodels/mirage_2000_5f.blk",
+      "fm_source": "gamedata/flightmodels/fm/mirage_2000_5f.blk",
+      "Length": 15.3,
+      "Span": 9.0
+    },
+    "mirage_4000": {
+      "source": "gamedata/flightmodels/mirage_4000.blk",
+      "fm_source": "gamedata/flightmodels/fm/mirage_4000.blk",
+      "Length": 18.7,
+      "Span": 12.0
+    },
+    "rafale_c_f3": {
+      "source": "gamedata/flightmodels/rafale_c_f3.blk",
+      "fm_source": "gamedata/flightmodels/fm/rafale_c_f3.blk",
+      "Length": 19.4,
+      "Span": 10.0
+    },
+    "rafale_eg_greece": {
+      "source": "gamedata/flightmodels/rafale_eg_greece.blk",
+      "fm_source": "gamedata/flightmodels/fm/rafale_c_f3.blk",
+      "Length": 19.4,
+      "Span": 10.0
+    },
+    "rafale_m_f3r": {
+      "source": "gamedata/flightmodels/rafale_m_f3r.blk",
+      "fm_source": "gamedata/flightmodels/fm/rafale_m_f3r.blk",
+      "Length": 19.4,
+      "Span": 10.0
+    },
+    "saab_ja37di": {
+      "source": "gamedata/flightmodels/saab_ja37di.blk",
+      "fm_source": "gamedata/flightmodels/fm/saab_ja37.blk",
+      "Length": 15.34,
+      "Span": 10.4
+    },
+    "saab_ja37di_f21": {
+      "source": "gamedata/flightmodels/saab_ja37di_f21.blk",
+      "fm_source": "gamedata/flightmodels/fm/saab_ja37.blk",
+      "Length": 15.34,
+      "Span": 10.4
+    },
+    "saab_jas39a": {
+      "source": "gamedata/flightmodels/saab_jas39a.blk",
+      "fm_source": "gamedata/flightmodels/fm/saab_jas39a.blk",
+      "Length": 14.1,
+      "Span": 8.4
+    },
+    "saab_jas39c": {
+      "source": "gamedata/flightmodels/saab_jas39c.blk",
+      "fm_source": "gamedata/flightmodels/fm/saab_jas39c.blk",
+      "Length": 14.1,
+      "Span": 8.4
+    },
+    "saab_jas39c_hungary": {
+      "source": "gamedata/flightmodels/saab_jas39c_hungary.blk",
+      "fm_source": "gamedata/flightmodels/fm/saab_jas39c.blk",
+      "Length": 14.1,
+      "Span": 8.4
+    },
+    "saab_jas39c_south_africa": {
+      "source": "gamedata/flightmodels/saab_jas39c_south_africa.blk",
+      "fm_source": "gamedata/flightmodels/fm/saab_jas39c.blk",
+      "Length": 14.1,
+      "Span": 8.4
+    },
+    "saab_jas39c_thailand": {
+      "source": "gamedata/flightmodels/saab_jas39c_thailand.blk",
+      "fm_source": "gamedata/flightmodels/fm/saab_jas39c.blk",
+      "Length": 14.1,
+      "Span": 8.4
+    },
+    "saab_jas39d": {
+      "source": "gamedata/flightmodels/saab_jas39d.blk",
+      "fm_source": "gamedata/flightmodels/fm/saab_jas39d.blk",
+      "Length": 14.1,
+      "Span": 8.4
+    },
+    "saab_jas39e": {
+      "source": "gamedata/flightmodels/saab_jas39e.blk",
+      "fm_source": "gamedata/flightmodels/fm/saab_jas39e.blk",
+      "Length": 14.1,
+      "Span": 8.4
+    },
+    "sea_harrier_fa2": {
+      "source": "gamedata/flightmodels/sea_harrier_fa2.blk",
+      "fm_source": "gamedata/flightmodels/fm/sea_harrier_fa2.blk",
+      "Length": 14.3,
+      "Span": 7.7
+    },
+    "su_27": {
+      "source": "gamedata/flightmodels/su_27.blk",
+      "fm_source": "gamedata/flightmodels/fm/su_27.blk",
+      "Length": 21.93,
+      "Span": 14.7
+    },
+    "su_27sm": {
+      "source": "gamedata/flightmodels/su_27sm.blk",
+      "fm_source": "gamedata/flightmodels/fm/su_27sm.blk",
+      "Length": 21.93,
+      "Span": 14.7
+    },
+    "su_30mk2v_venezuela": {
+      "source": "gamedata/flightmodels/su_30mk2v_venezuela.blk",
+      "fm_source": "gamedata/flightmodels/fm/su_30mk2v_venezuela.blk",
+      "Length": 21.93,
+      "Span": 14.7
+    },
+    "su_30mkk": {
+      "source": "gamedata/flightmodels/su_30mkk.blk",
+      "fm_source": "gamedata/flightmodels/fm/su_30mkk.blk",
+      "Length": 21.93,
+      "Span": 14.7
+    },
+    "su_30mkm": {
+      "source": "gamedata/flightmodels/su_30mkm.blk",
+      "fm_source": "gamedata/flightmodels/fm/su_30mkm.blk",
+      "Length": 21.93,
+      "Span": 14.7
+    },
+    "su_30sm": {
+      "source": "gamedata/flightmodels/su_30sm.blk",
+      "fm_source": "gamedata/flightmodels/fm/su_30sm.blk",
+      "Length": 21.93,
+      "Span": 14.7
+    },
+    "su_30sm2": {
+      "source": "gamedata/flightmodels/su_30sm2.blk",
+      "fm_source": "gamedata/flightmodels/fm/su_30sm2.blk",
+      "Length": 21.93,
+      "Span": 14.7
+    },
+    "su_33": {
+      "source": "gamedata/flightmodels/su_33.blk",
+      "fm_source": "gamedata/flightmodels/fm/su_33.blk",
+      "Length": 21.93,
+      "Span": 14.7
+    },
+    "su_34": {
+      "source": "gamedata/flightmodels/su_34.blk",
+      "fm_source": "gamedata/flightmodels/fm/su_34.blk",
+      "Length": 23.4,
+      "Span": 14.7
+    }
+  }
+}

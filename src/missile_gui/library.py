@@ -151,6 +151,15 @@ def scan_library(
 
 
 def public_profile(profile: dict[str, Any]) -> dict[str, Any]:
+    if '_reconstructed_supported' in profile:
+        runnable=profile['_reconstructed_supported']
+        return dict(id=profile['missile_id'],name=profile['display_name'],country=profile['country'],series=profile['display_name'],
+            status='Experimental' if runnable else 'Unsupported physics',runnable=runnable,
+            status_reason=profile['_reconstructed_reason'],description='Common response functions with original resource scales',
+            parameter_source=dict(version='2.59.0.80',representation='original JSON .blk'),
+            parameters=dict(model_label='Shared response / original parameters 1.2.0rc3',lifetime_s=profile['performance']['lifetime_s'],
+                maximum_range_m=profile['performance']['maximum_distance_m'],engine_stages=len(profile['propulsion']['stages']),
+                loft_enabled=profile['guidance']['lofting_enabled']),runtime_adapter='shared_response_1.2.0rc3')
     if "missile_id" in profile:
         family = profile["model_family"]
         unsupported = profile.get("_runtime_unsupported", [])

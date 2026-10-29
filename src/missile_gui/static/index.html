@@ -79,6 +79,19 @@
               <span>启用 Loft 计算 <em>默认关闭</em></span>
             </label>
             <p class="field-help" id="loft-mode-help">开启后使用所选导弹的 Loft 参数。</p>
+            <label><span>目标雷达签名</span><select name="target_aircraft"><option value="su_30mkm">Su-30MKM · 原始尺度 / 共用 RCS 函数</option><option value="rafale_c_f3">Rafale C F3 · 原始尺度 / 共用 RCS 函数</option></select></label>
+            <label><span>红外源</span><select id="infrared-source"><option value="explicit_bands">显式虚拟场景波段（默认）</option><option value="legacy_fm_approximation">旧 FM 热源近似（主动选择，非原生生产端）</option></select></label>
+            <div class="field-grid">
+              <label><span>Band 0 · signature/C0</span><input id="ir-band0" type="number" min="0" step="0.1" value="1" required></label>
+              <label><span>Band 1 · signature/C0</span><input id="ir-band1" type="number" min="0" step="0.1" value="1" required></label>
+              <label><span>Band 7 · signature/C0</span><input id="ir-band7" type="number" min="0" step="0.1" value="0" required></label>
+              <label><span>FM 近似 · 油门（0–1）</span><input id="ir-engine-throttle" type="number" min="0" max="1" step="0.1" value="1" required></label>
+            </div>
+            <label class="toggle-row"><input id="ir-engine-running" type="checkbox" checked><span>FM 近似 · 发动机运转</span></label>
+            <label class="toggle-row"><input id="ir-engine-afterburner" type="checkbox"><span>FM 近似 · 加力开启</span></label>
+            <p class="field-help">波段数值是可编辑的演示场景输入，不是真实 Su-30 热源；C0=24034.501953125，为游戏内部标度。飞机雷达签名选择不会自动生成红外强度。旧 FM 近似使用未证明的参考归一化，不代表恢复的原生热模型。</p>
+            <label class="toggle-row"><input id="pd-illumination" type="checkbox" checked><span>启用独立 PD 照射平台</span></label>
+            <p class="field-help">照射平台从发射位置沿原航向飞行，独立跟踪场景目标。关闭后半主动导引将保持、失锁。SARH 两程平方反比信号为推导近似，完整原生回波归一化尚未闭合。</p>
           </fieldset>
           <fieldset>
             <legend>发射平台</legend>

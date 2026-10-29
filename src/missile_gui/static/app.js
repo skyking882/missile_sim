@@ -117,11 +117,18 @@ function collectScenario() {
   const scenario = {};
   for (const [key, value] of data.entries()) {
     if (key === "loft_enabled") continue;
-    scenario[key] = ["observation_mode", "target_course_reference"].includes(key) ? value : (value === "" ? null : Number(value));
+    scenario[key] = ["observation_mode", "target_course_reference", "target_aircraft"].includes(key) ? value : (value === "" ? null : Number(value));
   }
   scenario.observation_mode = "sensor_track";
   scenario.target_course_reference = $("#target-course-reference-select").value;
   scenario.loft_enabled = $("#loft-enabled-toggle").checked;
+  scenario.infrared_source = $("#infrared-source").value;
+  scenario.target_engine = {throttle: Number($("#ir-engine-throttle").value), afterburner: $("#ir-engine-afterburner").checked, running: $("#ir-engine-running").checked};
+  if (scenario.infrared_source === "explicit_bands") scenario.target_ir = {0: Number($("#ir-band0").value), 1: Number($("#ir-band1").value), 7: Number($("#ir-band7").value)};
+  const heading = scenario.launch_heading_deg * Math.PI / 180;
+  const pitch = scenario.launch_pitch_deg * Math.PI / 180;
+  const speed = scenario.launch_speed_kmh / 3.6;
+  scenario.illuminator = {position_m: [0, scenario.launch_altitude_m, 0], velocity_mps: [speed*Math.cos(pitch)*Math.cos(heading), speed*Math.sin(pitch), speed*Math.cos(pitch)*Math.sin(heading)], track_scene_target: true, enabled: $("#pd-illumination").checked, waveform: "pd"};
   return scenario;
 }
 
