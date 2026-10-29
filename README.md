@@ -1,33 +1,28 @@
 # missile_sim
 
-当前本地候选：**1.2.0rc3**。所有当前支持型号统一使用同一套新响应函数和共用内部形状参数；每枚弹、每个目标与反制资源仍提供各自原始尺度，`.blk`、`.blkx`、profile 系数、verified loader defaults、PN/PID、积分和状态机保持不动。本版将气动力方向投影、力臂力矩和角阻尼表达作等价改写，保留原始系数、float32 分阶段运算及制动限幅。已移除 R-77-1 的推力/雷达专属分支以及按型号保存的替代物理常数。默认公共 API 与 GUI 继续共用本轮刚体/气动、INS、PN/PID 和三类导引入口；不作逐弹航迹精度声明。
+**1.2.0rc3**：基于游戏参数与响应观测，结合局部响应拟合和通用近似函数，提供气动、刚体动力学、发动机、雷达、目标截获链路与导引系统的近似仿真。
 
-本次等价改写与改写前 rc2 参考在四型号 1056 组静态力/力矩状态中差值均为 0；IR、ARH、SARH 三个独立合成场景各运行 25 秒、1200 帧，位置与速度差值均为 0。结论限于这些已测状态与合成场景，不是录像或游戏内航迹验证。
+各支持型号使用共享响应函数，并保留各自的质量、几何、发动机、导引头和控制参数。原始 `.blk`、`.blkx` 和 profile 系数保持不动。公共 API 与本地 GUI 支持红外（IR）、主动雷达（ARH）和显式 PD 照射的半主动雷达（SARH）场景，包含目标截获、跟踪、失锁与重新截获，以及 INS、PN/PID 导引控制。局部响应拟合与通用近似共同构成模型，尚未逐弹完成完整游戏环境下的精度标定。
 
-共用实现位于 `reconstructed/responses.py`，内部参数位于 `data/response_shapes.json`：
-
-- 推力：每段原始 `force × q(u)`，`q(u)=1+0.08(1-2u)+0.06(6u(1-u)-1)`，段内积分为 1。各自 `timeFire/fireDelay/massEnd` 仍决定时钟和线性失重；原始外压倍率节点只排序副本后插值。
-- 天线：以各自原始 `angleHalfSens/2` 归一化角度，用共用双指数混合；混合权重仍由各自原始 `sideLobesSensitivity` 决定。指数和无量纲宽度比来自此前已接受的局部角响应拟合，未保留某枚弹的绝对波束宽度。
-- 接收机：使用本弹原始 `receiver.range^4/receiver.rcs` 和 `transmitter.power/(power+1)`；两个时刻的各程增益/距离平方以共用 8 次幂均值合成。幂均值、功率饱和单位和灵敏度是明确的共用模型选择，不是恢复的游戏常量。
-- 机体 RCS：`0.04 × Length × Span × aspect`，aspect 在原始前/侧/后系数之间作共用对数幂插值。尺寸、各机 aspect 覆盖值及原始全局缺省均保留；包内提供 84 个可直接对应原始字段的尺度记录，也接受显式 `target_airframe` 或现有 `target_rcs_m2` 合同。
-- 箔条：原始云半径/速度/空气黏性尺度乘共用有理式形状；反射使用原始 `multiplier0/profile`、弹体尺寸及云 RCS 半径上限，采用平滑饱和面积。膨胀的无量纲比例来自此前已接受的局部拟合；反射软饱和、RCS 面积分数、aspect 幂和推力形状是自主模型选择，未拟合整条航迹或 TRK 时刻。
-
-原始系数始终是新函数输入；改变共用形状会同时影响不同型号。导引头查询/折叠/尺寸门仍读取本弹原始参数，不继承其他型号的接收距离、波束宽度或时间门。
-
-安装 wheel 后可在任意目录运行：
+需要 Python 3.10 或以上。下载发布页 wheel 后安装，可在任意目录运行：
 
 ```console
+python -m pip install aim120a_local_model-1.2.0rc3-py3-none-any.whl
 python -m aim120_model.reconstructed --missile us_aim9m_sidewinder
 python -m aim120_model.reconstructed --missile su_r_77_1
 python -m aim120_model.reconstructed --missile us_aim7f_sparrow
 python -m missile_gui.server
 ```
 
-三条命令使用包内明确的独立演示场景：Su-30MKM 雷达签名、调用方显式给出的虚拟红外波段强度、一次发射、PD 照射平台。波段值不是真实 Su-30 热源。也可用 `--input scene.json --output result.json`。Python 入口为 `simulate(load_profile(missile_id), scene)`，其中 `load_profile` 来自 `aim120_model.reconstructed`。红外默认必须给显式 `target_ir`，每个值为传播前的方向签名 `I_k/C0`，`C0=24034.501953125` 是游戏内部标度，不是瓦；仅给飞机名称不能产生红外强度。原生发动机 `B0/B1/Bab` 生产端尚未闭合，不能把旧 F-16C/200 参考归一化当作该单位。旧 FM 热源代理仅在 `infrared_source="legacy_fm_approximation"` 时主动启用，并明确标为单位映射未验证的近似；此模式必须完整提供 `target_engine={"throttle":1.0,"afterburner":false,"running":true}` 三项实际场景状态。姿态优先采用场景已有机体四元数；半主动须给 `illuminator`，其关闭、过期或失配会进入保持/失锁；雷达目标须给可追溯 `target_aircraft`、显式原始 `target_airframe={length,span,aspects}` 或现有 `target_rcs_m2`。`birth_designation`、`virtual_datalink` 均为显式输入，默认不从目标真值重建丢失的航迹。红外只输出角度/角速度，距离和 Doppler 无效，PN 使用导弹自身速度。
+命令默认使用包内演示场景，其中 Su-30MKM 雷达签名、虚拟红外波段强度和独立 PD 照射平台均为明确的场景输入；红外波段值不是实测 Su-30 热源。使用 `--input scene.json --output result.json` 可运行自定义场景。Python 入口为 `simulate(load_profile(missile_id), scene)`，`load_profile` 来自 `aim120_model.reconstructed`。
 
-原始参数以 **2.59.0.80 JSON 解码 `.blk`** 随包保存：233 个资源变体、126 个去重实体，包括 4 个 TVC 的原始数据；旧 2.59.0.27 转换 profile 122 份保留为公开目录和兼容输入。只有显式选择的旧 FM 近似使用冻结 2.59.0.27 飞机/FM 字段，结果保留其近似性质与来源。资源覆盖不代表所有物理分支可运行。当前支持零扫描扇区、相对 Doppler 主动雷达，显式照射的 PD 半主动，以及点热源红外/门控/IRCCM。TVC、指令/驾束、CW/绝对 Doppler、雷达扫描/杂波频谱、SARH 箔条关联、IR 有限目标/遮挡/太阳背景仍明确不支持。完整游戏载机实体关联并未重构；PD 照射是独立场景服务。SARH 回波强度使用同一套原始尺度/共用形状的双程接收函数，属于推导近似；完整原生双基地回波归一化尚未闭合。结果的 `SARH_signal_model` 和逐帧 `bistatic.signal_model_status` 会明确给出这一边界。
+红外默认要求显式 `target_ir`，每个值为传播前的方向签名 `I_k/C0`，`C0=24034.501953125` 为游戏内部标度，并非瓦。飞机名称本身不提供红外强度。可选 `infrared_source="legacy_fm_approximation"` 使用旧 FM 热源近似，但其强度单位映射未经标定，必须同时提供 `target_engine` 的 `throttle`、`afterburner` 和 `running`。红外观测仅提供角度与角速度，PN 使用导弹自身速度。
 
-旧共同近似模型保留为 `model_mode="legacy_surface"`，冻结 H2 保留为 `model_mode="legacy_h2"`。下文 1.1.x 的近似模型说明适用于这些显式旧模式。
+SARH 要求显式 `illuminator` 提供 PD 照射；其关闭、过期或失配会影响跟踪状态。回波强度采用双程信号近似，结果中的 `SARH_signal_model` 和 `bistatic.signal_model_status` 会标示这一模型性质。雷达目标可使用 `target_aircraft`、`target_airframe={length,span,aspects}` 或显式 `target_rcs_m2`；`birth_designation`、`virtual_datalink` 需要场景显式给出。场景可指定机体四元数姿态。
+
+包内保留 **2.59.0.80 JSON 解码 `.blk`** 的 233 个资源变体、126 个实体，以及 122 份 2.59.0.27 转换 profile。可选旧 FM 热源近似使用冻结的 2.59.0.27 飞机/FM 字段。当前支持零扫描扇区、相对 Doppler 主动雷达、显式 PD 半主动照射，以及点热源红外、门控和 IRCCM。TVC、指令/驾束、CW/绝对 Doppler、雷达扫描/杂波频谱、SARH 箔条关联、IR 有限目标/遮挡/太阳背景尚不支持；PD 照射平台由独立场景输入提供。
+
+旧模型可通过 `model_mode="legacy_surface"` 或 `model_mode="legacy_h2"` 显式选择；下文 1.1.x 说明适用于这些模式。
 
 [English](README.en.md)
 
