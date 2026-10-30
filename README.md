@@ -1,13 +1,13 @@
 # missile_sim
 
-**1.2.0rc3**：基于游戏参数与响应观测，结合局部响应拟合和通用近似函数，提供气动、刚体动力学、发动机、雷达、目标截获链路与导引系统的近似仿真。
+**1.2.1**：基于游戏参数与响应观测，结合局部响应拟合和通用近似函数，提供气动、刚体动力学、发动机、雷达、目标截获链路与导引系统的近似仿真。
 
 各支持型号使用共享响应函数，并保留各自的质量、几何、发动机、导引头和控制参数。原始 `.blk`、`.blkx` 和 profile 系数保持不动。公共 API 与本地 GUI 支持红外（IR）、主动雷达（ARH）和显式 PD 照射的半主动雷达（SARH）场景，包含目标截获、跟踪、失锁与重新截获，以及 INS、PN/PID 导引控制。局部响应拟合与通用近似共同构成模型，尚未逐弹完成完整游戏环境下的精度标定。
 
-需要 Python 3.10 或以上。下载发布页 wheel 后安装，可在任意目录运行：
+Python 部分需要 3.10 或以上。在仓库根目录安装后，可在任意目录运行：
 
 ```console
-python -m pip install aim120a_local_model-1.2.0rc3-py3-none-any.whl
+python -m pip install .
 python -m aim120_model.reconstructed --missile us_aim9m_sidewinder
 python -m aim120_model.reconstructed --missile su_r_77_1
 python -m aim120_model.reconstructed --missile us_aim7f_sparrow
@@ -23,6 +23,25 @@ SARH 要求显式 `illuminator` 提供 PD 照射；其关闭、过期或失配�
 包内保留 **2.59.0.80 JSON 解码 `.blk`** 的 233 个资源变体、126 个实体，以及 122 份 2.59.0.27 转换 profile。可选旧 FM 热源近似使用冻结的 2.59.0.27 飞机/FM 字段。当前支持零扫描扇区、相对 Doppler 主动雷达、显式 PD 半主动照射，以及点热源红外、门控和 IRCCM。TVC、指令/驾束、CW/绝对 Doppler、雷达扫描/杂波频谱、SARH 箔条关联、IR 有限目标/遮挡/太阳背景尚不支持；PD 照射平台由独立场景输入提供。
 
 旧模型可通过 `model_mode="legacy_surface"` 或 `model_mode="legacy_h2"` 显式选择；下文 1.1.x 说明适用于这些模式。
+
+## MATLAB / Simulink 分析
+
+`matlab/` 提供独立的 48 Hz 数值内核、本体与自动驾驶仪测试模型，支持阶跃、短脉冲、线性 impulse、Bode、根轨迹、稳定裕度和末端局部模态分析。需要 MATLAB、Simulink 和 Control System Toolbox，已在 R2025a 验证；Apple Silicon Mac 还需要 [兼容的 Java 运行时](https://www.mathworks.com/support/requirements/apple-silicon.html)。MATLAB 文件随仓库和源码 ZIP 提供，Python wheel 不包含这部分。
+
+在 MATLAB 中进入仓库根目录后运行：
+
+```matlab
+run('matlab/startup.m');
+open_system('missile_plant_test');
+open_system('missile_autopilot_test');
+run_response_example;
+run_linear_example;
+terminal_example(true);
+% 完整验收：run_verification
+% 重新生成两个模型：build_models
+```
+
+模型工作区的 `benchOptions` 控制型号、轴向、幅值、工况和 `freeFlight`；Manual Switch 选择 Step / Pulse。输入起点取最近的 48 Hz 采样点，脉冲宽度最短一拍。随包包含 AIM-120A、R-77-1、AIM-9M、AIM-7F 参数。参考数据固定于 `1.2.0rc3 / 68f8d0e`，末端测试使用显式几何观测与可选一阶滤波，未移植完整 IR / ARH / SARH 状态机；线性化结论限于所选工况附近。
 
 [English](README.en.md)
 

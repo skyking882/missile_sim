@@ -117,6 +117,14 @@ for test_name in ("test_reconstructed_infrared.py", "test_reconstructed_sarh.py"
     relative = "tests/" + test_name
     FILES[relative] = relative
 
+# MATLAB source, runnable models and pinned numerical fixtures.
+for matlab_path in sorted((ROOT / "matlab").rglob("*")):
+    relative = matlab_path.relative_to(ROOT)
+    if any(part in {"outputs", "slprj", "__pycache__"} or part.startswith(".") for part in relative.parts):
+        continue
+    if matlab_path.is_file() and matlab_path.suffix in {".m", ".slx", ".json", ".py"}:
+        FILES[relative.as_posix()] = relative.as_posix()
+
 FORBIDDEN_BYTE_PATTERNS = (
     b"cf-turnstile-response",
     b"token_sha256",

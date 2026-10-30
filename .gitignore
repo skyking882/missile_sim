@@ -10,3 +10,7 @@ src/*.egg-info/
 outputs/
 data/raw/
 data/datamine/
+
+# Generated Simulink caches.
+*.slxc
+slprj/

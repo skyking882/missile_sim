@@ -1,13 +1,13 @@
 # missile_sim
 
-**1.2.0rc3** provides approximate simulation of aerodynamics, rigid-body dynamics, engines, radar, target acquisition and guidance, using game parameters and response observations together with local response fits and general approximation functions.
+**1.2.1** provides approximate simulation of aerodynamics, rigid-body dynamics, engines, radar, target acquisition and guidance, using game parameters and response observations together with local response fits and general approximation functions.
 
 Supported missiles share response functions while retaining their own mass, geometry, motor, seeker and control parameters. Original BLK, BLKX and profile coefficients are preserved. The public API and local GUI support infrared (IR), active radar (ARH) and semi-active radar (SARH) scenes with explicit PD illumination, including acquisition, tracking, loss and reacquisition, plus INS and PN/PID guidance control. Local fits and general approximations both contribute to the model; accuracy has not been calibrated for every missile across the full game environment.
 
-Requires Python 3.10 or later. Download the release wheel, install it, then run from any directory:
+The Python package requires Python 3.10 or later. Install from the repository root, then run from any directory:
 
 ```console
-python -m pip install aim120a_local_model-1.2.0rc3-py3-none-any.whl
+python -m pip install .
 python -m aim120_model.reconstructed --missile us_aim9m_sidewinder
 python -m aim120_model.reconstructed --missile su_r_77_1
 python -m aim120_model.reconstructed --missile us_aim7f_sparrow
@@ -23,6 +23,25 @@ SARH requires explicit PD illumination through `illuminator`; disabled, stale or
 The package retains 233 JSON-decoded original `.blk` resource variants representing 126 identities from 2.59.0.80, plus 122 converted 2.59.0.27 profiles. The optional legacy FM heat-source approximation uses frozen 2.59.0.27 aircraft/FM fields. Supported coverage includes zero-scan-sector relative-Doppler active radar, explicit PD semi-active illumination, point-source IR, gating and IRCCM. TVC, command/beam riding, CW/absolute Doppler, radar scans/clutter spectra, SARH chaff association and IR resolved targets/occlusion/sun/background remain unsupported. The PD illuminator is an independent scene input.
 
 Select `model_mode="legacy_surface"` or `model_mode="legacy_h2"` for the older models. The 1.1.x descriptions below apply to those explicit modes.
+
+## MATLAB / Simulink analysis
+
+`matlab/` provides a standalone 48 Hz numerical core, plant and autopilot test models, step and finite-pulse responses, linear impulse responses, Bode plots, root loci, stability margins and terminal local-mode analysis. It requires MATLAB, Simulink and Control System Toolbox; verified with R2025a. Apple silicon Macs also need a [compatible Java runtime](https://www.mathworks.com/support/requirements/apple-silicon.html). MATLAB files are included in the repository and source ZIP, not the Python wheel.
+
+From the repository root in MATLAB:
+
+```matlab
+run('matlab/startup.m');
+open_system('missile_plant_test');
+open_system('missile_autopilot_test');
+run_response_example;
+run_linear_example;
+terminal_example(true);
+% Full verification: run_verification
+% Rebuild both models: build_models
+```
+
+The model workspace variable `benchOptions` selects the missile, axis, amplitude, condition and `freeFlight`; the Manual Switch selects Step / Pulse. Input start times round to the nearest 48 Hz sample, and pulses last at least one sample. Parameters for AIM-120A, R-77-1, AIM-9M and AIM-7F are included. Reference data stays pinned to `1.2.0rc3 / 68f8d0e`. The terminal bench uses explicit geometric observations with optional first-order filtering; it does not implement the full IR / ARH / SARH state machines. Linearized results describe the neighborhood of the selected condition.
 
 [中文](README.md)
 
